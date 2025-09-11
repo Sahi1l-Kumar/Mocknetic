@@ -5,18 +5,15 @@ import {
   Sun,
   Moon,
   Play,
-  Square,
-  Download,
-  Upload,
-  Settings,
   Copy,
   Check,
   Terminal,
   FileText,
   Zap,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const LANGUAGES = [
@@ -63,9 +60,15 @@ interface TestCase {
 
 interface Props {
   testCases: TestCase[];
+  onFullscreenToggle?: (isFullscreen: boolean) => void;
+  isFullscreen?: boolean;
 }
 
-export default function CodeEditor({ testCases }: Props) {
+export default function CodeEditor({
+  testCases,
+  onFullscreenToggle,
+  isFullscreen,
+}: Props) {
   const [language, setLanguage] = useState("javascript");
   const [theme, setTheme] = useState<"vs-dark" | "vs-light">("vs-dark");
   const [code, setCode] = useState(LANGUAGES[0].template);
@@ -75,7 +78,10 @@ export default function CodeEditor({ testCases }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [copied, setCopied] = useState(false);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState("testcase"); // Track active tab
+
   const editorRef = useRef<any>(null);
+  const testContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const selectedLang = LANGUAGES.find((lang) => lang.value === language);
@@ -84,11 +90,17 @@ export default function CodeEditor({ testCases }: Props) {
     }
   }, [language]);
 
+  // Reset scroll position when switching tabs
+  useEffect(() => {
+    if (testContentRef.current) {
+      testContentRef.current.scrollTop = 0;
+    }
+  }, [activeTab]);
+
   const runCode = async () => {
     setIsRunning(true);
     const startTime = Date.now();
 
-    // Simulate test case execution
     setTimeout(() => {
       const endTime = Date.now();
       setOutput(
@@ -121,6 +133,11 @@ export default function CodeEditor({ testCases }: Props) {
     } catch (err) {
       console.error("Failed to copy code:", err);
     }
+  };
+
+  const toggleFullscreen = () => {
+    const newFullscreen = !isFullscreen;
+    onFullscreenToggle?.(newFullscreen);
   };
 
   return (
@@ -166,16 +183,17 @@ export default function CodeEditor({ testCases }: Props) {
             {theme === "vs-dark" ? <Sun size={16} /> : <Moon size={16} />}
           </Button>
 
+          <Button variant="outline" size="sm" onClick={copyCode}>
+            {copied ? <Check size={16} /> : <Copy size={16} />}
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
           >
-            <Settings size={16} />
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={copyCode}>
-            {copied ? <Check size={16} /> : <Copy size={16} />}
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </Button>
         </div>
       </div>
@@ -255,60 +273,73 @@ export default function CodeEditor({ testCases }: Props) {
         )}
       </div>
 
-      {/* Test Cases & Output */}
-      <div className="border-t max-h-64 overflow-hidden">
-        <Tabs defaultValue="testcase" className="h-full">
-          <TabsList className="w-full rounded-none">
+      {/* Test Cases & Output - FIXED VERSION */}
+      <div className="border-t flex flex-col h-55">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex flex-col h-full"
+        >
+          <TabsList className="flex-shrink-0 w-full rounded-none">
             <TabsTrigger value="testcase">Testcase</TabsTrigger>
             <TabsTrigger value="result">Test Result</TabsTrigger>
           </TabsList>
 
           <TabsContent
             value="testcase"
-            className="p-4 space-y-4 overflow-y-auto max-h-48"
+            className="flex-1 p-4 m-0 data-[state=inactive]:hidden"
+            key="testcase"
           >
-            <Tabs defaultValue="Case 1">
-              <TabsList className="grid w-full grid-cols-3">
-                {testCases.map((testCase) => (
-                  <TabsTrigger key={testCase.case} value={testCase.case}>
-                    {testCase.case}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            <div className="h-full flex flex-col">
+              <Tabs defaultValue="Case 1" className="h-full flex flex-col">
+                <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+                  {testCases.map((testCase) => (
+                    <TabsTrigger key={testCase.case} value={testCase.case}>
+                      {testCase.case}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              {testCases.map((testCase) => (
-                <TabsContent
-                  key={testCase.case}
-                  value={testCase.case}
-                  className="space-y-3"
-                >
-                  <div className="space-y-2 font-mono text-sm">
-                    <div>
-                      <span className="text-foreground">nums = </span>
-                      <span className="text-muted-foreground">
-                        {testCase.input.nums}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-foreground">target = </span>
-                      <span className="text-muted-foreground">
-                        {testCase.input.target}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-foreground">Expected: </span>
-                      <span className="text-muted-foreground">
-                        {testCase.expectedOutput}
-                      </span>
-                    </div>
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+                <div className="flex-1 overflow-y-auto" ref={testContentRef}>
+                  {testCases.map((testCase) => (
+                    <TabsContent
+                      key={testCase.case}
+                      value={testCase.case}
+                      className="space-y-3 m-0 p-4"
+                    >
+                      <div className="space-y-2 font-mono text-sm">
+                        <div>
+                          <span className="text-foreground">nums = </span>
+                          <span className="text-muted-foreground">
+                            {testCase.input.nums}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-foreground">target = </span>
+                          <span className="text-muted-foreground">
+                            {testCase.input.target}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-foreground">Expected: </span>
+                          <span className="text-muted-foreground">
+                            {testCase.expectedOutput}
+                          </span>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </div>
+              </Tabs>
+            </div>
           </TabsContent>
 
-          <TabsContent value="result" className="p-4 overflow-y-auto max-h-48">
-            {(output || isRunning) && (
+          <TabsContent
+            value="result"
+            className="flex-1 p-4 m-0 data-[state=inactive]:hidden overflow-y-auto"
+            key="result"
+          >
+            {output || isRunning ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Terminal size={16} />
@@ -324,6 +355,13 @@ export default function CodeEditor({ testCases }: Props) {
                   ) : (
                     <pre className="whitespace-pre-wrap">{output}</pre>
                   )}
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Terminal className="mx-auto h-8 w-8 mb-2" />
+                  <p>Run your code to see results here</p>
                 </div>
               </div>
             )}
