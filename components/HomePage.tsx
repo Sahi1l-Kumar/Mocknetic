@@ -27,7 +27,7 @@ import { PROBLEM_TAGS, SAMPLE_PROBLEMS } from "@/constants";
 
 const DIFFICULTY_COLORS = {
   Easy: "text-green-600 dark:text-green-400 border-green-600",
-  Medium: "text-orange-600 dark:text-orange-400 border-orange-600",
+  Medium: "text-yellow-600 dark:text-yellow-400 border-yellow-600",
   Hard: "text-red-600 dark:text-red-400 border-red-600",
 };
 
@@ -100,7 +100,7 @@ export default function HomePage() {
             <Card className="shadow-lg w-32 h-20 sm:w-36 sm:h-24 md:w-40 md:h-28 lg:w-44 lg:h-32 xl:w-48 xl:h-36">
               <CardContent className="flex flex-col items-center justify-center h-full p-2">
                 <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-primary">
-                  3,652+
+                  1,600+
                 </div>
                 <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mt-1 text-center">
                   Problems Available
@@ -111,7 +111,7 @@ export default function HomePage() {
             <Card className="shadow-lg w-32 h-20 sm:w-36 sm:h-24 md:w-40 md:h-28 lg:w-44 lg:h-32 xl:w-48 xl:h-36">
               <CardContent className="flex flex-col items-center justify-center h-full p-2">
                 <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-green-500">
-                  1,850
+                  850
                 </div>
                 <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mt-1 text-center">
                   Problems Solved

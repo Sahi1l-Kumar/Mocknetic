@@ -50,6 +50,22 @@
   --font-mono: 'Fira Code', 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
   --font-inter: var(--font-inter);
   --font-space-grotesk: var(--font-space-grotesk);
+
+  /* Add missing colors referenced in utilities */
+  --color-primary-500: #ff7000;
+  --color-primary-600: #e2995f;
+  --color-light-700: #dce3f1;
+  --color-dark-400: #212734;
+  --color-light-850: #fdfdfd;
+  --color-dark-300: #151821;
+  --color-light-900: #ffffff;
+  --color-dark-400: #212734;
+  --color-light-800: #f4f6f8;
+  --color-dark-300: #151821;
+  --color-dark-100: #000000;
+  --color-light-900: #ffffff;
+  --color-dark-200: #0f1117;
+  --color-dark-300: #151821;
 }
 
 @layer base {
@@ -58,65 +74,56 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-light-700, currentcolor);
+    border-color: hsl(var(--border));
   }
 
-  /* Better scrollbar for entire app */
+  /* Keep default scrollbar behavior for normal overflow */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-light-400) transparent;
+    scrollbar-width: auto;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
   }
 
   .dark * {
-    scrollbar-color: var(--color-dark-400) transparent;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
   }
 }
 
 /* Code Editor Specific Utilities */
 @utility code-editor-container {
   @apply rounded-xl border-2 transition-all duration-300 overflow-hidden;
-  @apply border-light-700 dark:border-dark-400;
-  @apply shadow-editor-light dark:shadow-editor-dark;
-  /* @apply bg-editor-bg-light dark:bg-editor-bg-dark; */
+  @apply border-border shadow-lg;
 }
 
 @utility code-editor-header {
   @apply flex items-center justify-between p-4 border-b;
-  @apply border-light-700 dark:border-dark-400;
-  @apply bg-light-850 dark:bg-dark-300;
+  @apply border-border bg-muted/50;
 }
 
 @utility language-selector {
-  @apply bg-light-900 dark:bg-dark-400 border border-light-700 dark:border-dark-300;
+  @apply bg-background border border-border;
   @apply px-4 py-2 rounded-lg font-medium text-sm;
-  @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+  @apply focus:ring-2 focus:ring-primary focus:border-primary;
   @apply transition-all duration-200;
-  @apply text-dark-400 dark:text-light-700;
+  @apply text-foreground;
 }
 
 @utility theme-toggle-button {
   @apply flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200;
-  @apply border-light-700 dark:border-dark-300;
-  @apply bg-light-900 dark:bg-dark-400;
-  @apply text-dark-400 dark:text-light-700;
-  @apply hover:bg-light-800 dark:hover:bg-dark-300;
-  @apply focus:ring-2 focus:ring-primary-500;
-  @apply shadow-button-light dark:shadow-button-dark;
+  @apply border-border bg-background text-foreground;
+  @apply hover:bg-muted focus:ring-2 focus:ring-primary;
+  @apply shadow-sm;
 }
 
 @utility run-code-button {
   @apply px-6 py-2.5 rounded-lg font-semibold transition-all duration-200;
-  @apply bg-primary-500 hover:bg-primary-600 text-white;
-  @apply focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-  @apply shadow-button-light dark:shadow-button-dark;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply bg-primary hover:bg-primary/90 text-primary-foreground;
+  @apply focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  @apply shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 @utility output-panel {
-  @apply mt-4 p-4 rounded-lg border;
-  @apply border-light-700 dark:border-dark-400;
-  @apply bg-light-850 dark:bg-dark-300;
-  @apply font-mono text-sm;
+  @apply mt-4 p-4 rounded-lg border border-border;
+  @apply bg-muted/50 font-mono text-sm;
 }
 
 @utility success-output {
@@ -131,28 +138,28 @@
 
 /* Enhanced Background Utilities */
 @utility background-light850_dark100 {
-  @apply bg-light-850 dark:bg-dark-100;
+  @apply bg-background;
 }
 
 @utility background-light900_dark200 {
-  @apply bg-light-900 dark:bg-dark-200;
+  @apply bg-card;
 }
 
 @utility background-light900_dark300 {
-  @apply bg-light-900 dark:bg-dark-300;
+  @apply bg-popover;
 }
 
 /* Enhanced Text Utilities */
 @utility text-dark100_light900 {
-  @apply text-dark-100! dark:text-light-900!;
+  @apply text-foreground;
 }
 
 @utility text-dark400_light700 {
-  @apply text-dark-400 dark:text-light-700;
+  @apply text-muted-foreground;
 }
 
 @utility text-dark500_light400 {
-  @apply text-dark-500 dark:text-light-400;
+  @apply text-muted-foreground;
 }
 
 /* Typography Utilities */
@@ -190,38 +197,7 @@
 }
 
 @utility card-wrapper {
-  @apply bg-light-900 dark:bg-dark-300 shadow-editor-light dark:shadow-editor-dark rounded-xl;
-}
-
-/* Custom Scrollbars for Code Editor */
-.code-editor-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.code-editor-scrollbar::-webkit-scrollbar-track {
-  background: var(--color-light-800);
-}
-
-.dark .code-editor-scrollbar::-webkit-scrollbar-track {
-  background: var(--color-dark-300);
-}
-
-.code-editor-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-light-400);
-  border-radius: 4px;
-}
-
-.dark .code-editor-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-dark-400);
-}
-
-.code-editor-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-light-500);
-}
-
-.dark .code-editor-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-dark-500);
+  @apply bg-card shadow-lg rounded-xl;
 }
 
 /* Monaco Editor Custom Styling */
@@ -245,8 +221,7 @@
 
 /* Focus States */
 .focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-  @apply dark:focus:ring-offset-dark-300;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
 }
 
 /* Gradient Utilities */

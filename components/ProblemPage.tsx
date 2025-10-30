@@ -79,7 +79,7 @@ interface ProblemPageProps {
   problemId?: string;
 }
 
-export default function ProblemPage({ problemId }: ProblemPageProps) {
+export default function ProblemPage({}: ProblemPageProps) {
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
@@ -107,7 +107,7 @@ export default function ProblemPage({ problemId }: ProblemPageProps) {
           maxSize={80}
           className="border-r border-border"
         >
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-scroll">
             <div className="p-6 space-y-6">
               {/* Problem Header */}
               <div>

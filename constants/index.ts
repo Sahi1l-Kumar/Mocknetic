@@ -398,3 +398,174 @@ export const SAMPLE_PROBLEMS = [
     premium: true,
   },
 ];
+export const LANGUAGE_IDS = {
+  javascript: 63,
+  python: 71,
+  java: 62,
+  cpp: 54,
+  c: 50,
+  csharp: 51,
+  go: 60,
+  rust: 73,
+  php: 68,
+  ruby: 72,
+  swift: 83,
+  kotlin: 78,
+  typescript: 74,
+} as const;
+
+export const STATUS_IDS = {
+  1: "In Queue",
+  2: "Processing",
+  3: "Accepted",
+  4: "Wrong Answer", 
+  5: "Time Limit Exceeded",
+  6: "Compilation Error",
+  7: "Runtime Error (SIGSEGV)",
+  8: "Runtime Error (SIGXFSZ)",
+  9: "Runtime Error (SIGFPE)",
+  10: "Runtime Error (SIGABRT)",
+  11: "Runtime Error (NZEC)",
+  12: "Runtime Error (Other)",
+  13: "Internal Error",
+  14: "Exec Format Error"
+} as const;
+
+export type Language = keyof typeof LANGUAGE_IDS;
+export type StatusId = keyof typeof STATUS_IDS;
+
+export interface TestCase {
+  input: string;
+  expectedOutput: string;
+}
+
+export interface ExecutionResult {
+  status: string;
+  statusId: number;
+  stdout: string | null;
+  stderr: string | null;
+  compile_output: string | null;
+  time: string | null;
+  memory: number | null;
+  exit_code: number | null;
+  exit_signal: number | null;
+  message: string | null;
+  created_at: string;
+  finished_at: string | null;
+  testResults?: TestResult[];
+}
+
+export interface TestResult {
+  input: string;
+  expectedOutput: string;
+  actualOutput: string | null;
+  passed: boolean;
+  status: string;
+  time: string | null;
+  memory: number | null;
+  error: string | null;
+}
+
+export interface ProblemData {
+  id: number;
+  title: string;
+  description: string;
+  examples: {
+    input: string;
+    output: string;
+    explanation: string;
+  }[];
+  constraints: string[];
+  testCases: {
+    case: string;
+    input: {
+      nums: string;
+      target: string;
+    };
+    expectedOutput: string;
+  }[];
+  templates: {
+    [language: string]: string;
+  };
+}
+
+export const PROBLEM_DATA: { [key: number]: ProblemData } = {
+  1: {
+    id: 1,
+    title: "Two Sum",
+    description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.",
+    examples: [
+      {
+        input: "nums = [2,7,11,15], target = 9",
+        output: "[0,1]",
+        explanation: "Because nums[0] + nums[1] == 9, we return [0, 1]."
+      },
+      {
+        input: "nums = [3,2,4], target = 6",
+        output: "[1,2]",
+        explanation: "Because nums[1] + nums[2] == 6, we return [1, 2]."
+      },
+      {
+        input: "nums = [3,3], target = 6",
+        output: "[0,1]",
+        explanation: "Because nums[0] + nums[1] == 6, we return [0, 1]."
+      }
+    ],
+    constraints: [
+      "2 <= nums.length <= 10^4",
+      "-10^9 <= nums[i] <= 10^9",
+      "-10^9 <= target <= 10^9",
+      "Only one valid answer exists."
+    ],
+    testCases: [
+      {
+        case: "Case 1",
+        input: {
+          nums: "[2,7,11,15]",
+          target: "9"
+        },
+        expectedOutput: "[0,1]"
+      },
+      {
+        case: "Case 2",
+        input: {
+          nums: "[3,2,4]",
+          target: "6"
+        },
+        expectedOutput: "[1,2]"
+      },
+      {
+        case: "Case 3",
+        input: {
+          nums: "[3,3]",
+          target: "6"
+        },
+        expectedOutput: "[0,1]"
+      }
+    ],
+    templates: {
+      javascript: `/**
+ * @param {number[]} nums
+ * @param {number} target
+ * @return {number[]}
+ */
+var twoSum = function(nums, target) {
+    
+};`,
+      python: `class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        `,
+      java: `class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        
+    }
+}`,
+      cpp: `class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        
+    }
+};`
+    }
+  }
+};
