@@ -15,7 +15,6 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
     companyName: "",
     companyDescription: "",
     resume: null as File | null,
-    coverLetter: null as File | null,
     parsedResume: "",
   });
   const [loading, setLoading] = useState(false);
@@ -28,18 +27,15 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    field: "resume" | "coverLetter"
-  ) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file && file.type !== "application/pdf") {
       toast.error("Only PDF files are supported");
       return;
     }
-    setFormData((prev) => ({ ...prev, [field]: file }));
+    setFormData((prev) => ({ ...prev, resume: file }));
 
-    if (field === "resume" && file) {
+    if (file) {
       parseResume(file);
     }
   };
@@ -88,13 +84,10 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       data.append("jobDescription", formData.jobDescription);
       data.append("companyName", formData.companyName);
       data.append("companyDescription", formData.companyDescription);
-      data.append("parsedResume", formData.parsedResume); // Send parsed resume text
+      data.append("parsedResume", formData.parsedResume);
 
       if (formData.resume) {
         data.append("resume", formData.resume);
-      }
-      if (formData.coverLetter) {
-        data.append("coverLetter", formData.coverLetter);
       }
 
       console.log("📤 Submitting interview form...");
@@ -148,7 +141,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                 placeholder="Enter job title"
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 required
-                disabled={loading}
+                disabled={loading || parsingResume}
               />
             </div>
 
@@ -164,7 +157,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                 rows={6}
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 required
-                disabled={loading}
+                disabled={loading || parsingResume}
               />
             </div>
 
@@ -179,7 +172,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                 onChange={handleInputChange}
                 placeholder="Enter company name"
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading}
+                disabled={loading || parsingResume}
               />
             </div>
 
@@ -194,98 +187,69 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                 placeholder="Enter company description"
                 rows={4}
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading}
+                disabled={loading || parsingResume}
               />
             </div>
 
             <div className="pt-4 border-t border-slate-200">
               <p className="text-sm text-slate-600 mb-4">
-                Note: All documents must be in PDF format.
+                Note: PDF format required for Resume/CV.
               </p>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">
-                    Resume (Optional)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => handleFileChange(e, "resume")}
-                      className="hidden"
-                      id="resume-upload"
-                      disabled={loading || parsingResume}
-                    />
-                    <label
-                      htmlFor="resume-upload"
-                      className={`flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all ${
-                        loading || parsingResume
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
-                    >
-                      <div className="text-center">
-                        <FileText className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                        <span className="text-sm text-slate-600">
-                          {parsingResume
-                            ? "Parsing resume..."
-                            : formData.resume
-                              ? formData.resume.name
-                              : "Upload Resume"}
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-                  {formData.parsedResume && (
-                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-xs font-medium text-green-700">
-                        ✓ Resume parsed and ready
-                      </p>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 mb-2">
+                  Resume / CV (Optional)
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="resume-upload"
+                    disabled={loading || parsingResume}
+                  />
+                  <label
+                    htmlFor="resume-upload"
+                    className={`flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all ${
+                      loading || parsingResume
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                  >
+                    <div className="text-center">
+                      <FileText className="mx-auto h-8 w-8 text-slate-400 mb-2" />
+                      <span className="text-sm text-slate-600">
+                        {parsingResume
+                          ? "Parsing resume..."
+                          : formData.resume
+                            ? formData.resume.name
+                            : "Upload Resume / CV (PDF)"}
+                      </span>
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">
-                    Cover Letter (Optional)
                   </label>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => handleFileChange(e, "coverLetter")}
-                      className="hidden"
-                      id="cover-letter-upload"
-                      disabled={loading}
-                    />
-                    <label
-                      htmlFor="cover-letter-upload"
-                      className={`flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all ${
-                        loading ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                    >
-                      <div className="text-center">
-                        <FileText className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                        <span className="text-sm text-slate-600">
-                          {formData.coverLetter
-                            ? formData.coverLetter.name
-                            : "Upload Document"}
-                        </span>
-                      </div>
-                    </label>
-                  </div>
                 </div>
+                {formData.parsedResume && (
+                  <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-xs font-medium text-green-700">
+                      ✓ Resume parsed and ready
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="pt-6">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || parsingResume}
                 className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Creating Interview..." : "Continue to Setup"}
+                {parsingResume
+                  ? "Parsing Resume..."
+                  : loading
+                    ? "Creating Interview..."
+                    : "Continue to Setup"}
               </button>
             </div>
           </form>

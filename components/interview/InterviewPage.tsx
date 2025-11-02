@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Video, VideoOff, Mic, Copy, Check } from "lucide-react";
 
 interface Question {
@@ -21,7 +20,6 @@ interface QAHistory {
 }
 
 export default function InterviewPage({ sessionId }: { sessionId: string }) {
-  const router = useRouter();
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [transcript, setTranscript] = useState<string>("");
   const [qaHistory, setQaHistory] = useState<QAHistory[]>([]);
@@ -34,88 +32,17 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyzerRef = useRef<AnalyserNode | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const silenceDetectionRef = useRef<number | null>(null);
-  const isInitializedRef = useRef<boolean>(false);
 
-  const SILENCE_SECONDS = 10;
-  const SILENCE_THRESHOLD = 30;
   const PYTHON_API =
     process.env.NEXT_PUBLIC_PYTHON_API || "http://localhost:5000";
 
-  const cleanupAllResources = () => {
-    console.log("🧹 Cleaning up all resources...");
-
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        console.warn("MediaRecorder already stopped");
-      }
-    }
-    mediaRecorderRef.current = null;
-
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch (e) {
-          console.warn("Audio track stop error:", e);
-        }
-      });
-      audioStreamRef.current = null;
-    }
-
-    if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch (e) {
-          console.warn("Video track stop error:", e);
-        }
-      });
-      videoStreamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    if (audioContextRef.current) {
-      try {
-        audioContextRef.current.close();
-      } catch (e) {
-        console.warn("Audio context close error:", e);
-      }
-      audioContextRef.current = null;
-    }
-
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
-    }
-
-    if (silenceDetectionRef.current) {
-      cancelAnimationFrame(silenceDetectionRef.current);
-      silenceDetectionRef.current = null;
-    }
-
-    console.log("✅ All resources cleaned up");
-  };
-
+  // Initialize audio/video streams and media recorder
   const initializeAudio = async () => {
-    if (isInitializedRef.current) return;
-    isInitializedRef.current = true;
-
+    if (audioStreamRef.current) return;
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -127,32 +54,17 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       });
       audioStreamRef.current = audioStream;
 
-      let videoStream: MediaStream | null = null;
       if (cameraEnabled) {
-        videoStream = await navigator.mediaDevices.getUserMedia({
+        const videoStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         });
         videoStreamRef.current = videoStream;
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = videoStream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = videoStream;
       }
-
-      audioContextRef.current = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
-      analyzerRef.current = audioContextRef.current.createAnalyser();
-      analyzerRef.current.fftSize = 256;
-
-      const source =
-        audioContextRef.current.createMediaStreamSource(audioStream);
-
-      source.connect(analyzerRef.current);
 
       const mimeType = "audio/webm";
       mediaRecorderRef.current = new MediaRecorder(audioStream, { mimeType });
-
       chunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -161,128 +73,75 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         }
       };
 
-      mediaRecorderRef.current.onstop = handleRecordingStop;
-
-      console.log("✅ Audio & Video initialized (echo suppression enabled)");
-    } catch (error) {
-      console.error("❌ Audio/Video initialization error:", error);
-      isInitializedRef.current = false;
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        chunksRef.current = [];
+        if (blob.size === 0) {
+          setRecordingStatus("idle");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64Audio = (reader.result as string).split(",")[1];
+          socket.emit("send_audio_chunk", {
+            session_id: sessionId,
+            audio_data: base64Audio,
+            is_final: true,
+            timestamp: Date.now(),
+          });
+          setRecordingStatus("waiting");
+        };
+        reader.readAsDataURL(blob);
+      };
+    } catch {
       setRecordingStatus("error");
       toast.error("Microphone/Camera access denied");
     }
   };
 
+  // Start recording automatically after TTS playback ends
   const startRecording = async () => {
-    try {
-      if (!mediaRecorderRef.current) {
-        await initializeAudio();
-      }
-
-      if (
-        mediaRecorderRef.current &&
-        mediaRecorderRef.current.state === "inactive"
-      ) {
-        chunksRef.current = [];
-        mediaRecorderRef.current.start();
-        setIsRecording(true);
-        setRecordingStatus("recording");
-
-        console.log("🎤 Recording started");
-
-        if (silenceTimeoutRef.current) {
-          clearTimeout(silenceTimeoutRef.current);
-        }
-
-        silenceTimeoutRef.current = setTimeout(() => {
-          console.log("⏱️ Silence timeout - stopping recording");
-          stopRecording();
-        }, SILENCE_SECONDS * 1000);
-
-        detectSilence();
-      }
-    } catch (error) {
-      console.error("❌ Recording start error:", error);
-      setRecordingStatus("error");
-      toast.error("Failed to start recording");
+    await initializeAudio();
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "inactive"
+    ) {
+      chunksRef.current = [];
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setRecordingStatus("recording");
     }
   };
 
+  // Only manual stop recording by user
   const stopRecording = () => {
-    try {
-      if (
-        mediaRecorderRef.current &&
-        mediaRecorderRef.current.state === "recording"
-      ) {
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
-        setRecordingStatus("processing");
-
-        if (silenceTimeoutRef.current) {
-          clearTimeout(silenceTimeoutRef.current);
-        }
-
-        if (silenceDetectionRef.current) {
-          cancelAnimationFrame(silenceDetectionRef.current);
-        }
-
-        console.log("⏹️ Recording stopped");
-      }
-    } catch (error) {
-      console.error("❌ Recording stop error:", error);
-      setRecordingStatus("error");
-      toast.error("Failed to stop recording");
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setRecordingStatus("processing");
     }
   };
 
-  const detectSilence = () => {
-    if (!analyzerRef.current || !isRecording) return;
-
-    const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount);
-    analyzerRef.current.getByteFrequencyData(dataArray);
-
-    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-
-    if (average < SILENCE_THRESHOLD) {
-      console.log("🤐 Silence detected");
-    }
-
-    silenceDetectionRef.current = requestAnimationFrame(detectSilence);
+  const toggleRecording = () => {
+    if (isRecording) stopRecording();
   };
 
-  const handleRecordingStop = async () => {
-    try {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-
-      if (blob.size === 0) {
-        console.warn("⚠️ Empty audio blob");
-        setRecordingStatus("idle");
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const audioData = reader.result as string;
-        const base64Audio = audioData.split(",")[1];
-
-        socket.emit("send_audio_chunk", {
-          session_id: sessionId,
-          audio_data: base64Audio,
-          is_final: true,
-          timestamp: Date.now(),
-        });
-
-        console.log("📤 Audio sent to server");
-        setRecordingStatus("waiting");
-      };
-
-      reader.readAsDataURL(blob);
-    } catch (error) {
-      console.error("❌ Recording stop error:", error);
-      setRecordingStatus("error");
-      toast.error("Failed to process recording");
-    }
+  // Next Question button stops recording if ongoing and emits skip event
+  const handleNextQuestion = () => {
+    if (isRecording) stopRecording();
+    setTranscript("");
+    setRecordingStatus("waiting_for_next");
+    socket.emit("skip_question", {
+      session_id: sessionId,
+      question_number: currentQuestion?.question_number,
+      timestamp: Date.now(),
+    });
   };
 
+  // Play TTS at 1.25x speed and auto start recording afterwards
   const playAndAutoListen = async (
     tts_url: string,
     audioElementsToCleanup: HTMLAudioElement[]
@@ -292,53 +151,38 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         ? tts_url
         : `${PYTHON_API}${tts_url}`;
 
-      console.log("🔊 Playing TTS:", absoluteUrl);
-
       const audio = new Audio();
       audio.src = absoluteUrl;
       audio.volume = 0.8;
-      audio.crossOrigin = "anonymous"; // Add CORS support
+      audio.crossOrigin = "anonymous";
+      audio.playbackRate = 1.25;
 
       audioElementsToCleanup.push(audio);
 
-      let hasErrored = false; // Track if error already fired
+      let hasErrored = false;
 
       audio.onplay = () => {
-        console.log("▶️ TTS audio playing");
-        hasErrored = false; // Reset error flag on successful play
+        hasErrored = false;
       };
 
       audio.onended = () => {
-        console.log("✅ TTS audio finished");
         audio.pause();
         audio.src = "";
-
         const index = audioElementsToCleanup.indexOf(audio);
-        if (index > -1) {
-          audioElementsToCleanup.splice(index, 1);
-        }
+        if (index > -1) audioElementsToCleanup.splice(index, 1);
 
         setTimeout(() => {
           startRecording();
         }, 500);
       };
 
-      // Only show error once
-      audio.onerror = (error) => {
-        if (hasErrored) return; // Don't show error multiple times
+      audio.onerror = () => {
+        if (hasErrored) return;
         hasErrored = true;
-
-        // console.error("❌ Audio play error:", error);
-        // Don't show toast - audio might still work via fallback
-        console.warn("Attempting to play audio anyway...");
-
         audio.pause();
         audio.src = "";
-
         const index = audioElementsToCleanup.indexOf(audio);
-        if (index > -1) {
-          audioElementsToCleanup.splice(index, 1);
-        }
+        if (index > -1) audioElementsToCleanup.splice(index, 1);
 
         setTimeout(() => {
           startRecording();
@@ -347,21 +191,13 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log("✅ Audio play successful");
-          })
-          .catch((err) => {
-            if (hasErrored) return;
-            hasErrored = true;
-
-            console.error("❌ Audio play rejected:", err);
-            // Silent fail - still start recording
-            setTimeout(() => startRecording(), 500);
-          });
+        playPromise.catch(() => {
+          if (hasErrored) return;
+          hasErrored = true;
+          setTimeout(() => startRecording(), 500);
+        });
       }
-    } catch (error) {
-      console.error("❌ Audio handling error:", error);
+    } catch {
       startRecording();
     }
   };
@@ -369,13 +205,9 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const toggleCamera = async () => {
     try {
       if (cameraEnabled) {
-        if (videoStreamRef.current) {
-          videoStreamRef.current.getTracks().forEach((track) => track.stop());
-          videoStreamRef.current = null;
-        }
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
+        videoStreamRef.current?.getTracks().forEach((track) => track.stop());
+        videoStreamRef.current = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
         setCameraEnabled(false);
         toast.success("Camera turned off");
       } else {
@@ -384,15 +216,11 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           audio: false,
         });
         videoStreamRef.current = videoStream;
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = videoStream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = videoStream;
         setCameraEnabled(true);
         toast.success("Camera turned on");
       }
-    } catch (error) {
-      console.error("❌ Camera toggle error:", error);
+    } catch {
       toast.error("Failed to toggle camera");
     }
   };
@@ -407,152 +235,91 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const handleEndInterview = () => {
     if (isEnding) return;
     setIsEnding(true);
-
-    console.log("🛑 Ending interview...");
-
     socket.emit("end_interview", { session_id: sessionId });
-
-    // Immediately stop recording if in progress
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
-
-    // Immediately stop audio stream
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-          console.log("🔇 Audio track stopped");
-        } catch (e) {
-          console.warn("Audio track stop error:", e);
-        }
+    try {
+      if (videoRef.current?.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => {
+          t.enabled = false;
+          t.stop();
+        });
+      }
+      audioStreamRef.current?.getTracks().forEach((t) => {
+        t.enabled = false;
+        t.stop();
       });
-      audioStreamRef.current = null;
-    }
-
-    // Immediately stop video stream
-    if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-          console.log("📹 Video track stopped");
-        } catch (e) {
-          console.warn("Video track stop error:", e);
-        }
+      videoStreamRef.current?.getTracks().forEach((t) => {
+        t.enabled = false;
+        t.stop();
       });
-      videoStreamRef.current = null;
-    }
-
-    // Stop video element
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    setTimeout(() => {
-      cleanupAllResources();
-      toast.success("Interview ended successfully");
-
-      setTimeout(() => {
-        router.push("/");
-      }, 500);
-    }, 1000);
+      if (mediaRecorderRef.current?.state === "recording")
+        mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    } catch {}
+    setCameraEnabled(false);
+    toast.success("Interview ended successfully");
+    setTimeout(() => (window.location.href = "/"), 500);
   };
 
-  // Socket listeners effect - FIXED
   useEffect(() => {
-    let isComponentMounted = true;
+    let isMounted = true;
     let audioElementsToCleanup: HTMLAudioElement[] = [];
 
     function onConnect() {
-      if (!isComponentMounted) return;
-      console.log("✅ Socket connected");
+      if (!isMounted) return;
       setIsSocketConnected(true);
       socket.emit("join_interview", { session_id: sessionId });
     }
-
     function onDisconnect() {
-      if (!isComponentMounted) return;
-      console.log("❌ Socket disconnected");
+      if (!isMounted) return;
       setIsSocketConnected(false);
     }
-
     function onReceiveQuestion(data: Question) {
-      if (!isComponentMounted) return;
-
-      console.log("📨 Question received:", data.question);
-
-      // Stop any currently playing audio
+      if (!isMounted) return;
       audioElementsToCleanup.forEach((audio) => {
         audio.pause();
         audio.src = "";
       });
       audioElementsToCleanup = [];
-
       setCurrentQuestion(data);
       setTranscript("");
       setRecordingStatus("idle");
-
-      if (data.auto_listen && data.tts_url) {
+      if (data.auto_listen && data.tts_url)
         playAndAutoListen(data.tts_url, audioElementsToCleanup);
-      }
     }
-
     function onTranscriptReceived(data: { transcript: string }) {
-      if (!isComponentMounted) return;
-
-      console.log("📝 Transcript received:", data.transcript);
+      if (!isMounted) return;
       setTranscript(data.transcript);
-
-      setQaHistory((prev) => {
-        const newHistory = [
-          ...prev,
-          {
-            question: currentQuestion?.question || "",
-            answer: data.transcript,
-            questionNumber: currentQuestion?.question_number || 0,
-          },
-        ];
-        return newHistory;
-      });
-
+      setQaHistory((prev) => [
+        ...prev,
+        {
+          question: currentQuestion?.question || "",
+          answer: data.transcript,
+          questionNumber: currentQuestion?.question_number || 0,
+        },
+      ]);
       setQuestionsAnswered((prev) => prev + 1);
       setRecordingStatus("waiting_for_next");
     }
-
     function onRecordingStatus(data: { status: string }) {
-      if (!isComponentMounted) return;
-      console.log("📊 Recording status:", data.status);
+      if (!isMounted) return;
       setRecordingStatus(data.status);
     }
-
-    function onInterviewComplete(data: any) {
-      if (!isComponentMounted) return;
-
-      console.log("🎉 Interview complete!", data);
+    function onInterviewComplete() {
+      if (!isMounted) return;
       setRecordingStatus("complete");
       setCurrentQuestion(null);
       toast.success("Interview completed!");
-
       setTimeout(() => {
-        if (isComponentMounted) {
-          handleEndInterview();
-        }
-      }, 2000);
+        if (isMounted) handleEndInterview();
+      }, 1000);
     }
-
     function onError(data: { message: string }) {
-      if (!isComponentMounted) return;
-      console.error("❌ Socket error:", data.message);
+      if (!isMounted) return;
       setRecordingStatus("error");
       toast.error(data.message);
     }
 
-    if (socket.connected) {
-      onConnect();
-    }
+    if (socket.connected) onConnect();
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
@@ -563,14 +330,12 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     socket.on("error", onError);
 
     return () => {
-      isComponentMounted = false;
-
+      isMounted = false;
       audioElementsToCleanup.forEach((audio) => {
         audio.pause();
         audio.src = "";
       });
       audioElementsToCleanup = [];
-
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("receive_question", onReceiveQuestion);
@@ -580,12 +345,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       socket.off("error", onError);
     };
   }, [sessionId]);
-
-  useEffect(() => {
-    return () => {
-      cleanupAllResources();
-    };
-  }, []);
 
   const getStatusColor = () => {
     switch (recordingStatus) {
@@ -629,7 +388,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Video Feed - 1 col */}
+          {/* Video portion */}
           <div className="lg:col-span-1 space-y-3">
             <div className="bg-slate-900 rounded-lg aspect-video flex items-center justify-center overflow-hidden relative shadow-md">
               {cameraEnabled ? (
@@ -673,7 +432,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
             <p className="text-xs text-slate-600 text-center">Your Camera</p>
           </div>
 
-          {/* Question - 2 cols */}
+          {/* Question portion */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm h-80 overflow-y-auto space-y-3">
               <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
@@ -681,6 +440,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                   Question {currentQuestion?.question_number || "—"}
                 </div>
               </div>
+
               {currentQuestion ? (
                 <div className="text-lg text-slate-800 leading-relaxed font-medium">
                   "{currentQuestion.question}"
@@ -692,58 +452,51 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
               )}
             </div>
 
-            {/* Recording Status */}
-            <div className="flex justify-center">
-              <div
-                className={`flex items-center gap-3 px-6 py-3 rounded-full font-semibold transition-all shadow-sm ${getStatusColor()}`}
-              >
-                {recordingStatus === "recording" && (
-                  <>
-                    <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
-                    <span>Recording...</span>
-                  </>
-                )}
-                {recordingStatus === "processing" && (
-                  <>
-                    <span className="animate-spin">⏳</span>
-                    <span>Processing...</span>
-                  </>
-                )}
-                {recordingStatus === "waiting" && (
-                  <>
-                    <span>✓</span>
-                    <span>Waiting for next...</span>
-                  </>
-                )}
-                {recordingStatus === "waiting_for_next" && (
-                  <>
-                    <span className="animate-spin">✨</span>
-                    <span>Generating...</span>
-                  </>
-                )}
-                {recordingStatus === "error" && (
-                  <>
-                    <span>❌</span>
-                    <span>Error</span>
-                  </>
-                )}
-                {recordingStatus === "complete" && (
-                  <>
-                    <span>🎉</span>
-                    <span>Complete!</span>
-                  </>
-                )}
-                {recordingStatus === "idle" && (
-                  <>
-                    <span>🎤</span>
-                    <span>Ready</span>
-                  </>
-                )}
-              </div>
+            <div
+              className={`flex items-center gap-3 px-6 py-3 rounded-full font-semibold transition-all shadow-sm ${getStatusColor()}`}
+            >
+              {recordingStatus === "recording" && (
+                <>
+                  <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>{" "}
+                  <span>Recording...</span>
+                </>
+              )}
+              {recordingStatus === "processing" && (
+                <>
+                  <span className="animate-spin">⏳</span>{" "}
+                  <span>Processing...</span>
+                </>
+              )}
+              {recordingStatus === "waiting" && (
+                <>
+                  <span>✓</span> <span>Waiting for next...</span>
+                </>
+              )}
+              {recordingStatus === "waiting_for_next" && (
+                <>
+                  <span className="animate-spin">✨</span>{" "}
+                  <span>Generating...</span>
+                </>
+              )}
+              {recordingStatus === "error" && (
+                <>
+                  <span>❌</span> <span>Error</span>
+                </>
+              )}
+              {recordingStatus === "complete" && (
+                <>
+                  <span>🎉</span> <span>Complete!</span>
+                </>
+              )}
+              {recordingStatus === "idle" && (
+                <>
+                  <span>🎤</span> <span>Ready</span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Current Transcript - 2 cols */}
+          {/* Transcript and Buttons */}
           <div className="lg:col-span-2 space-y-2">
             <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-6 rounded-lg h-80 overflow-y-auto shadow-sm">
               <h3 className="font-bold text-green-700 mb-4 text-lg sticky top-0 bg-gradient-to-r from-green-50 to-green-100 pb-2">
@@ -767,10 +520,33 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                 </div>
               )}
             </div>
+
+            <div className="flex justify-center pt-4 gap-4">
+              <button
+                onClick={handleNextQuestion}
+                disabled={
+                  recordingStatus === "processing" ||
+                  recordingStatus === "waiting" ||
+                  isEnding
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next Question
+              </button>
+
+              <button
+                onClick={toggleRecording}
+                disabled={isEnding || !isRecording}
+                className="py-3 px-6 font-semibold rounded-lg shadow-md text-white transition-colors bg-red-600 hover:bg-red-700"
+              >
+                <Mic className="inline-block w-5 h-5 mr-2" />
+                Stop Recording
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* QA History */}
+        {/* Q&A History */}
         {qaHistory.length > 0 && (
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -779,14 +555,12 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
               </span>
               Q&A History
             </h2>
-
             <div className="max-h-96 overflow-y-auto space-y-3">
               {qaHistory.map((qa, idx) => (
                 <div
                   key={idx}
                   className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow"
                 >
-                  {/* Question */}
                   <div className="flex gap-3 mb-3">
                     <span className="flex-shrink-0 bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-full text-xs">
                       Q{qa.questionNumber}
@@ -795,8 +569,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                       {qa.question}
                     </p>
                   </div>
-
-                  {/* Answer */}
                   <div className="flex gap-3 ml-3 border-l-2 border-green-300 pl-3">
                     <span className="flex-shrink-0 bg-green-100 text-green-700 font-bold px-2.5 py-1 rounded-full text-xs">
                       A
@@ -824,7 +596,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           </div>
         )}
 
-        {/* Footer */}
         <div className="flex justify-end pt-4 border-t border-slate-200">
           <button
             onClick={handleEndInterview}
