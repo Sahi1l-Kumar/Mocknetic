@@ -412,6 +412,45 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
 
     socket.emit("end_interview", { session_id: sessionId });
 
+    // Immediately stop recording if in progress
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+
+    // Immediately stop audio stream
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+          console.log("🔇 Audio track stopped");
+        } catch (e) {
+          console.warn("Audio track stop error:", e);
+        }
+      });
+      audioStreamRef.current = null;
+    }
+
+    // Immediately stop video stream
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+          console.log("📹 Video track stopped");
+        } catch (e) {
+          console.warn("Video track stop error:", e);
+        }
+      });
+      videoStreamRef.current = null;
+    }
+
+    // Stop video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
     setTimeout(() => {
       cleanupAllResources();
       toast.success("Interview ended successfully");

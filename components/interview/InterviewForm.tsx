@@ -16,8 +16,10 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
     companyDescription: "",
     resume: null as File | null,
     coverLetter: null as File | null,
+    parsedResume: "",
   });
   const [loading, setLoading] = useState(false);
+  const [parsingResume, setParsingResume] = useState(false);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -36,6 +38,36 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       return;
     }
     setFormData((prev) => ({ ...prev, [field]: file }));
+
+    if (field === "resume" && file) {
+      parseResume(file);
+    }
+  };
+
+  const parseResume = async (file: File) => {
+    setParsingResume(true);
+    try {
+      const formDataForParsing = new FormData();
+      formDataForParsing.append("FILE", file);
+
+      const response = await fetch("/api/resume/parse", {
+        method: "POST",
+        body: formDataForParsing,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to parse resume");
+      }
+
+      const parsedText = await response.text();
+      setFormData((prev) => ({ ...prev, parsedResume: parsedText }));
+      toast.success("Resume parsed successfully!");
+    } catch (error) {
+      console.error("Resume parse error:", error);
+      toast.error("Failed to parse resume");
+    } finally {
+      setParsingResume(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,6 +88,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       data.append("jobDescription", formData.jobDescription);
       data.append("companyName", formData.companyName);
       data.append("companyDescription", formData.companyDescription);
+      data.append("parsedResume", formData.parsedResume); // Send parsed resume text
 
       if (formData.resume) {
         data.append("resume", formData.resume);
@@ -182,24 +215,35 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                       onChange={(e) => handleFileChange(e, "resume")}
                       className="hidden"
                       id="resume-upload"
-                      disabled={loading}
+                      disabled={loading || parsingResume}
                     />
                     <label
                       htmlFor="resume-upload"
                       className={`flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all ${
-                        loading ? "opacity-50 cursor-not-allowed" : ""
+                        loading || parsingResume
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
                       }`}
                     >
                       <div className="text-center">
                         <FileText className="mx-auto h-8 w-8 text-slate-400 mb-2" />
                         <span className="text-sm text-slate-600">
-                          {formData.resume
-                            ? formData.resume.name
-                            : "Upload Document"}
+                          {parsingResume
+                            ? "Parsing resume..."
+                            : formData.resume
+                              ? formData.resume.name
+                              : "Upload Resume"}
                         </span>
                       </div>
                     </label>
                   </div>
+                  {formData.parsedResume && (
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-medium text-green-700">
+                        ✓ Resume parsed and ready
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
