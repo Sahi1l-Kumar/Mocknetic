@@ -96,19 +96,19 @@ export default function InterviewSetup({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
+          <h1 className="text-2xl font-semibold text-slate-900 mb-2">
             Setup Your Interview Environment
           </h1>
-          <p className="text-gray-600 mb-8">
+          <p className="text-slate-600 mb-8">
             Choose your camera and microphone for the interview
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
-              <div className="bg-gray-900 rounded-lg aspect-video flex items-center justify-center mb-6 overflow-hidden">
+              <div className="bg-slate-900 rounded-lg aspect-video flex items-center justify-center mb-6 overflow-hidden">
                 {cameraEnabled ? (
                   <video
                     ref={videoRef}
@@ -118,7 +118,7 @@ export default function InterviewSetup({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="text-gray-500">
+                  <div className="text-slate-500">
                     <VideoOff className="w-16 h-16 mx-auto mb-2" />
                     <p className="text-sm">Camera is off</p>
                   </div>
@@ -130,7 +130,7 @@ export default function InterviewSetup({
                   onClick={toggleCamera}
                   className={`p-4 rounded-full transition-all ${
                     cameraEnabled
-                      ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                      ? "bg-slate-200 hover:bg-slate-300 text-slate-700"
                       : "bg-red-500 hover:bg-red-600 text-white"
                   }`}
                   title={cameraEnabled ? "Turn off camera" : "Turn on camera"}
@@ -146,14 +146,14 @@ export default function InterviewSetup({
 
             <div className="space-y-6">
               <div>
-                <label className="flex items-center text-sm font-medium text-gray-900 mb-3">
+                <label className="flex items-center text-sm font-medium text-slate-900 mb-3">
                   <Camera className="w-5 h-5 mr-2" />
                   Camera
                 </label>
                 <select
                   value={selectedCamera}
                   onChange={(e) => setSelectedCamera(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
                 >
                   {devices.cameras.map((camera) => (
                     <option key={camera.deviceId} value={camera.deviceId}>
@@ -164,14 +164,14 @@ export default function InterviewSetup({
               </div>
 
               <div>
-                <label className="flex items-center text-sm font-medium text-gray-900 mb-3">
+                <label className="flex items-center text-sm font-medium text-slate-900 mb-3">
                   <Mic className="w-5 h-5 mr-2" />
                   Microphone
                 </label>
                 <select
                   value={selectedMicrophone}
                   onChange={(e) => setSelectedMicrophone(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
                 >
                   {devices.microphones.map((mic) => (
                     <option key={mic.deviceId} value={mic.deviceId}>
@@ -195,10 +195,10 @@ export default function InterviewSetup({
             </div>
           </div>
 
-          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
+          <div className="flex justify-between mt-8 pt-6 border-t border-slate-200">
             <button
               onClick={onBack}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-all"
+              className="px-6 py-3 border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50 transition-all"
             >
               Back
             </button>

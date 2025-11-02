@@ -34,27 +34,33 @@ export async function POST(request: Request) {
       strict: true,
       trim: true,
     });
+   
+    const update = {
+      $set: {
+        name: name,
+        image: image,
+      },
+    };
+   
+    const onInsert = {
+      $setOnInsert: {
+        username: slugifiedUsername,
+        email: email,
+      },
+    };
 
-    let existingUser = await User.findOne({ email }).session(session);
+    const updateOrInsert = { ...update, ...onInsert };
 
-    if (!existingUser) {
-      [existingUser] = await User.create(
-        [{ name, username: slugifiedUsername, email, image }],
-        { session }
-      );
-    } else {
-      const updatedData: { name?: string; image?: string } = {};
-
-      if (existingUser.name !== name) updatedData.name = name;
-      if (existingUser.image !== image) updatedData.image = image;
-
-      if (Object.keys(updatedData).length > 0) {
-        await User.updateOne(
-          { _id: existingUser._id },
-          { $set: updatedData }
-        ).session(session);
+    const existingUser = await User.findOneAndUpdate(
+      { email },
+      updateOrInsert,
+      {
+        new: true,
+        upsert: true,
+        session,
+        runValidators: true,
       }
-    }
+    );
 
     const existingAccount = await Account.findOne({
       userId: existingUser._id,
@@ -82,7 +88,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     await session.abortTransaction();
-    return handleError(error, "api") as APIErrorResponse;
+    console.error("OAuth sign in error:", error);
+    return handleError(error, "api") as ErrorResponse; 
   } finally {
     session.endSession();
   }

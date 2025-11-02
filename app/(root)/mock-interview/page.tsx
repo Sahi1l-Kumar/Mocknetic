@@ -5,48 +5,44 @@ import InterviewForm from "@/components/interview/InterviewForm";
 import InterviewSetup from "@/components/interview/InterviewSetup";
 import InterviewPage from "@/components/interview/InterviewPage";
 
-type Page = "form" | "setup" | "interview";
+type PageType = "form" | "setup" | "interview";
 
-interface FormData {
-  jobTitle: string;
-  jobDescription: string;
-  companyName: string;
-  companyDescription: string;
-  resume: File | null;
-  coverLetter: File | null;
-}
+export default function Interview() {
+  const [currentPage, setCurrentPage] = useState<PageType>("form");
+  const [sessionId, setSessionId] = useState<string>("");
 
-function Interview() {
-  const [currentPage, setCurrentPage] = useState<Page>("form");
-  const [formData, setFormData] = useState<FormData | null>(null);
-
-  const handleFormSubmit = (data: FormData) => {
-    setFormData(data);
+  const handleFormSubmit = (id: string) => {
+    console.log("📝 Form submitted, session ID:", id);
+    setSessionId(id);
     setCurrentPage("setup");
   };
 
-  const handleStartInterview = () => {
+  const handleSetupComplete = () => {
+    console.log("✅ Setup complete, starting interview");
     setCurrentPage("interview");
   };
 
-  const handleBackToForm = () => {
+  const handleBack = () => {
     setCurrentPage("form");
   };
 
   return (
     <>
-      {currentPage === "form" && <InterviewForm onSubmit={handleFormSubmit} />}
-      {currentPage === "setup" && (
-        <InterviewSetup
-          onStart={handleStartInterview}
-          onBack={handleBackToForm}
+      {currentPage === "form" && (
+        <InterviewForm
+          onSubmit={(id) => {
+            handleFormSubmit(id);
+          }}
         />
       )}
-      {currentPage === "interview" && (
-        <InterviewPage jobTitle={formData?.jobTitle || "Software Developer"} />
+
+      {currentPage === "setup" && (
+        <InterviewSetup onStart={handleSetupComplete} onBack={handleBack} />
+      )}
+
+      {currentPage === "interview" && sessionId && (
+        <InterviewPage sessionId={sessionId} />
       )}
     </>
   );
 }
-
-export default Interview;

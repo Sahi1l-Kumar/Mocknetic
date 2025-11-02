@@ -81,18 +81,17 @@ export const api = {
       body: formData,
     });
   },
-
-  detectDisease: (
-    file: File,
-    crop: string
-  ): APIResponse<{ category: string; confidence: number }> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("crop", crop);
-
-    return fetchFormDataHandler(`${API_BASE_URL}/detect-disease`, {
-      method: "POST",
-      body: formData,
-    });
+  assessment: {
+    generateQuestions: (jobRole: string, difficulty: string, experienceLevel: string) =>
+      fetchHandler(`${API_BASE_URL}/assessment/generate-questions`, {
+        method: "POST",
+        body: JSON.stringify({ jobRole, difficulty, experienceLevel }),
+      }),
+    submitAnswers: (assessmentId: string, answers: Record<string, number>) =>
+      fetchHandler(`${API_BASE_URL}/assessment/submit-answers`, {
+        method: "POST",
+        body: JSON.stringify({ assessmentId, answers }),
+      }),
   },
+
 };

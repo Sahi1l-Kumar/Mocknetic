@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Code Practice App",
-  description: "Practice coding with our interactive platform",
+  title: "Mocknetic",
+  description: "AI-Powered Interview Preparation Platform",
 };
 
 const RootLayout = async ({

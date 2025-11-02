@@ -33,3 +33,35 @@ interface Chat {
   createdAt: Date;
   updatedAt: Date;
 }
+
+interface Question {
+  id: string;
+  skill: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  difficulty: string;
+}
+
+interface Skill {
+  id: string;
+  name: string;
+  level: string;
+  icon: string;
+}
+
+interface AssessmentResult {
+  skillGaps: Array<{
+    skill: string;
+    currentLevel: string;
+    requiredLevel: string;
+    gap: number;
+  }>;
+  overallScore: number;
+  recommendations: Array<{
+    title: string;
+    description: string;
+    link: string;
+    skill: string;
+  }>;
+}
