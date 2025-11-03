@@ -28,7 +28,7 @@ export default function ResumeParserPage() {
   const [parseStatus, setParseStatus] = useState<"idle" | "success" | "error">(
     "idle"
   );
-  const [parsedText, setParsedText] = useState("");
+  const [parsedData, setParsedData] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   const getFileIconAndColor = (file: File) => {
@@ -59,11 +59,12 @@ export default function ResumeParserPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to upload file");
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload file");
       }
 
-      const parsedText = await response.text();
-      setParsedText(parsedText);
+      const data = await response.json();
+      setParsedData(data);
       setParseStatus("success");
       toast.success("Resume parsed and saved successfully!");
     } catch (error) {
@@ -90,7 +91,7 @@ export default function ResumeParserPage() {
     setUploadedFile(file);
     setParseStatus("idle");
     setErrorMessage("");
-    setParsedText("");
+    setParsedData(null);
     toast.success("File Uploaded", {
       description: `${file.name} has been uploaded successfully.`,
     });
@@ -220,12 +221,12 @@ export default function ResumeParserPage() {
             </div>
 
             <div>
-              <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 h-full">
+              <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 h-full max-h-[600px] overflow-y-auto">
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">
                   Parsed Information
                 </h3>
 
-                {!parsedText && parseStatus === "idle" && (
+                {!parsedData && parseStatus === "idle" && (
                   <p className="text-slate-500 text-center py-8">
                     Upload and parse a resume to see extracted information
                   </p>
@@ -237,11 +238,78 @@ export default function ResumeParserPage() {
                   </div>
                 )}
 
-                {parsedText && (
-                  <div className="bg-white rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed font-mono">
-                      {parsedText}
-                    </p>
+                {parsedData && (
+                  <div className="space-y-4">
+                    {parsedData.name && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">
+                          Name
+                        </p>
+                        <p className="text-sm text-slate-700">
+                          {parsedData.name}
+                        </p>
+                      </div>
+                    )}
+                    {parsedData.email && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">
+                          Email
+                        </p>
+                        <p className="text-sm text-slate-700">
+                          {parsedData.email}
+                        </p>
+                      </div>
+                    )}
+                    {parsedData.phone && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">
+                          Phone
+                        </p>
+                        <p className="text-sm text-slate-700">
+                          {parsedData.phone}
+                        </p>
+                      </div>
+                    )}
+                    {parsedData.skills?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">
+                          Skills
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {parsedData.skills.map(
+                            (skill: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
+                              >
+                                {skill}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {parsedData.experience?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">
+                          Experience
+                        </p>
+                        <div className="space-y-2 mt-2">
+                          {parsedData.experience.map(
+                            (exp: any, idx: number) => (
+                              <div key={idx} className="text-xs text-slate-600">
+                                <p className="font-semibold">
+                                  {exp.title} at {exp.company}
+                                </p>
+                                <p className="text-slate-500">
+                                  {exp.startDate} - {exp.endDate}
+                                </p>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

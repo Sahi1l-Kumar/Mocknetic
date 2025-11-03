@@ -24,6 +24,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const [transcript, setTranscript] = useState<string>("");
   const [qaHistory, setQaHistory] = useState<QAHistory[]>([]);
   const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [recordingStatus, setRecordingStatus] = useState<string>("idle");
   const [questionsAnswered, setQuestionsAnswered] = useState<number>(0);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
@@ -40,7 +41,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const PYTHON_API =
     process.env.NEXT_PUBLIC_PYTHON_API || "http://localhost:5000";
 
-  // Initialize audio/video streams and media recorder
   const initializeAudio = async () => {
     if (audioStreamRef.current) return;
     try {
@@ -78,6 +78,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         chunksRef.current = [];
         if (blob.size === 0) {
           setRecordingStatus("idle");
+          setIsTranscribing(false);
           return;
         }
         const reader = new FileReader();
@@ -89,7 +90,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
             is_final: true,
             timestamp: Date.now(),
           });
-          setRecordingStatus("waiting");
+          setRecordingStatus("processing");
         };
         reader.readAsDataURL(blob);
       };
@@ -99,7 +100,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     }
   };
 
-  // Start recording automatically after TTS playback ends
   const startRecording = async () => {
     await initializeAudio();
     if (
@@ -109,11 +109,11 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       chunksRef.current = [];
       mediaRecorderRef.current.start();
       setIsRecording(true);
+      setIsTranscribing(false);
       setRecordingStatus("recording");
     }
   };
 
-  // Only manual stop recording by user
   const stopRecording = () => {
     if (
       mediaRecorderRef.current &&
@@ -121,7 +121,13 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     ) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsTranscribing(true);
       setRecordingStatus("processing");
+
+      // Keep button disabled for 3 seconds minimum
+      setTimeout(() => {
+        setIsTranscribing(false);
+      }, 3000);
     }
   };
 
@@ -129,7 +135,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     if (isRecording) stopRecording();
   };
 
-  // Next Question button stops recording if ongoing and emits skip event
   const handleNextQuestion = () => {
     if (isRecording) stopRecording();
     setTranscript("");
@@ -141,7 +146,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     });
   };
 
-  // Play TTS at 1.25x speed and auto start recording afterwards
   const playAndAutoListen = async (
     tts_url: string,
     audioElementsToCleanup: HTMLAudioElement[]
@@ -170,7 +174,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         audio.src = "";
         const index = audioElementsToCleanup.indexOf(audio);
         if (index > -1) audioElementsToCleanup.splice(index, 1);
-
         setTimeout(() => {
           startRecording();
         }, 500);
@@ -183,7 +186,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         audio.src = "";
         const index = audioElementsToCleanup.indexOf(audio);
         if (index > -1) audioElementsToCleanup.splice(index, 1);
-
         setTimeout(() => {
           startRecording();
         }, 500);
@@ -269,10 +271,12 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       setIsSocketConnected(true);
       socket.emit("join_interview", { session_id: sessionId });
     }
+
     function onDisconnect() {
       if (!isMounted) return;
       setIsSocketConnected(false);
     }
+
     function onReceiveQuestion(data: Question) {
       if (!isMounted) return;
       audioElementsToCleanup.forEach((audio) => {
@@ -286,24 +290,38 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       if (data.auto_listen && data.tts_url)
         playAndAutoListen(data.tts_url, audioElementsToCleanup);
     }
-    function onTranscriptReceived(data: { transcript: string }) {
+
+    function onTranscriptReceived(data: {
+      transcript: string;
+      status?: string;
+    }) {
       if (!isMounted) return;
+
+      // Only add VALID transcripts to history
+      // Backend sends status: "invalid_answer" for clarification questions
+      if (data.status !== "invalid_answer") {
+        setQaHistory((prev) => [
+          ...prev,
+          {
+            question: currentQuestion?.question || "",
+            answer: data.transcript,
+            questionNumber: currentQuestion?.question_number || 0,
+          },
+        ]);
+        setQuestionsAnswered((prev) => prev + 1);
+      }
+
+      // Always show transcript on UI, but don't add to history if invalid
       setTranscript(data.transcript);
-      setQaHistory((prev) => [
-        ...prev,
-        {
-          question: currentQuestion?.question || "",
-          answer: data.transcript,
-          questionNumber: currentQuestion?.question_number || 0,
-        },
-      ]);
-      setQuestionsAnswered((prev) => prev + 1);
       setRecordingStatus("waiting_for_next");
+      setIsTranscribing(false);
     }
+
     function onRecordingStatus(data: { status: string }) {
       if (!isMounted) return;
       setRecordingStatus(data.status);
     }
+
     function onInterviewComplete() {
       if (!isMounted) return;
       setRecordingStatus("complete");
@@ -313,21 +331,22 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         if (isMounted) handleEndInterview();
       }, 1000);
     }
+
     function onError(data: { message: string }) {
       if (!isMounted) return;
       setRecordingStatus("error");
       toast.error(data.message);
     }
 
-    if (socket.connected) onConnect();
+    if (socket?.connected) onConnect();
 
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("receive_question", onReceiveQuestion);
-    socket.on("transcript_received", onTranscriptReceived);
-    socket.on("recording_status", onRecordingStatus);
-    socket.on("interview_complete", onInterviewComplete);
-    socket.on("error", onError);
+    socket?.on("connect", onConnect);
+    socket?.on("disconnect", onDisconnect);
+    socket?.on("receive_question", onReceiveQuestion);
+    socket?.on("transcript_received", onTranscriptReceived);
+    socket?.on("recording_status", onRecordingStatus);
+    socket?.on("interview_complete", onInterviewComplete);
+    socket?.on("error", onError);
 
     return () => {
       isMounted = false;
@@ -336,13 +355,13 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         audio.src = "";
       });
       audioElementsToCleanup = [];
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("receive_question", onReceiveQuestion);
-      socket.off("transcript_received", onTranscriptReceived);
-      socket.off("recording_status", onRecordingStatus);
-      socket.off("interview_complete", onInterviewComplete);
-      socket.off("error", onError);
+      socket?.off("connect", onConnect);
+      socket?.off("disconnect", onDisconnect);
+      socket?.off("receive_question", onReceiveQuestion);
+      socket?.off("transcript_received", onTranscriptReceived);
+      socket?.off("recording_status", onRecordingStatus);
+      socket?.off("interview_complete", onInterviewComplete);
+      socket?.off("error", onError);
     };
   }, [sessionId]);
 
@@ -388,7 +407,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Video portion */}
           <div className="lg:col-span-1 space-y-3">
             <div className="bg-slate-900 rounded-lg aspect-video flex items-center justify-center overflow-hidden relative shadow-md">
               {cameraEnabled ? (
@@ -432,7 +450,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
             <p className="text-xs text-slate-600 text-center">Your Camera</p>
           </div>
 
-          {/* Question portion */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm h-80 overflow-y-auto space-y-3">
               <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
@@ -440,7 +457,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                   Question {currentQuestion?.question_number || "—"}
                 </div>
               </div>
-
               {currentQuestion ? (
                 <div className="text-lg text-slate-800 leading-relaxed font-medium">
                   "{currentQuestion.question}"
@@ -457,14 +473,14 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
             >
               {recordingStatus === "recording" && (
                 <>
-                  <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>{" "}
+                  <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
                   <span>Recording...</span>
                 </>
               )}
               {recordingStatus === "processing" && (
                 <>
-                  <span className="animate-spin">⏳</span>{" "}
-                  <span>Processing...</span>
+                  <span className="animate-spin">⏳</span>
+                  <span>Transcribing...</span>
                 </>
               )}
               {recordingStatus === "waiting" && (
@@ -474,7 +490,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
               )}
               {recordingStatus === "waiting_for_next" && (
                 <>
-                  <span className="animate-spin">✨</span>{" "}
+                  <span className="animate-spin">✨</span>
                   <span>Generating...</span>
                 </>
               )}
@@ -494,9 +510,23 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                 </>
               )}
             </div>
+
+            {/* AI Context Indicator - Shows after 2 VALID answers */}
+            {qaHistory.length > 1 && (
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-purple-700">
+                    🧠 AI Context Active
+                  </span>
+                  <span className="text-xs text-purple-600">
+                    Analyzing {qaHistory.length} answer
+                    {qaHistory.length !== 1 ? "s" : ""} for deeper questions
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Transcript and Buttons */}
           <div className="lg:col-span-2 space-y-2">
             <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-6 rounded-lg h-80 overflow-y-auto shadow-sm">
               <h3 className="font-bold text-green-700 mb-4 text-lg sticky top-0 bg-gradient-to-r from-green-50 to-green-100 pb-2">
@@ -536,17 +566,20 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
 
               <button
                 onClick={toggleRecording}
-                disabled={isEnding || !isRecording}
-                className="py-3 px-6 font-semibold rounded-lg shadow-md text-white transition-colors bg-red-600 hover:bg-red-700"
+                disabled={isEnding || !isRecording || isTranscribing}
+                className={`py-3 px-6 font-semibold rounded-lg shadow-md text-white transition-colors ${
+                  isTranscribing
+                    ? "bg-amber-600 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                }`}
               >
                 <Mic className="inline-block w-5 h-5 mr-2" />
-                Stop Recording
+                {isTranscribing ? "Transcribing..." : "Stop Recording"}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Q&A History */}
         {qaHistory.length > 0 && (
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">

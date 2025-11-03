@@ -7,19 +7,19 @@ import Resume from "@/database/resume.model";
 import Profile from "@/database/profile.model";
 import User from "@/database/user.model";
 import dbConnect from "@/lib/mongoose";
-import { google } from "@ai-sdk/google";
+import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 
-async function parseResumeWithGemini(text: string): Promise<any> {
+async function parseResumeWithGroq(text: string): Promise<any> {
   try {
     const { text: response } = await generateText({
-      model: google("gemini-2.0-flash-exp"),
-      prompt: `Parse this resume text and extract structured data. Return ONLY valid JSON with no markdown formatting or explanations.
+      model: groq("llama-3.1-8b-instant"),
+      prompt: `Parse this resume and return ONLY valid JSON with no markdown or extra text.
 
 Resume Text:
 ${text}
 
-Return this exact JSON structure (use empty arrays if not found, use null for missing optional fields):
+Return exactly this JSON structure (use empty arrays if not found, null for missing optional fields):
 {
   "name": "string",
   "email": "string",
@@ -32,8 +32,8 @@ Return this exact JSON structure (use empty arrays if not found, use null for mi
       "title": "string",
       "company": "string",
       "location": "string",
-      "startDate": "string (MM/YYYY format)",
-      "endDate": "string (MM/YYYY or 'Present')",
+      "startDate": "string (MM/YYYY)",
+      "endDate": "string (MM/YYYY or Present)",
       "description": "string",
       "current": boolean
     }
@@ -44,7 +44,7 @@ Return this exact JSON structure (use empty arrays if not found, use null for mi
       "institution": "string",
       "location": "string",
       "startDate": "string (YYYY)",
-      "endDate": "string (YYYY or 'Present')",
+      "endDate": "string (YYYY or Present)",
       "gpa": "string or null"
     }
   ],
@@ -65,21 +65,20 @@ Return this exact JSON structure (use empty arrays if not found, use null for mi
   ]
 }
 
-Important: Return ONLY the JSON object, nothing else.`,
-      system:
-        "You are a resume parsing expert. Extract all information from resumes accurately and return only valid JSON. Be precise with dates and information.",
+IMPORTANT: Return ONLY JSON, nothing else.`,
+      system: "You are a resume parsing expert. Extract all resume information accurately and return only valid JSON with no explanations.",
     });
 
-    // Extract JSON from response (in case it has extra text)
+    // Extract JSON from response
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error("Could not extract JSON from Gemini response:", response);
-      throw new Error("Could not extract JSON from Gemini response");
+      console.error("Could not extract JSON from Groq response:", response);
+      throw new Error("Could not extract JSON from Groq response");
     }
 
     return JSON.parse(jsonMatch[0]);
   } catch (error) {
-    console.error("Gemini parsing error:", error);
+    console.error("Groq parsing error:", error);
     throw error;
   }
 }
@@ -132,8 +131,8 @@ export async function POST(req: NextRequest) {
       pdfParser.loadPDF(tempFilePath);
     });
 
-    // Parse with Gemini AI
-    const parsedData = await parseResumeWithGemini(parsedText);
+    // Parse with Groq AI (no rate limiting issues!)
+    const parsedData = await parseResumeWithGroq(parsedText);
 
     // Save to Resume collection
     const resume = await Resume.create({
@@ -172,9 +171,10 @@ export async function POST(req: NextRequest) {
 
     await fs.unlink(tempFilePath);
 
-    const response = new NextResponse(parsedText);
+    const response = new NextResponse(JSON.stringify(parsedData));
     response.headers.set("FileName", fileName);
     response.headers.set("ResumeId", resume._id.toString());
+    response.headers.set("Content-Type", "application/json");
     return response;
   } catch (error) {
     console.error("Resume parsing error:", error);
