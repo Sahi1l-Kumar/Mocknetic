@@ -14,6 +14,7 @@ import { SignInSchema, SignUpSchema } from "../validations";
 
 import { signOut } from "@/auth";
 import ROUTES from "@/constants/routes";
+import { ActionResponse, ErrorResponse } from "@/types/global";
 
 export async function signUpWithCredentials(
   params: AuthCredentials

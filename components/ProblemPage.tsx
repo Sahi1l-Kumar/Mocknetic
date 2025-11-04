@@ -1,5 +1,7 @@
 "use client";
+
 import React, { useState } from "react";
+import { useParams } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -17,79 +19,50 @@ import {
   GripVertical,
 } from "lucide-react";
 import CodeEditor from "@/components/CodeEditor";
+import { PROBLEM_DATA } from "@/constants";
+import type { ProblemData } from "@/types/global";
 
-const PROBLEM_DATA = {
-  id: 1,
-  title: "Two Sum",
-  difficulty: "Easy",
-  acceptance: "56.2%",
-  likes: 63900,
-  dislikes: 1500,
-  tags: ["Array", "Hash Table"],
-  companies: ["Amazon", "Apple", "Microsoft", "Google", "Facebook"],
-  description: `Given an array of integers <code>nums</code> and an integer <code>target</code>, return <em>indices of the two numbers such that they add up to <code>target</code></em>.
+export default function ProblemPage(): React.ReactNode {
+  const params = useParams();
+  const id = params.id as string;
 
-You may assume that each input would have <strong><em>exactly one solution</em></strong>, and you may not use the <em>same</em> element twice.
-
-You can return the answer in any order.`,
-  examples: [
-    {
-      input: `nums = [2,7,11,15], target = 9`,
-      output: `[0,1]`,
-      explanation: `Because nums[0] + nums[1] == 9, we return [0, 1].`,
-    },
-    {
-      input: `nums = [3,2,4], target = 6`,
-      output: `[1,2]`,
-      explanation: `Because nums[1] + nums[2] == 6, we return [1, 2].`,
-    },
-    {
-      input: `nums = [3,3], target = 6`,
-      output: `[0,1]`,
-      explanation: `Because nums[0] + nums[1] == 6, we return [0, 1].`,
-    },
-  ],
-  constraints: [
-    `2 ≤ nums.length ≤ 10⁴`,
-    `-10⁹ ≤ nums[i] ≤ 10⁹`,
-    `-10⁹ ≤ target ≤ 10⁹`,
-    `Only one valid answer exists.`,
-  ],
-};
-
-const TEST_CASES = [
-  {
-    case: "Case 1",
-    input: { nums: "[2,7,11,15]", target: "9" },
-    expectedOutput: "[0,1]",
-  },
-  {
-    case: "Case 2",
-    input: { nums: "[3,2,4]", target: "6" },
-    expectedOutput: "[1,2]",
-  },
-  {
-    case: "Case 3",
-    input: { nums: "[3,3]", target: "6" },
-    expectedOutput: "[0,1]",
-  },
-];
-
-interface ProblemPageProps {
-  problemId?: string;
-}
-
-export default function ProblemPage({}: ProblemPageProps) {
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Get problem data from constants
+  const problem: ProblemData | undefined =
+    PROBLEM_DATA[parseInt(id) as keyof typeof PROBLEM_DATA];
+
+  if (!problem) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            Problem Not Found
+          </h2>
+          <p className="text-muted-foreground">
+            The problem you&apos;re looking for doesn&apos;t exist.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Convert testCases to the format expected by CodeEditor
+  const testCases = problem.testCases.map((tc, idx) => ({
+    case: `Case ${idx + 1}`,
+    input: tc.input,
+    expectedOutput: tc.expectedOutput,
+  }));
+
   if (isFullscreen) {
     return (
       <div className="h-screen">
         <CodeEditor
-          testCases={TEST_CASES}
+          testCases={testCases}
+          problemId={problem.id}
           onFullscreenToggle={setIsFullscreen}
           isFullscreen={isFullscreen}
         />
@@ -113,7 +86,7 @@ export default function ProblemPage({}: ProblemPageProps) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <h1 className="text-2xl font-bold text-foreground">
-                    {PROBLEM_DATA.id}. {PROBLEM_DATA.title}
+                    {problem.id}. {problem.title}
                   </h1>
                 </div>
 
@@ -122,13 +95,11 @@ export default function ProblemPage({}: ProblemPageProps) {
                     variant="outline"
                     className="text-green-600 dark:text-green-400 border-green-600 dark:border-green-400"
                   >
-                    {PROBLEM_DATA.difficulty}
+                    Easy
                   </Badge>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Users size={16} />
-                    <span className="text-sm">
-                      {PROBLEM_DATA.acceptance} acceptance
-                    </span>
+                    <span className="text-sm">50%+ acceptance</span>
                   </div>
                 </div>
 
@@ -141,7 +112,7 @@ export default function ProblemPage({}: ProblemPageProps) {
                     className={`${liked ? "text-green-600" : "text-muted-foreground"}`}
                   >
                     <ThumbsUp size={16} className="mr-1" />
-                    {PROBLEM_DATA.likes}
+                    {liked ? "Liked" : "Like"}
                   </Button>
 
                   <Button
@@ -151,7 +122,7 @@ export default function ProblemPage({}: ProblemPageProps) {
                     className={`${disliked ? "text-red-600" : "text-muted-foreground"}`}
                   >
                     <ThumbsDown size={16} className="mr-1" />
-                    {PROBLEM_DATA.dislikes}
+                    {disliked ? "Disliked" : "Dislike"}
                   </Button>
 
                   <Button
@@ -160,7 +131,12 @@ export default function ProblemPage({}: ProblemPageProps) {
                     onClick={() => setBookmarked(!bookmarked)}
                     className={`${bookmarked ? "text-yellow-600" : "text-muted-foreground"}`}
                   >
-                    <Star size={16} className="mr-1" />
+                    <Star
+                      size={16}
+                      className="mr-1"
+                      fill={bookmarked ? "currentColor" : "none"}
+                    />
+                    {bookmarked ? "Bookmarked" : "Bookmark"}
                   </Button>
 
                   <Button
@@ -191,14 +167,14 @@ export default function ProblemPage({}: ProblemPageProps) {
                     <div
                       className="text-sm text-foreground prose prose-sm dark:prose-invert max-w-none"
                       dangerouslySetInnerHTML={{
-                        __html: PROBLEM_DATA.description,
+                        __html: problem.description,
                       }}
                     />
                   </div>
 
                   {/* Examples */}
                   <div className="space-y-4">
-                    {PROBLEM_DATA.examples.map((example, index) => (
+                    {problem.examples.map((example, index) => (
                       <Card key={index}>
                         <CardContent className="p-4">
                           <h4 className="font-medium text-foreground mb-2">
@@ -241,7 +217,7 @@ export default function ProblemPage({}: ProblemPageProps) {
                       Constraints:
                     </h4>
                     <ul className="space-y-1">
-                      {PROBLEM_DATA.constraints.map((constraint, index) => (
+                      {problem.constraints.map((constraint, index) => (
                         <li
                           key={index}
                           className="text-sm text-muted-foreground font-mono"
@@ -252,40 +228,19 @@ export default function ProblemPage({}: ProblemPageProps) {
                     </ul>
                   </div>
 
-                  {/* Tags & Companies */}
+                  {/* Tags */}
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-medium text-foreground mb-2">
                         Related Topics:
                       </h4>
                       <div className="flex gap-2">
-                        {PROBLEM_DATA.tags.map((tag) => (
-                          <Badge key={tag} variant="secondary">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium text-foreground mb-2">
-                        Companies:
-                      </h4>
-                      <div className="flex gap-2 flex-wrap">
-                        {PROBLEM_DATA.companies.slice(0, 3).map((company) => (
-                          <Badge
-                            key={company}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {company}
-                          </Badge>
-                        ))}
-                        {PROBLEM_DATA.companies.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{PROBLEM_DATA.companies.length - 3} more
-                          </Badge>
-                        )}
+                        {problem.templates &&
+                          Object.keys(problem.templates).map((tag) => (
+                            <Badge key={tag} variant="secondary">
+                              {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                            </Badge>
+                          ))}
                       </div>
                     </div>
                   </div>
@@ -331,9 +286,10 @@ export default function ProblemPage({}: ProblemPageProps) {
         </PanelResizeHandle>
 
         {/* Right Panel - Code Editor */}
-        <Panel minSize={30}>
+        <Panel minSize={30} defaultSize={50}>
           <CodeEditor
-            testCases={TEST_CASES}
+            testCases={testCases}
+            problemId={problem.id}
             onFullscreenToggle={setIsFullscreen}
             isFullscreen={isFullscreen}
           />

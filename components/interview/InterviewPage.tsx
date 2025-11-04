@@ -237,7 +237,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // NEW: Fetch feedback via HTTP GET endpoint
   const fetchFeedback = async () => {
     try {
       console.log(`📊 Fetching feedback for session: ${sessionId}`);
@@ -274,7 +273,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
 
     toast.loading("Generating feedback...", { id: "feedback" });
 
-    // Call HTTP endpoint instead of socket
     fetchFeedback();
   };
 
@@ -344,17 +342,18 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       setIsTranscribing(false);
     }
 
-    function onMaxQuestionsReached(data: {
+    function onInterviewComplete(data: {
       message: string;
       total_questions: number;
       total_answers: number;
       max_questions: number;
     }) {
       if (!isMounted) return;
-      console.log("🎉 Max questions reached");
+      console.log("✅ Interview complete received from backend");
       setIsComplete(true);
       setRecordingStatus("complete");
-      setMaxQuestions(data.max_questions);
+      setCurrentQuestion(null);
+      setIsGeneratingFeedback(false);
       toast.success(data.message);
     }
 
@@ -381,7 +380,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     socket?.on("join_success", onJoinSuccess);
     socket?.on("receive_question", onReceiveQuestion);
     socket?.on("transcript_received", onTranscriptReceived);
-    socket?.on("max_questions_reached", onMaxQuestionsReached);
+    socket?.on("interview_complete", onInterviewComplete);
     socket?.on("recording_status", onRecordingStatus);
     socket?.on("error", onError);
 
@@ -397,7 +396,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       socket?.off("join_success", onJoinSuccess);
       socket?.off("receive_question", onReceiveQuestion);
       socket?.off("transcript_received", onTranscriptReceived);
-      socket?.off("max_questions_reached", onMaxQuestionsReached);
+      socket?.off("interview_complete", onInterviewComplete);
       socket?.off("recording_status", onRecordingStatus);
       socket?.off("error", onError);
     };

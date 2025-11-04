@@ -1,3 +1,5 @@
+import { ProblemData } from "@/types/global";
+
 export const PROBLEM_TAGS = [
   { name: "All Topics", count: 3652, active: true },
   {
@@ -50,354 +52,24 @@ export const SAMPLE_PROBLEMS = [
     id: 1,
     title: "Two Sum",
     difficulty: "Easy",
-    acceptance: "56.2%",
+    acceptance: "50.3%",
     frequency: "Very High",
     tags: ["Array", "Hash Table"],
     solved: true,
     premium: false,
   },
   {
-    id: 2,
-    title: "Add Two Numbers",
-    difficulty: "Medium",
-    acceptance: "46.8%",
-    frequency: "High",
-    tags: ["Linked List", "Math", "Recursion"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 3,
-    title: "Longest Substring Without Repeating Characters",
-    difficulty: "Medium",
-    acceptance: "37.4%",
-    frequency: "Very High",
-    tags: ["Hash Table", "String", "Sliding Window"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 4,
-    title: "Median of Two Sorted Arrays",
-    difficulty: "Hard",
-    acceptance: "44.5%",
-    frequency: "Medium",
-    tags: ["Array", "Binary Search", "Divide and Conquer"],
-    solved: false,
-    premium: true,
-  },
-  {
-    id: 5,
-    title: "Container With Most Water",
-    difficulty: "Medium",
-    acceptance: "54.7%",
-    frequency: "High",
-    tags: ["Array", "Two Pointers"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 6,
-    title: "3Sum",
-    difficulty: "Medium",
-    acceptance: "32.1%",
-    frequency: "Very High",
-    tags: ["Array", "Two Pointers", "Sorting"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 7,
-    title: "Reverse Integer",
-    difficulty: "Medium",
-    acceptance: "25.8%",
-    frequency: "Medium",
-    tags: ["Math"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 8,
-    title: "String to Integer (atoi)",
-    difficulty: "Medium",
-    acceptance: "16.4%",
-    frequency: "Low",
-    tags: ["String"],
-    solved: false,
-    premium: false,
-  },
-  {
     id: 9,
     title: "Palindrome Number",
     difficulty: "Easy",
-    acceptance: "51.8%",
+    acceptance: "52.4%",
     frequency: "High",
     tags: ["Math"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 10,
-    title: "Regular Expression Matching",
-    difficulty: "Hard",
-    acceptance: "27.9%",
-    frequency: "Medium",
-    tags: ["String", "Dynamic Programming", "Recursion"],
     solved: false,
     premium: false,
-  },
-  {
-    id: 11,
-    title: "Container With Most Water",
-    difficulty: "Medium",
-    acceptance: "54.7%",
-    frequency: "High",
-    tags: ["Array", "Two Pointers"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 12,
-    title: "Integer to Roman",
-    difficulty: "Medium",
-    acceptance: "59.1%",
-    frequency: "Low",
-    tags: ["Hash Table", "Math", "String"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 13,
-    title: "Roman to Integer",
-    difficulty: "Easy",
-    acceptance: "58.4%",
-    frequency: "Medium",
-    tags: ["Hash Table", "Math", "String"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 14,
-    title: "Longest Common Prefix",
-    difficulty: "Easy",
-    acceptance: "40.1%",
-    frequency: "High",
-    tags: ["String", "Trie"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 15,
-    title: "3Sum",
-    difficulty: "Medium",
-    acceptance: "32.1%",
-    frequency: "Very High",
-    tags: ["Array", "Two Pointers", "Sorting"],
-    solved: true,
-    premium: true,
-  },
-  {
-    id: 16,
-    title: "3Sum Closest",
-    difficulty: "Medium",
-    acceptance: "46.2%",
-    frequency: "Medium",
-    tags: ["Array", "Two Pointers", "Sorting"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 17,
-    title: "Letter Combinations of a Phone Number",
-    difficulty: "Medium",
-    acceptance: "57.2%",
-    frequency: "High",
-    tags: ["Hash Table", "String", "Backtracking"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 18,
-    title: "4Sum",
-    difficulty: "Medium",
-    acceptance: "35.8%",
-    frequency: "Medium",
-    tags: ["Array", "Two Pointers", "Sorting"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 19,
-    title: "Remove Nth Node From End of List",
-    difficulty: "Medium",
-    acceptance: "39.0%",
-    frequency: "High",
-    tags: ["Linked List", "Two Pointers"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 20,
-    title: "Valid Parentheses",
-    difficulty: "Easy",
-    acceptance: "40.7%",
-    frequency: "Very High",
-    tags: ["String", "Stack"],
-    solved: false,
-    premium: true,
-  },
-  // Adding 30+ more problems for scrolling test
-  {
-    id: 21,
-    title: "Merge Two Sorted Lists",
-    difficulty: "Easy",
-    acceptance: "61.1%",
-    frequency: "Very High",
-    tags: ["Linked List", "Recursion"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 22,
-    title: "Generate Parentheses",
-    difficulty: "Medium",
-    acceptance: "71.4%",
-    frequency: "High",
-    tags: ["String", "Dynamic Programming", "Backtracking"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 23,
-    title: "Merge k Sorted Lists",
-    difficulty: "Hard",
-    acceptance: "47.1%",
-    frequency: "High",
-    tags: ["Linked List", "Divide and Conquer", "Heap (Priority Queue)", "Merge Sort"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 24,
-    title: "Swap Nodes in Pairs",
-    difficulty: "Medium",
-    acceptance: "60.4%",
-    frequency: "Medium",
-    tags: ["Linked List", "Recursion"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 25,
-    title: "Reverse Nodes in k-Group",
-    difficulty: "Hard",
-    acceptance: "52.8%",
-    frequency: "Medium",
-    tags: ["Linked List", "Recursion"],
-    solved: true,
-    premium: true,
-  },
-  {
-    id: 26,
-    title: "Remove Duplicates from Sorted Array",
-    difficulty: "Easy",
-    acceptance: "51.2%",
-    frequency: "High",
-    tags: ["Array", "Two Pointers"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 27,
-    title: "Remove Element",
-    difficulty: "Easy",
-    acceptance: "52.0%",
-    frequency: "Low",
-    tags: ["Array", "Two Pointers"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 28,
-    title: "Find the Index of the First Occurrence in a String",
-    difficulty: "Easy",
-    acceptance: "37.8%",
-    frequency: "Medium",
-    tags: ["Two Pointers", "String", "String Matching"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 29,
-    title: "Divide Two Integers",
-    difficulty: "Medium",
-    acceptance: "17.5%",
-    frequency: "Low",
-    tags: ["Math", "Bit Manipulation"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 30,
-    title: "Substring with Concatenation of All Words",
-    difficulty: "Hard",
-    acceptance: "30.9%",
-    frequency: "Low",
-    tags: ["Hash Table", "String", "Sliding Window"],
-    solved: false,
-    premium: true,
-  },
-  {
-    id: 31,
-    title: "Next Permutation",
-    difficulty: "Medium",
-    acceptance: "37.0%",
-    frequency: "High",
-    tags: ["Array", "Two Pointers"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 32,
-    title: "Longest Valid Parentheses",
-    difficulty: "Hard",
-    acceptance: "32.7%",
-    frequency: "Medium",
-    tags: ["String", "Dynamic Programming", "Stack"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 33,
-    title: "Search in Rotated Sorted Array",
-    difficulty: "Medium",
-    acceptance: "38.9%",
-    frequency: "Very High",
-    tags: ["Array", "Binary Search"],
-    solved: true,
-    premium: false,
-  },
-  {
-    id: 34,
-    title: "Find First and Last Position of Element in Sorted Array",
-    difficulty: "Medium",
-    acceptance: "42.2%",
-    frequency: "High",
-    tags: ["Array", "Binary Search"],
-    solved: false,
-    premium: false,
-  },
-  {
-    id: 35,
-    title: "Search Insert Position",
-    difficulty: "Easy",
-    acceptance: "42.8%",
-    frequency: "High",
-    tags: ["Array", "Binary Search"],
-    solved: true,
-    premium: true,
   },
 ];
+
 export const LANGUAGE_IDS = {
   javascript: 63,
   python: 71,
@@ -418,7 +90,7 @@ export const STATUS_IDS = {
   1: "In Queue",
   2: "Processing",
   3: "Accepted",
-  4: "Wrong Answer", 
+  4: "Wrong Answer",
   5: "Time Limit Exceeded",
   6: "Compilation Error",
   7: "Runtime Error (SIGSEGV)",
@@ -428,120 +100,54 @@ export const STATUS_IDS = {
   11: "Runtime Error (NZEC)",
   12: "Runtime Error (Other)",
   13: "Internal Error",
-  14: "Exec Format Error"
+  14: "Exec Format Error",
 } as const;
-
-export type Language = keyof typeof LANGUAGE_IDS;
-export type StatusId = keyof typeof STATUS_IDS;
-
-export interface TestCase {
-  input: string;
-  expectedOutput: string;
-}
-
-export interface ExecutionResult {
-  status: string;
-  statusId: number;
-  stdout: string | null;
-  stderr: string | null;
-  compile_output: string | null;
-  time: string | null;
-  memory: number | null;
-  exit_code: number | null;
-  exit_signal: number | null;
-  message: string | null;
-  created_at: string;
-  finished_at: string | null;
-  testResults?: TestResult[];
-}
-
-export interface TestResult {
-  input: string;
-  expectedOutput: string;
-  actualOutput: string | null;
-  passed: boolean;
-  status: string;
-  time: string | null;
-  memory: number | null;
-  error: string | null;
-}
-
-export interface ProblemData {
-  id: number;
-  title: string;
-  description: string;
-  examples: {
-    input: string;
-    output: string;
-    explanation: string;
-  }[];
-  constraints: string[];
-  testCases: {
-    case: string;
-    input: {
-      nums: string;
-      target: string;
-    };
-    expectedOutput: string;
-  }[];
-  templates: {
-    [language: string]: string;
-  };
-}
 
 export const PROBLEM_DATA: { [key: number]: ProblemData } = {
   1: {
     id: 1,
     title: "Two Sum",
-    description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.",
+    description: `Given an array of integers <code>nums</code> and an integer <code>target</code>, return <em>the indices of the two numbers such that they add up to</em> <code>target</code>.
+
+You may assume that each input would have <strong>exactly one solution</strong>, and you may not use the <em>same</em> element twice.
+
+You can return the answer in any order.`,
     examples: [
       {
         input: "nums = [2,7,11,15], target = 9",
         output: "[0,1]",
-        explanation: "Because nums[0] + nums[1] == 9, we return [0, 1]."
+        explanation: "Because nums[0] + nums[1] == 9, we return [0, 1].",
       },
       {
         input: "nums = [3,2,4], target = 6",
         output: "[1,2]",
-        explanation: "Because nums[1] + nums[2] == 6, we return [1, 2]."
+        explanation: "Because nums[1] + nums[2] == 6, we return [1, 2].",
       },
       {
         input: "nums = [3,3], target = 6",
         output: "[0,1]",
-        explanation: "Because nums[0] + nums[1] == 6, we return [0, 1]."
-      }
+        explanation: "Because nums[0] + nums[1] == 6, we return [0, 1].",
+      },
     ],
     constraints: [
-      "2 <= nums.length <= 10^4",
-      "-10^9 <= nums[i] <= 10^9",
-      "-10^9 <= target <= 10^9",
-      "Only one valid answer exists."
+      "2 ≤ nums.length ≤ 10⁴",
+      "-10⁹ ≤ nums[i] ≤ 10⁹",
+      "-10⁹ ≤ target ≤ 10⁹",
+      "Only one valid answer exists.",
     ],
     testCases: [
       {
-        case: "Case 1",
-        input: {
-          nums: "[2,7,11,15]",
-          target: "9"
-        },
-        expectedOutput: "[0,1]"
+        input: "[2,7,11,15]\n9",
+        expectedOutput: "[0,1]",
       },
       {
-        case: "Case 2",
-        input: {
-          nums: "[3,2,4]",
-          target: "6"
-        },
-        expectedOutput: "[1,2]"
+        input: "[3,2,4]\n6",
+        expectedOutput: "[1,2]",
       },
       {
-        case: "Case 3",
-        input: {
-          nums: "[3,3]",
-          target: "6"
-        },
-        expectedOutput: "[0,1]"
-      }
+        input: "[3,3]\n6",
+        expectedOutput: "[0,1]",
+      },
     ],
     templates: {
       javascript: `/**
@@ -552,20 +158,91 @@ export const PROBLEM_DATA: { [key: number]: ProblemData } = {
 var twoSum = function(nums, target) {
     
 };`,
+
       python: `class Solution:
     def twoSum(self, nums: List[int], target: int) -> List[int]:
-        `,
+        pass`,
+      
       java: `class Solution {
     public int[] twoSum(int[] nums, int target) {
         
     }
 }`,
+
       cpp: `class Solution {
 public:
     vector<int> twoSum(vector<int>& nums, int target) {
         
     }
-};`
+};`,
+    },
+  },
+  9: {
+    id: 9,
+    title: "Palindrome Number",
+    description: `Given an integer <code>x</code>, return <code>true</code> <em>if</em> <code>x</code> <em>is palindrome integer</em>.
+
+An integer is a <strong>palindrome</strong> when it reads the same backward as forward.
+<ul>
+<li>For example, <code>121</code> is a palindrome while <code>123</code> is not.</li>
+</ul>`,
+    examples: [
+      {
+        input: "x = 121",
+        output: "true",
+        explanation: "121 reads as 121 from left to right and from right to left.",
+      },
+      {
+        input: "x = -121",
+        output: "false",
+        explanation: "From left to right, it reads -121. From right to left, it becomes 121-. Therefore it is not a palindrome.",
+      },
+      {
+        input: "x = 10",
+        output: "false",
+        explanation: "Reads 01 from right to left. Therefore it is not a palindrome.",
+      },
+    ],
+    constraints: ["-2³¹ ≤ x ≤ 2³¹ - 1"],
+    testCases: [
+      {
+        input: "121",
+        expectedOutput: "true",
+      },
+      {
+        input: "-121",
+        expectedOutput: "false",
+      },
+      {
+        input: "10",
+        expectedOutput: "false",
+      },
+    ],
+    templates: {
+      javascript: `/**
+ * @param {number} x
+ * @return {boolean}
+ */
+var isPalindrome = function(x) {
+    
+};`,
+
+      python: `class Solution:
+    def isPalindrome(self, x: int) -> bool:
+        pass`,
+
+      java: `class Solution {
+    public boolean isPalindrome(int x) {
+        
     }
-  }
+}`,
+
+      cpp: `class Solution {
+public:
+    bool isPalindrome(int x) {
+        
+    }
+};`,
+    },
+  },
 };

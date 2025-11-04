@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import {
@@ -18,107 +19,94 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { judge0Service } from "@/lib/judge0";
-
-const LANGUAGES = [
-  {
-    label: "JavaScript",
-    value: "javascript",
-    icon: "🟨",
-    template:
-      "/**\n * @param {number[]} nums\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function(nums, target) {\n    \n};",
-  },
-  {
-    label: "Python",
-    value: "python",
-    icon: "🐍",
-    template:
-      "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        ",
-  },
-  {
-    label: "Java",
-    value: "java",
-    icon: "☕",
-    template:
-      "class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        \n    }\n}",
-  },
-  {
-    label: "C++",
-    value: "cpp",
-    icon: "⚡",
-    template:
-      "class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};",
-  },
-];
+import { PROBLEM_DATA } from "@/constants";
+import type {
+  APIResponse,
+  ExecutionResult,
+  TestCase,
+  TestResult,
+} from "@/types/global";
 
 const FONT_SIZES = [12, 14, 16, 18, 20, 24];
 
-interface TestCase {
-  case: string;
-  input: {
-    nums: string;
-    target: string;
-  };
-  expectedOutput: string;
-}
-
-interface TestResult {
-  input: string;
-  expectedOutput: string;
-  actualOutput: string | null;
-  passed: boolean;
-  status: string;
-  time: string | null;
-  memory: number | null;
-  error: string | null;
-}
-
-interface ExecutionResult {
-  status: string;
-  statusId: number;
-  stdout: string | null;
-  stderr: string | null;
-  compile_output: string | null;
-  time: string | null;
-  memory: number | null;
-  testResults?: TestResult[];
+interface LanguageOption {
+  label: string;
+  value: string;
+  icon: string;
+  template: string;
 }
 
 interface Props {
   testCases: TestCase[];
+  problemId?: number;
   onFullscreenToggle?: (isFullscreen: boolean) => void;
   isFullscreen?: boolean;
 }
 
 export default function CodeEditor({
   testCases,
+  problemId = 1,
   onFullscreenToggle,
   isFullscreen,
 }: Props) {
-  const [language, setLanguage] = useState("javascript");
+  const [language, setLanguage] = useState<string>("javascript");
   const [theme, setTheme] = useState<"vs-dark" | "vs-light">("vs-dark");
-  const [code, setCode] = useState(LANGUAGES[0].template);
-  const [output, setOutput] = useState("");
-  const [isRunning, setIsRunning] = useState(false);
-  const [fontSize, setFontSize] = useState(16);
-  const [showSettings, setShowSettings] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [code, setCode] = useState<string>("");
+  const [output, setOutput] = useState<string>("");
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [fontSize, setFontSize] = useState<number>(16);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState("testcase");
+  const [activeTab, setActiveTab] = useState<string>("testcase");
   const [testResults, setTestResults] = useState<TestResult[]>([]);
-  const [currentResult, setCurrentResult] = useState<ExecutionResult | null>(
-    null
-  );
 
   const editorRef = useRef<any>(null);
   const testContentRef = useRef<HTMLDivElement>(null);
+
+  const currentProblem = PROBLEM_DATA[problemId as keyof typeof PROBLEM_DATA];
+
+  const LANGUAGES = React.useMemo<LanguageOption[]>(
+    () =>
+      currentProblem
+        ? Object.entries(currentProblem.templates || {}).map(
+            ([key, template]) => ({
+              label: key.charAt(0).toUpperCase() + key.slice(1),
+              value: key,
+              icon:
+                {
+                  javascript: "🟨",
+                  python: "🐍",
+                  java: "☕",
+                  cpp: "⚡",
+                  typescript: "📘",
+                  csharp: "#️⃣",
+                  go: "🐹",
+                  rust: "🦀",
+                  php: "🐘",
+                  ruby: "💎",
+                }[key as string] || "📝",
+              template: template as string,
+            })
+          )
+        : [],
+    [currentProblem]
+  );
+
+  useEffect(() => {
+    if (LANGUAGES.length > 0) {
+      const firstLang = LANGUAGES[0];
+      setLanguage(firstLang.value);
+      setCode(firstLang.template);
+    }
+  }, [problemId]);
 
   useEffect(() => {
     const selectedLang = LANGUAGES.find((lang) => lang.value === language);
     if (selectedLang) {
       setCode(selectedLang.template);
     }
-  }, [language]);
+  }, [language, LANGUAGES]);
 
   useEffect(() => {
     if (testContentRef.current) {
@@ -126,76 +114,76 @@ export default function CodeEditor({
     }
   }, [activeTab]);
 
-  // Format test case input for Judge0
-  const formatTestInput = (testCase: TestCase): string => {
-    try {
-      // For Two Sum problem, format as JSON-like input
-      const nums = testCase.input.nums;
-      const target = testCase.input.target;
-
-      if (language === "javascript") {
-        return `nums = ${nums}; target = ${target};`;
-      } else if (language === "python") {
-        return `nums = ${nums}\ntarget = ${target}`;
-      } else if (language === "java" || language === "cpp") {
-        return `${nums}\n${target}`;
-      }
-
-      return `${nums}\n${target}`;
-    } catch (error) {
-      return `${testCase.input.nums}\n${testCase.input.target}`;
-    }
-  };
-
-  // Wrap code with test execution logic
   const wrapCodeForExecution = (
     userCode: string,
     testCase: TestCase
   ): string => {
-    const nums = testCase.input.nums;
-    const target = testCase.input.target;
+    const { input } = testCase;
 
-    if (language === "javascript") {
-      return `
-${userCode}
+    switch (language) {
+      case "javascript":
+        if (problemId === 1) {
+          const [numsStr, targetStr] = input.split("\n");
+          return `${userCode}
 
-// Test execution
-const nums = ${nums};
-const target = ${target};
-const result = twoSum(nums, target);
-console.log(JSON.stringify(result));
-`;
-    } else if (language === "python") {
-      return `
-${userCode}
+const nums = ${numsStr};
+const target = ${targetStr};
+console.log(JSON.stringify(twoSum(nums, target)));`;
+        } else {
+          return `${userCode}
 
-# Test execution
-if __name__ == "__main__":
-    nums = ${nums}
-    target = ${target}
-    solution = Solution()
-    result = solution.twoSum(nums, target)
-    print(result)
-`;
-    } else if (language === "java") {
-      return `
-import java.util.*;
+const x = ${input};
+console.log(isPalindrome(x));`;
+        }
 
-${userCode}
+      case "python":
+        if (problemId === 1) {
+          const [numsStr, targetStr] = input.split("\n");
+          return `${userCode}
 
-public class Main {
+nums = ${numsStr}
+target = ${targetStr}
+solution = Solution()
+print(solution.twoSum(nums, target))`;
+        } else {
+          return `${userCode}
+
+x = ${input}
+solution = Solution()
+print(solution.isPalindrome(x))`;
+        }
+
+      case "java":
+        if (problemId === 1) {
+          const [numsStr, targetStr] = input.split("\n");
+          const numsArray = numsStr.slice(1, -1);
+          return `${userCode}
+
+class Main {
     public static void main(String[] args) {
-        Solution solution = new Solution();
-        int[] nums = {${nums.slice(1, -1)}};
-        int target = ${target};
-        int[] result = solution.twoSum(nums, target);
-        System.out.println(Arrays.toString(result));
+        Solution sol = new Solution();
+        int[] nums = {${numsArray}};
+        int target = ${targetStr};
+        int[] result = sol.twoSum(nums, target);
+        System.out.println("[" + result[0] + "," + result[1] + "]");
     }
-}
-`;
-    } else if (language === "cpp") {
-      return `
-#include <iostream>
+}`;
+        } else {
+          return `${userCode}
+
+class Main {
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        System.out.println(sol.isPalindrome(${input}));
+    }
+}`;
+        }
+
+      case "cpp":
+        if (problemId === 1) {
+          const [numsStr, targetStr] = input.split("\n");
+          const numsArray = numsStr.slice(1, -1);
+          return `#include <iostream>
 #include <vector>
 using namespace std;
 
@@ -203,208 +191,235 @@ ${userCode}
 
 int main() {
     Solution solution;
-    vector<int> nums = {${nums.slice(1, -1)}};
-    int target = ${target};
+    vector<int> nums = {${numsArray}};
+    int target = ${targetStr};
     vector<int> result = solution.twoSum(nums, target);
-    
-    cout << "[";
-    for(int i = 0; i < result.size(); i++) {
-        cout << result[i];
-        if(i < result.size() - 1) cout << ",";
-    }
-    cout << "]" << endl;
-    
+    cout << "[" << result[0] << "," << result[1] << "]" << endl;
     return 0;
-}
-`;
-    }
+}`;
+        } else {
+          return `#include <iostream>
+using namespace std;
 
-    return userCode;
+${userCode}
+
+int main() {
+    Solution solution;
+    cout << (solution.isPalindrome(${input}) ? "true" : "false") << endl;
+    return 0;
+}`;
+        }
+
+      default:
+        return userCode;
+    }
   };
 
-  const runCode = async () => {
+  const runCode = async (): Promise<void> => {
     setIsRunning(true);
     setActiveTab("result");
     const startTime = Date.now();
 
     try {
-      // Use first test case for running
       const firstTestCase = testCases[0];
-      const testInput = {
-        nums: firstTestCase.input.nums,
-        target: parseInt(firstTestCase.input.target),
-      };
+      if (!firstTestCase) {
+        setOutput("❌ No test cases available");
+        return;
+      }
 
-      const result = await judge0Service.executeCodeWithTestCase(
-        code,
-        language as any,
-        testInput
-      );
+      const wrappedCode = wrapCodeForExecution(code, firstTestCase);
+
+      const response = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: wrappedCode,
+          language,
+          input: firstTestCase.input,
+        }),
+      });
+
+      const data: APIResponse<ExecutionResult> = await response.json();
       const endTime = Date.now();
       setExecutionTime(endTime - startTime);
+
+      if (!data.success) {
+        setOutput(`❌ Error: ${data.error?.message}`);
+        return;
+      }
+
+      const result = data.data!;
 
       if (result.statusId === 3) {
         setOutput(
-          `✅ Code executed successfully!\n\nOutput: ${result.stdout || "No output"}\nExpected: ${firstTestCase.expectedOutput}\nExecution time: ${result.time || "N/A"}ms\nMemory usage: ${result.memory || "N/A"} KB`
+          `✅ Code executed successfully!\n\nOutput: ${result.stdout || "No output"}\nExpected: ${firstTestCase.expectedOutput}\nTime: ${result.time || "N/A"}ms\nMemory: ${result.memory || "N/A"}KB`
         );
       } else if (result.statusId === 6) {
         setOutput(
-          `❌ Compilation Error\n\n${result.compile_output || result.stderr || "Unknown compilation error"}`
-        );
-      } else if (result.statusId === 13) {
-        setOutput(
-          `❌ Internal Error\n\n${result.message || "Judge0 internal error occurred"}`
+          `❌ Compilation Error\n\n${result.compile_output || result.stderr || "Unknown error"}`
         );
       } else {
         setOutput(
-          `❌ ${result.status}\n\n${result.stderr || result.compile_output || result.message || "Runtime error occurred"}`
+          `❌ ${result.status}\n\n${result.stderr || result.compile_output || "Runtime error"}`
         );
       }
     } catch (error) {
-      console.error("Network error:", error);
+      console.error("❌ Run error:", error);
       setOutput(
-        `❌ Network error: ${error instanceof Error ? error.message : "Unknown error"}`
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     } finally {
       setIsRunning(false);
     }
   };
 
-  const submitCode = async () => {
+  const submitCode = async (): Promise<void> => {
     setIsRunning(true);
     setActiveTab("result");
+    setTestResults([]);
     const startTime = Date.now();
 
     try {
-      // Prepare test cases for Judge0
-      const formattedTestCases = testCases.map((tc) => ({
-        input: formatTestInput(tc),
-        expectedOutput: tc.expectedOutput.trim(),
-      }));
+      // WRAP each test case
+      const wrappedCodes = testCases.map((tc) =>
+        wrapCodeForExecution(code, tc)
+      );
 
-      // Run all test cases
-      const testResults: TestResult[] = [];
+      const submitResponse = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codes: wrappedCodes, // ✅ Send ALL wrapped codes, one for each test
+          language,
+          testCases,
+        }),
+      });
 
-      for (let i = 0; i < testCases.length; i++) {
-        const testCase = testCases[i];
-        const wrappedCode = wrapCodeForExecution(code, testCase);
+      const submitData: APIResponse<{
+        submissionIds: string[];
+        totalTestCases: number;
+      }> = await submitResponse.json();
 
-        try {
-          const response = await fetch("/api/execute", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              code: wrappedCode,
-              language,
-              input: "",
-            }),
-          });
+      if (!submitData.success) {
+        setOutput(`❌ Error: ${submitData.error?.message}`);
+        setIsRunning(false);
+        return;
+      }
 
-          const data = await response.json();
+      const submissionIds = submitData.data!.submissionIds;
+      console.log(`📤 Submitted ${submissionIds.length} test cases`);
 
-          if (data.success) {
-            const result = data.result;
-            const actualOutput =
-              result.stdout?.replace(/[\[\]]/g, "").trim() || "";
-            const expectedOutput = testCase.expectedOutput
-              .replace(/[\[\]]/g, "")
-              .trim();
+      let allDone = false;
+      let attempts = 0;
+      const maxAttempts = 30;
+      let finalResults: Array<{
+        token: string;
+        status: string;
+        isPending: boolean;
+        actualOutput: string | null;
+        passed: boolean;
+        time: string | null;
+        memory: number | null;
+        error: string | null;
+        expectedOutput: string;
+      }> = [];
 
-            // Check if outputs match (flexible comparison)
-            const passed =
-              actualOutput === expectedOutput || result.statusId === 3;
+      while (!allDone && attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            testResults.push({
-              input: `nums = ${testCase.input.nums}, target = ${testCase.input.target}`,
-              expectedOutput: testCase.expectedOutput,
-              actualOutput: result.stdout,
-              passed,
-              status: result.status,
-              time: result.time,
-              memory: result.memory,
-              error: result.stderr || result.compile_output || null,
-            });
-          } else {
-            testResults.push({
-              input: `nums = ${testCase.input.nums}, target = ${testCase.input.target}`,
-              expectedOutput: testCase.expectedOutput,
-              actualOutput: null,
-              passed: false,
-              status: "Error",
-              time: null,
-              memory: null,
-              error: data.error,
-            });
-          }
-        } catch (error) {
-          testResults.push({
-            input: `nums = ${testCase.input.nums}, target = ${testCase.input.target}`,
-            expectedOutput: testCase.expectedOutput,
-            actualOutput: null,
-            passed: false,
-            status: "Error",
-            time: null,
-            memory: null,
-            error: error instanceof Error ? error.message : "Unknown error",
-          });
+        const statusResponse = await fetch("/api/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tokens: submissionIds,
+            expectedOutputs: testCases.map((tc) => tc.expectedOutput),
+          }),
+        });
+
+        const statusData: APIResponse<{
+          results: Array<{
+            token: string;
+            status: string;
+            isPending: boolean;
+            actualOutput: string | null;
+            passed: boolean;
+            time: string | null;
+            memory: number | null;
+            error: string | null;
+            expectedOutput: string;
+          }>;
+        }> = await statusResponse.json();
+
+        if (statusData.success) {
+          finalResults = statusData.data!.results;
+          allDone = finalResults.every((r) => !r.isPending);
+
+          const currentResults: TestResult[] = finalResults.map((result) => ({
+            input: "",
+            expectedOutput: result.expectedOutput,
+            actualOutput: result.actualOutput,
+            passed: result.passed,
+            status: result.status,
+            time: result.time,
+            memory: result.memory,
+            error: result.error,
+          }));
+          setTestResults(currentResults);
         }
+
+        attempts++;
       }
 
       const endTime = Date.now();
       setExecutionTime(endTime - startTime);
-      setTestResults(testResults);
 
-      // Generate summary output
-      const passedTests = testResults.filter((tr) => tr.passed).length;
-      const totalTests = testResults.length;
+      const passedTests = finalResults.filter((r) => r.passed).length;
+      const totalTests = finalResults.length;
 
       if (passedTests === totalTests) {
         const avgTime =
-          testResults.reduce(
-            (sum, tr) => sum + (parseFloat(tr.time || "0") || 0),
+          finalResults.reduce(
+            (sum, r) => sum + (parseFloat(r.time || "0") || 0),
             0
           ) / totalTests;
-        const avgMemory =
-          testResults.reduce((sum, tr) => sum + (tr.memory || 0), 0) /
-          totalTests;
 
         setOutput(
-          `🎉 Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nAvg Memory: ${avgMemory.toFixed(1)} KB`
+          `🎉 Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nTotal Time: ${executionTime}ms`
         );
       } else {
-        const failedTest = testResults.find((tr) => !tr.passed);
+        const failedTest = finalResults.find((r) => !r.passed);
         setOutput(
-          `❌ Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\nFirst failed test case:\nInput: ${failedTest?.input}\nExpected: ${failedTest?.expectedOutput}\nActual: ${failedTest?.actualOutput || "No output"}\nError: ${failedTest?.error || "Output mismatch"}`
+          `❌ Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\nFirst failed test:\nExpected: ${failedTest?.expectedOutput}\nActual: ${failedTest?.actualOutput?.trim() || "No output"}\nError: ${failedTest?.error || "Output mismatch"}`
         );
       }
     } catch (error) {
+      console.error("❌ Submit error:", error);
       setOutput(
-        `❌ Submission failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     } finally {
       setIsRunning(false);
     }
   };
 
-  const copyCode = async () => {
+  const copyCode = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("Failed to copy code:", err);
+      console.error("Failed to copy:", err);
     }
   };
 
-  const toggleFullscreen = () => {
-    const newFullscreen = !isFullscreen;
-    onFullscreenToggle?.(newFullscreen);
+  const toggleFullscreen = (): void => {
+    onFullscreenToggle?.(!isFullscreen);
   };
 
-  // Get status icon for test results
-  const getStatusIcon = (passed: boolean, error: string | null) => {
+  const getStatusIcon = (
+    passed: boolean,
+    error: string | null
+  ): React.ReactNode => {
     if (error) return <AlertCircle className="h-4 w-4 text-red-500" />;
     return passed ? (
       <CheckCircle className="h-4 w-4 text-green-500" />
@@ -415,13 +430,12 @@ int main() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-muted/30">
         <div className="flex items-center gap-4">
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="bg-background border border-border px-3 py-2 rounded-md text-sm font-medium focus:ring-2 focus:ring-primary min-w-[140px]"
+            className="bg-background border border-border px-3 py-2 rounded-md text-sm font-medium focus:ring-2 focus:ring-primary"
           >
             {LANGUAGES.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -450,7 +464,6 @@ int main() {
             variant="outline"
             size="sm"
             onClick={() => setShowSettings(!showSettings)}
-            title="Settings"
           >
             <Settings size={16} />
           </Button>
@@ -469,18 +482,12 @@ int main() {
             {copied ? <Check size={16} /> : <Copy size={16} />}
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          >
+          <Button variant="outline" size="sm" onClick={toggleFullscreen}>
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </Button>
         </div>
       </div>
 
-      {/* Editor */}
       <div className="flex-1 relative">
         <Editor
           height="100%"
@@ -492,12 +499,9 @@ int main() {
             editorRef.current = editor;
           }}
           options={{
-            fontSize: fontSize,
-            fontFamily: "var(--font-mono)",
+            fontSize,
             minimap: { enabled: false },
             formatOnType: true,
-            formatOnPaste: true,
-            smoothScrolling: true,
             scrollBeyondLastLine: false,
             automaticLayout: true,
             padding: { top: 16, bottom: 16 },
@@ -507,14 +511,12 @@ int main() {
           }}
         />
 
-        {/* Code Stats */}
         <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs text-muted-foreground bg-background/90 backdrop-blur-sm rounded-lg px-3 py-1">
           <FileText size={12} />
           <span>{code.split("\n").length} lines</span>
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button onClick={runCode} disabled={isRunning} variant="outline">
@@ -564,7 +566,6 @@ int main() {
         </div>
       </div>
 
-      {/* Test Cases & Output */}
       <div className="border-t flex flex-col h-64">
         <Tabs
           value={activeTab}
@@ -572,9 +573,9 @@ int main() {
           className="flex flex-col h-full"
         >
           <TabsList className="flex-shrink-0 w-full rounded-none">
-            <TabsTrigger value="testcase">Testcase</TabsTrigger>
+            <TabsTrigger value="testcase">Testcases</TabsTrigger>
             <TabsTrigger value="result">
-              Test Result
+              Results
               {testResults.length > 0 && (
                 <span className="ml-2 text-xs">
                   ({testResults.filter((tr) => tr.passed).length}/
@@ -586,151 +587,104 @@ int main() {
 
           <TabsContent
             value="testcase"
-            className="flex-1 p-4 m-0 data-[state=inactive]:hidden"
-            key="testcase"
+            className="flex-1 p-4 m-0 overflow-y-auto"
           >
-            <div className="h-full flex flex-col">
-              <Tabs defaultValue="Case 1" className="h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
-                  {testCases.map((testCase, index) => (
-                    <TabsTrigger key={testCase.case} value={testCase.case}>
-                      {testCase.case}
-                      {testResults[index] && (
-                        <span className="ml-1">
-                          {getStatusIcon(
-                            testResults[index].passed,
-                            testResults[index].error
-                          )}
-                        </span>
-                      )}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+            <Tabs defaultValue="0" className="h-full flex flex-col">
+              <TabsList
+                className="grid w-full flex-shrink-0"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(testCases.length, 3)}, 1fr)`,
+                }}
+              >
+                {testCases.map((_, index) => (
+                  <TabsTrigger key={index} value={index.toString()}>
+                    Case {index + 1}
+                    {testResults[index] && (
+                      <span className="ml-1">
+                        {getStatusIcon(
+                          testResults[index].passed,
+                          testResults[index].error
+                        )}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-                <div className="flex-1 overflow-y-auto" ref={testContentRef}>
-                  {testCases.map((testCase) => (
-                    <TabsContent
-                      key={testCase.case}
-                      value={testCase.case}
-                      className="space-y-3 m-0 p-4"
-                    >
-                      <div className="space-y-2 font-mono text-sm">
-                        <div>
-                          <span className="text-foreground">nums = </span>
-                          <span className="text-muted-foreground">
-                            {testCase.input.nums}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-foreground">target = </span>
-                          <span className="text-muted-foreground">
-                            {testCase.input.target}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-foreground">Expected: </span>
-                          <span className="text-muted-foreground">
-                            {testCase.expectedOutput}
-                          </span>
-                        </div>
+              <div className="flex-1 overflow-y-auto" ref={testContentRef}>
+                {testCases.map((tc, index) => (
+                  <TabsContent
+                    key={index}
+                    value={index.toString()}
+                    className="space-y-3 m-0 p-4"
+                  >
+                    <div className="space-y-2 font-mono text-sm">
+                      <div>
+                        <span className="text-foreground">Input: </span>
+                        <span className="text-muted-foreground">
+                          {tc.input}
+                        </span>
                       </div>
-                    </TabsContent>
-                  ))}
-                </div>
-              </Tabs>
-            </div>
+                      <div>
+                        <span className="text-foreground">Expected: </span>
+                        <span className="text-muted-foreground">
+                          {tc.expectedOutput}
+                        </span>
+                      </div>
+                    </div>
+                  </TabsContent>
+                ))}
+              </div>
+            </Tabs>
           </TabsContent>
 
           <TabsContent
             value="result"
-            className="flex-1 p-4 m-0 data-[state=inactive]:hidden overflow-y-auto"
-            key="result"
+            className="flex-1 p-4 m-0 overflow-y-auto"
           >
             {output || isRunning ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Terminal size={16} />
                   <span className="font-medium">Output</span>
-                  {currentResult && (
-                    <span className="text-xs px-2 py-1 rounded bg-muted">
-                      {currentResult.status}
-                    </span>
-                  )}
                 </div>
 
                 <div className="p-3 rounded-lg border bg-muted/50 font-mono text-sm">
                   {isRunning ? (
                     <div className="flex items-center gap-3">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      <span>Executing code...</span>
+                      <span>Executing...</span>
                     </div>
                   ) : (
                     <pre className="whitespace-pre-wrap">{output}</pre>
                   )}
                 </div>
 
-                {/* Detailed Test Results */}
                 {testResults.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Test Case Results</h4>
-                    {testResults.map((result, index) => (
-                      <div
-                        key={index}
-                        className="border rounded-lg p-3 space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">
-                            Test Case {index + 1}
-                          </span>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Details</h4>
+                    {testResults.map((result, idx) => (
+                      <div key={idx} className="p-2 border rounded text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">Test {idx + 1}</span>
                           <div className="flex items-center gap-2">
                             {getStatusIcon(result.passed, result.error)}
-                            <span className="text-xs">
-                              {result.time && <span>{result.time}ms</span>}
-                              {result.memory && (
-                                <span className="ml-2">{result.memory}KB</span>
-                              )}
-                            </span>
+                            {result.time && <span>{result.time}ms</span>}
                           </div>
                         </div>
-
-                        <div className="text-xs font-mono space-y-1">
-                          <div>
-                            <span className="text-muted-foreground">
-                              Input:
-                            </span>{" "}
-                            {result.input}
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Expected:
-                            </span>{" "}
-                            {result.expectedOutput}
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              Output:
-                            </span>{" "}
-                            {result.actualOutput || "No output"}
-                          </div>
-                          {result.error && (
-                            <div className="text-red-500">
-                              <span className="text-muted-foreground">
-                                Error:
-                              </span>{" "}
-                              {result.error}
-                            </div>
-                          )}
-                        </div>
+                        {result.error && (
+                          <p className="text-red-500">Error: {result.error}</p>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center">
                   <Terminal className="mx-auto h-8 w-8 mb-2" />
-                  <p>Run your code to see results here</p>
+                  <p>Run code to see results</p>
                 </div>
               </div>
             )}
