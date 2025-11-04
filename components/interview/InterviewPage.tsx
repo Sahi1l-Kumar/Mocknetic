@@ -27,9 +27,13 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [recordingStatus, setRecordingStatus] = useState<string>("idle");
   const [questionsAnswered, setQuestionsAnswered] = useState<number>(0);
+  const [maxQuestions, setMaxQuestions] = useState<number>(5);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
   const [cameraEnabled, setCameraEnabled] = useState<boolean>(true);
   const [isEnding, setIsEnding] = useState<boolean>(false);
+  const [isGeneratingFeedback, setIsGeneratingFeedback] =
+    useState<boolean>(false);
+  const [isComplete, setIsComplete] = useState<boolean>(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -48,7 +52,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false,
+          autoGainControl: true,
         },
         video: false,
       });
@@ -124,7 +128,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       setIsTranscribing(true);
       setRecordingStatus("processing");
 
-      // Keep button disabled for 3 seconds minimum
       setTimeout(() => {
         setIsTranscribing(false);
       }, 3000);
@@ -234,51 +237,78 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const handleEndInterview = () => {
-    if (isEnding) return;
-    setIsEnding(true);
-    socket.emit("end_interview", { session_id: sessionId });
+  // NEW: Fetch feedback via HTTP GET endpoint
+  const fetchFeedback = async () => {
     try {
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => {
-          t.enabled = false;
-          t.stop();
-        });
+      console.log(`📊 Fetching feedback for session: ${sessionId}`);
+      const response = await fetch(
+        `${PYTHON_API}/api/interview/feedback/${sessionId}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      audioStreamRef.current?.getTracks().forEach((t) => {
-        t.enabled = false;
-        t.stop();
-      });
-      videoStreamRef.current?.getTracks().forEach((t) => {
-        t.enabled = false;
-        t.stop();
-      });
-      if (mediaRecorderRef.current?.state === "recording")
-        mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
-    } catch {}
-    setCameraEnabled(false);
-    toast.success("Interview ended successfully");
-    setTimeout(() => (window.location.href = "/"), 500);
+
+      const feedbackData = await response.json();
+      console.log("✅ Feedback received:", feedbackData);
+
+      toast.dismiss("feedback");
+      toast.success("Feedback generated! Redirecting...");
+
+      setTimeout(() => {
+        window.location.href = `/mock-interview/feedback?sessionId=${sessionId}`;
+      }, 500);
+    } catch (error) {
+      console.error("❌ Error fetching feedback:", error);
+      toast.dismiss("feedback");
+      toast.error("Failed to generate feedback");
+      setIsGeneratingFeedback(false);
+    }
+  };
+
+  const handleEndInterview = () => {
+    if (isEnding || isGeneratingFeedback) return;
+    setIsEnding(true);
+    setIsGeneratingFeedback(true);
+    setRecordingStatus("processing");
+
+    toast.loading("Generating feedback...", { id: "feedback" });
+
+    // Call HTTP endpoint instead of socket
+    fetchFeedback();
   };
 
   useEffect(() => {
     let isMounted = true;
     let audioElementsToCleanup: HTMLAudioElement[] = [];
+    let joinEmitted = false;
 
     function onConnect() {
-      if (!isMounted) return;
+      if (!isMounted || joinEmitted) return;
+      joinEmitted = true;
+      console.log("✅ Emitting join_interview (first time only)");
       setIsSocketConnected(true);
       socket.emit("join_interview", { session_id: sessionId });
     }
 
     function onDisconnect() {
       if (!isMounted) return;
+      console.log("❌ Socket disconnected");
       setIsSocketConnected(false);
+      joinEmitted = false;
+    }
+
+    function onJoinSuccess(data: { max_questions?: number }) {
+      if (!isMounted) return;
+      console.log("✅ Join success received");
+      if (data.max_questions) {
+        setMaxQuestions(data.max_questions);
+      }
     }
 
     function onReceiveQuestion(data: Question) {
       if (!isMounted) return;
+      console.log(`📝 Received Q${data.question_number}`);
       audioElementsToCleanup.forEach((audio) => {
         audio.pause();
         audio.src = "";
@@ -297,8 +327,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     }) {
       if (!isMounted) return;
 
-      // Only add VALID transcripts to history
-      // Backend sends status: "invalid_answer" for clarification questions
       if (data.status !== "invalid_answer") {
         setQaHistory((prev) => [
           ...prev,
@@ -311,10 +339,23 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         setQuestionsAnswered((prev) => prev + 1);
       }
 
-      // Always show transcript on UI, but don't add to history if invalid
       setTranscript(data.transcript);
       setRecordingStatus("waiting_for_next");
       setIsTranscribing(false);
+    }
+
+    function onMaxQuestionsReached(data: {
+      message: string;
+      total_questions: number;
+      total_answers: number;
+      max_questions: number;
+    }) {
+      if (!isMounted) return;
+      console.log("🎉 Max questions reached");
+      setIsComplete(true);
+      setRecordingStatus("complete");
+      setMaxQuestions(data.max_questions);
+      toast.success(data.message);
     }
 
     function onRecordingStatus(data: { status: string }) {
@@ -322,30 +363,26 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       setRecordingStatus(data.status);
     }
 
-    function onInterviewComplete() {
-      if (!isMounted) return;
-      setRecordingStatus("complete");
-      setCurrentQuestion(null);
-      toast.success("Interview completed!");
-      setTimeout(() => {
-        if (isMounted) handleEndInterview();
-      }, 1000);
-    }
-
     function onError(data: { message: string }) {
       if (!isMounted) return;
+      console.error("❌ Socket error:", data.message);
       setRecordingStatus("error");
       toast.error(data.message);
+      setIsGeneratingFeedback(false);
     }
 
-    if (socket?.connected) onConnect();
+    if (socket?.connected) {
+      console.log("🔌 Socket already connected, calling onConnect");
+      onConnect();
+    }
 
     socket?.on("connect", onConnect);
     socket?.on("disconnect", onDisconnect);
+    socket?.on("join_success", onJoinSuccess);
     socket?.on("receive_question", onReceiveQuestion);
     socket?.on("transcript_received", onTranscriptReceived);
+    socket?.on("max_questions_reached", onMaxQuestionsReached);
     socket?.on("recording_status", onRecordingStatus);
-    socket?.on("interview_complete", onInterviewComplete);
     socket?.on("error", onError);
 
     return () => {
@@ -357,10 +394,11 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       audioElementsToCleanup = [];
       socket?.off("connect", onConnect);
       socket?.off("disconnect", onDisconnect);
+      socket?.off("join_success", onJoinSuccess);
       socket?.off("receive_question", onReceiveQuestion);
       socket?.off("transcript_received", onTranscriptReceived);
+      socket?.off("max_questions_reached", onMaxQuestionsReached);
       socket?.off("recording_status", onRecordingStatus);
-      socket?.off("interview_complete", onInterviewComplete);
       socket?.off("error", onError);
     };
   }, [sessionId]);
@@ -394,7 +432,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
             <Mic className="w-4 h-4 text-slate-600" />
             <span className="text-sm font-medium text-slate-600">
-              {questionsAnswered} / 5
+              {questionsAnswered} / {maxQuestions}
             </span>
           </div>
         </div>
@@ -403,6 +441,32 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           <div className="bg-amber-100 border border-amber-300 text-amber-700 px-4 py-3 rounded-lg flex items-center gap-2">
             <span className="text-lg">⚠️</span>
             <span>Connecting to server...</span>
+          </div>
+        )}
+
+        {isComplete && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="bg-green-500 text-white rounded-full p-3">
+                <Check className="w-8 h-8" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-green-800">
+                  🎉 Interview Complete!
+                </h3>
+                <p className="text-green-700 mt-1">
+                  You&apos;ve answered all {maxQuestions} questions. Review your
+                  responses below or get your feedback.
+                </p>
+              </div>
+              <button
+                onClick={handleEndInterview}
+                disabled={isGeneratingFeedback}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg transition-colors shadow-md whitespace-nowrap"
+              >
+                {isGeneratingFeedback ? "Generating..." : "Get Feedback"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -454,7 +518,8 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm h-80 overflow-y-auto space-y-3">
               <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
                 <div className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold">
-                  Question {currentQuestion?.question_number || "—"}
+                  Question {currentQuestion?.question_number || "—"} /{" "}
+                  {maxQuestions}
                 </div>
               </div>
               {currentQuestion ? (
@@ -463,7 +528,9 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                 </div>
               ) : (
                 <div className="text-slate-500 italic text-center py-12">
-                  Waiting for question...
+                  {isComplete
+                    ? "All questions completed"
+                    : "Waiting for question..."}
                 </div>
               )}
             </div>
@@ -511,7 +578,6 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
               )}
             </div>
 
-            {/* AI Context Indicator - Shows after 2 VALID answers */}
             {qaHistory.length > 1 && (
               <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
                 <div className="flex items-center gap-2">
@@ -557,70 +623,91 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                 disabled={
                   recordingStatus === "processing" ||
                   recordingStatus === "waiting" ||
-                  isEnding
+                  isEnding ||
+                  isComplete
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next Question
+                {isComplete ? "All Questions Asked" : "Next Question"}
               </button>
 
               <button
                 onClick={toggleRecording}
-                disabled={isEnding || !isRecording || isTranscribing}
+                disabled={
+                  isEnding || !isRecording || isTranscribing || isComplete
+                }
                 className={`py-3 px-6 font-semibold rounded-lg shadow-md text-white transition-colors ${
-                  isTranscribing
-                    ? "bg-amber-600 cursor-not-allowed"
+                  isTranscribing || isComplete
+                    ? "bg-gray-400 cursor-not-allowed"
                     : "bg-red-600 hover:bg-red-700 disabled:opacity-50"
                 }`}
               >
                 <Mic className="inline-block w-5 h-5 mr-2" />
-                {isTranscribing ? "Transcribing..." : "Stop Recording"}
+                {isComplete
+                  ? "Interview Complete"
+                  : isTranscribing
+                    ? "Transcribing..."
+                    : "Stop Recording"}
               </button>
             </div>
           </div>
         </div>
 
         {qaHistory.length > 0 && (
-          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
-                {qaHistory.length}
+          <div className="bg-white border-2 border-slate-200 rounded-xl p-6 space-y-4 shadow-lg">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shadow-md">
+                  {qaHistory.length}
+                </div>
+                Interview History
+              </h2>
+              <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full">
+                {qaHistory.length}{" "}
+                {qaHistory.length === 1 ? "exchange" : "exchanges"}
               </span>
-              Q&A History
-            </h2>
-            <div className="max-h-96 overflow-y-auto space-y-3">
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
               {qaHistory.map((qa, idx) => (
                 <div
                   key={idx}
-                  className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow"
+                  className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
                 >
-                  <div className="flex gap-3 mb-3">
-                    <span className="flex-shrink-0 bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-full text-xs">
-                      Q{qa.questionNumber}
-                    </span>
-                    <p className="text-sm font-medium text-slate-700 flex-1">
-                      {qa.question}
-                    </p>
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b-2 border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 bg-blue-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                        Q{idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-800 leading-relaxed">
+                          {qa.question}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-3 ml-3 border-l-2 border-green-300 pl-3">
-                    <span className="flex-shrink-0 bg-green-100 text-green-700 font-bold px-2.5 py-1 rounded-full text-xs">
-                      A
-                    </span>
-                    <div className="flex-1 flex items-start gap-2">
-                      <p className="text-sm text-slate-600 leading-relaxed flex-1">
-                        {qa.answer}
-                      </p>
-                      <button
-                        onClick={() => copyToClipboard(qa.answer, idx)}
-                        className="flex-shrink-0 p-1.5 hover:bg-slate-100 rounded-md transition-colors"
-                        title="Copy answer"
-                      >
-                        {copiedIndex === idx ? (
-                          <Check className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-                        )}
-                      </button>
+
+                  <div className="bg-white p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                        A
+                      </div>
+                      <div className="flex-1 flex items-start gap-2">
+                        <p className="text-sm text-slate-700 leading-relaxed flex-1 font-medium">
+                          {qa.answer}
+                        </p>
+                        <button
+                          onClick={() => copyToClipboard(qa.answer, idx)}
+                          className="flex-shrink-0 p-2 hover:bg-slate-100 rounded-lg transition-all duration-200 group"
+                          title="Copy answer"
+                        >
+                          {copiedIndex === idx ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -629,13 +716,20 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           </div>
         )}
 
-        <div className="flex justify-end pt-4 border-t border-slate-200">
+        <div className="flex justify-end pt-4 border-t border-slate-200 gap-4">
+          <button
+            onClick={() => (window.location.href = "/")}
+            className="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            disabled={isEnding}
+          >
+            Go Home
+          </button>
           <button
             onClick={handleEndInterview}
-            disabled={isEnding}
+            disabled={isEnding || isGeneratingFeedback}
             className="bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
-            {isEnding ? "Ending..." : "End Interview"}
+            {isGeneratingFeedback ? "Generating Feedback..." : "End Interview"}
           </button>
         </div>
       </div>

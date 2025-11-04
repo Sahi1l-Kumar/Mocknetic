@@ -16,6 +16,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
     companyDescription: "",
     resume: null as File | null,
     parsedResume: "",
+    maxQuestions: 5,
   });
   const [loading, setLoading] = useState(false);
   const [parsingResume, setParsingResume] = useState(false);
@@ -25,6 +26,10 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleQuestionCountChange = (value: number) => {
+    setFormData((prev) => ({ ...prev, maxQuestions: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,12 +90,14 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       data.append("companyName", formData.companyName);
       data.append("companyDescription", formData.companyDescription);
       data.append("parsedResume", formData.parsedResume);
+      data.append("maxQuestions", formData.maxQuestions.toString());
 
       if (formData.resume) {
         data.append("resume", formData.resume);
       }
 
       console.log("📤 Submitting interview form...");
+      console.log(`🎯 Max Questions: ${formData.maxQuestions}`);
 
       const response = await fetch(`${API_BASE}/api/interview/create`, {
         method: "POST",
@@ -105,7 +112,9 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       console.log("✅ Interview created:", result);
 
       if (result.success && result.session_id) {
-        toast.success("Interview session created!");
+        toast.success(
+          `Interview session created with ${formData.maxQuestions} questions!`
+        );
         onSubmit(result.session_id);
       } else {
         toast.error("Failed to create interview");
@@ -189,6 +198,46 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading || parsingResume}
               />
+            </div>
+
+            {/* NEW: Number of Questions Selector */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-4">
+                  📝 Number of Interview Questions
+                </label>
+                <div className="flex items-center gap-6">
+                  <input
+                    type="range"
+                    min="3"
+                    max="15"
+                    value={formData.maxQuestions}
+                    onChange={(e) =>
+                      handleQuestionCountChange(parseInt(e.target.value))
+                    }
+                    className="flex-1 h-3 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    disabled={loading || parsingResume}
+                  />
+                  <div className="bg-white border-2 border-blue-500 rounded-lg px-4 py-2 min-w-[4rem] text-center">
+                    <span className="text-2xl font-bold text-blue-600">
+                      {formData.maxQuestions}
+                    </span>
+                    <p className="text-xs text-slate-500 mt-1">questions</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex justify-between text-xs text-slate-600">
+                  <span>Minimum: 3</span>
+                  <span>Maximum: 15</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded p-4 border border-blue-100">
+                <p className="text-sm text-slate-700">
+                  <span className="font-semibold">💡 Tip:</span> Start with 5-8
+                  questions for a focused practice session. Choose more
+                  questions for comprehensive preparation.
+                </p>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-200">
