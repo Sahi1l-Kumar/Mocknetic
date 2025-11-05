@@ -1,18 +1,22 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { useTransition } from "react";
-
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { handleSignOut } from "@/lib/actions/auth.action";
 
 const LogoutButton = () => {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
-  const onSignOut = () => {
-    startTransition(async () => {
+  const onSignOut = async () => {
+    try {
+      setIsPending(true);
       await handleSignOut();
-    });
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Sign out error:", error);
+      setIsPending(false);
+    }
   };
 
   return (

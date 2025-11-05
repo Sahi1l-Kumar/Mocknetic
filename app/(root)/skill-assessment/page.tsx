@@ -36,8 +36,8 @@ export default function SkillGapAssessment() {
   const [difficulty, setDifficulty] = useState("intermediate");
   const [started, setStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(1800);
   const [questions, setQuestions] = useState([]);
 
@@ -79,8 +79,6 @@ export default function SkillGapAssessment() {
         const skillList = response.data.skills.map((skill, idx) => ({
           id: String(idx),
           name: skill,
-          level: "Intermediate",
-          icon: skill.substring(0, 2).toUpperCase(),
         }));
         setSkills(skillList);
       } else {
@@ -88,6 +86,7 @@ export default function SkillGapAssessment() {
       }
     } catch (error) {
       console.error("Error fetching skills:", error);
+      setSkills([]);
     } finally {
       setLoading(false);
     }
@@ -95,177 +94,301 @@ export default function SkillGapAssessment() {
 
   const generateQuestions = async () => {
     setLoading(true);
-    setLoadingMessage("Generating personalized questions...");
+    setLoadingMessage(
+      "Generating personalized questions for " + jobRole + "..."
+    );
 
     try {
+      console.log("📤 Calling generateQuestions with:", {
+        jobRole,
+        difficulty,
+        experienceLevel,
+      });
+
       const response = await api.assessment.generateQuestions(
         jobRole,
         difficulty,
         experienceLevel
       );
 
-      if (response.success && response.data?.questions) {
+      console.log("✅ Questions response:", response);
+
+      if (
+        response.success &&
+        response.data?.questions &&
+        response.data?.assessmentId
+      ) {
+        console.log(`✅ Generated ${response.data.questions.length} questions`);
+        console.log(`💾 Assessment ID: ${response.data.assessmentId}`);
+
+        // ✅ VALIDATE: Verify all questions have ID field
+        console.log("🔍 Validating questions structure:");
+        response.data.questions.forEach((q: any, idx: number) => {
+          console.log(
+            `   Q${idx + 1}: id="${q.id}" (type: ${typeof q.id}), skill="${q.skill}"`
+          );
+        });
+
+        const allHaveIds = response.data.questions.every((q: any) => q.id);
+        if (!allHaveIds) {
+          throw new Error(
+            "⚠️ Some questions missing ID field from backend - check API response"
+          );
+        }
+
+        const allHaveCorrectAnswers = response.data.questions.every(
+          (q: any) => typeof q.correctAnswer === "number"
+        );
+        if (!allHaveCorrectAnswers) {
+          console.warn("⚠️ Some questions missing correctAnswer field");
+        }
+
+        // Store assessment ID for later submission
+        localStorage.setItem("currentAssessmentId", response.data.assessmentId);
+        console.log("✅ Assessment ID stored in localStorage");
+
         setQuestions(response.data.questions);
       } else {
-        throw new Error("Failed to generate questions");
+        throw new Error(
+          response?.error?.message || "Failed to generate questions"
+        );
       }
     } catch (error) {
-      console.error("Error generating questions:", error);
+      console.error("❌ Error generating questions:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to generate questions";
+      alert("❌ " + errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateResults = async () => {
+  const calculateResults = async (answersToUse?: Record<string, number>) => {
     setLoading(true);
-    setLoadingMessage("Analyzing your assessment...");
+    setLoadingMessage("Submitting and analyzing your assessment...");
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // Get assessment ID from storage
+      const assessmentId = localStorage.getItem("currentAssessmentId");
 
-    // Calculate overall score
-    const totalQuestions = questions.length;
-    const correctAnswers = Object.entries(answers).reduce(
-      (count, [qId, userAnswer]) => {
-        const question = questions.find((q) => q.id === qId);
-        return question && question.correctAnswer === userAnswer
-          ? count + 1
-          : count;
-      },
-      0
-    );
-
-    const overallScore = Math.round((correctAnswers / totalQuestions) * 100);
-
-    // Calculate skill-based gaps
-    const skillPerformance = {};
-
-    questions.forEach((question) => {
-      const userAnswer = answers[question.id];
-      const isCorrect = userAnswer === question.correctAnswer;
-
-      if (!skillPerformance[question.skill]) {
-        skillPerformance[question.skill] = {
-          skill: question.skill,
-          total: 0,
-          correct: 0,
-          difficulty: question.difficulty,
-        };
+      if (!assessmentId) {
+        throw new Error("Assessment ID not found in localStorage");
       }
 
-      skillPerformance[question.skill].total += 1;
-      if (isCorrect) {
-        skillPerformance[question.skill].correct += 1;
+      // ✅ Use passed-in answers or fall back to state
+      const finalAnswers = answersToUse || answers;
+
+      console.log("📤 Preparing submission...");
+      console.log("assessmentId:", assessmentId);
+      console.log("Total questions:", questions.length);
+      console.log("Answered questions:", Object.keys(finalAnswers).length);
+      console.log("answers object:", finalAnswers);
+      console.log("answers keys:", Object.keys(finalAnswers));
+      console.log("answers values:", Object.values(finalAnswers));
+
+      // ✅ VALIDATE: All questions answered
+      if (Object.keys(finalAnswers).length < questions.length) {
+        throw new Error(
+          `⚠️ Not all questions answered (${Object.keys(finalAnswers).length}/${questions.length})`
+        );
       }
-    });
 
-    // Convert to skill gaps
-    const skillGaps = Object.values(skillPerformance).map((skill) => {
-      const accuracy = Math.round((skill.correct / skill.total) * 100);
-      const gap = Math.max(0, 100 - accuracy);
+      // ✅ VALIDATE: All answer values are numbers
+      const allNumbers = Object.values(finalAnswers).every(
+        (v) => typeof v === "number"
+      );
+      if (!allNumbers) {
+        throw new Error("❌ Some answers are not numbers");
+      }
 
-      let currentLevel = "Beginner";
-      let requiredLevel = "Advanced";
+      // ✅ VALIDATE: All answers are in valid range (0-3)
+      const allInRange = Object.values(finalAnswers).every(
+        (v) => v >= 0 && v <= 3
+      );
+      if (!allInRange) {
+        throw new Error("❌ Some answers are out of valid range (0-3)");
+      }
 
-      if (accuracy >= 80) currentLevel = "Advanced";
-      else if (accuracy >= 60) currentLevel = "Intermediate";
+      console.log("✅ All validation checks passed");
 
-      if (skill.difficulty === "beginner") requiredLevel = "Beginner";
-      else if (skill.difficulty === "intermediate")
-        requiredLevel = "Intermediate";
-
-      return {
-        skill: skill.skill,
-        currentLevel,
-        requiredLevel,
-        gap,
-        accuracy,
-        questionsAnswered: skill.total,
-        correctAnswers: skill.correct,
+      // Build the exact payload that will be sent
+      const payload = {
+        assessmentId,
+        answers: finalAnswers, // ✅ Use finalAnswers here
       };
-    });
 
-    const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
+      console.log(
+        "📨 Final payload being sent:",
+        JSON.stringify(payload, null, 2)
+      );
 
-    const recommendations = skillGapsSorted
-      .filter((gap) => gap.gap > 0)
-      .slice(0, 3)
-      .map((gap) => {
-        const skillName = gap.skill;
-        const resources = {
-          JavaScript: {
-            title: "JavaScript Mastery Course",
-            description:
-              "Deep dive into JavaScript fundamentals and advanced concepts",
-            link: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/",
-          },
-          React: {
-            title: "React Advanced Patterns",
-            description:
-              "Master React hooks, performance optimization, and state management",
-            link: "https://react.dev/learn",
-          },
-          "Node.js": {
-            title: "Node.js Backend Development",
-            description:
-              "Learn asynchronous programming, Express.js, and API design",
-            link: "https://nodejs.org/en/docs/",
-          },
-          Python: {
-            title: "Python Programming Guide",
-            description:
-              "Master Python data structures, OOP, and best practices",
-            link: "https://docs.python.org/3/",
-          },
-          SQL: {
-            title: "SQL Query Optimization",
-            description:
-              "Advanced SQL techniques, indexing, and database design",
-            link: "https://www.postgresql.org/docs/",
-          },
-          default: {
-            title: `Master ${skillName}`,
-            description: `Comprehensive guide to improve your ${skillName} skills from ${gap.currentLevel} to ${gap.requiredLevel}`,
-            link: "https://www.coursera.org/",
-          },
-        };
+      // Call backend to calculate score from DB
+      const response = await fetch("/api/assessment/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-        const resource = resources[skillName] || resources.default;
+      const submitData = await response.json();
+
+      console.log("📥 Backend response:", submitData);
+
+      if (!submitData.success) {
+        console.error("❌ Backend error:", submitData.error);
+        throw new Error(submitData.error || "Failed to submit");
+      }
+
+      console.log("✅ Submission successful:", submitData.data);
+
+      const {
+        score,
+        correctAnswers,
+        totalQuestions,
+        questions: dbQuestions,
+      } = submitData.data;
+
+      console.log(
+        `📊 Score breakdown: ${correctAnswers}/${totalQuestions} = ${score}%`
+      );
+
+      // Calculate skill performance from DB results
+      const skillPerformance: Record<
+        string,
+        { skill: string; total: number; correct: number }
+      > = {};
+
+      dbQuestions.forEach((q: any) => {
+        if (!skillPerformance[q.skill]) {
+          skillPerformance[q.skill] = {
+            skill: q.skill,
+            total: 0,
+            correct: 0,
+          };
+        }
+        skillPerformance[q.skill].total += 1;
+        if (q.isCorrect) {
+          skillPerformance[q.skill].correct += 1;
+        }
+      });
+
+      // Convert to skill gaps
+      const skillGaps = Object.values(skillPerformance).map((skill) => {
+        const accuracy = Math.round((skill.correct / skill.total) * 100);
+        const gap = Math.max(0, 100 - accuracy);
 
         return {
-          title: resource.title,
-          description: resource.description,
-          link: resource.link,
-          skill: skillName,
-          gap: gap.gap,
+          skill: skill.skill,
+          gap,
+          accuracy,
+          questionsAnswered: skill.total,
+          correctAnswers: skill.correct,
         };
       });
 
-    if (recommendations.length === 0) {
-      recommendations.push({
-        title: "Advanced System Design",
-        description: `Congratulations on mastering these skills! Now explore system design and architecture for ${jobRole}`,
-        link: "https://www.coursera.org/",
-        skill: jobRole,
-        gap: 0,
-      });
+      const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
+
+      // Generate AI recommendations
+      let recommendations = [];
+      try {
+        console.log("📤 Generating recommendations...");
+
+        const weakSkills = skillGapsSorted
+          .filter((gap) => gap.gap > 0)
+          .slice(0, 3)
+          .map((gap) => gap.skill);
+
+        if (weakSkills.length > 0) {
+          console.log("🎓 Weak skills found:", weakSkills);
+
+          const recResponse = await fetch(
+            "/api/assessment/generate-recommendations",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                jobRole,
+                experienceLevel,
+                skillGaps: weakSkills,
+                overallScore: score,
+              }),
+            }
+          );
+
+          const recData = await recResponse.json();
+
+          if (recData.success && recData.data?.recommendations) {
+            recommendations = recData.data.recommendations;
+            console.log(
+              `✅ Generated ${recommendations.length} recommendations`
+            );
+          }
+        } else {
+          console.log("🎉 No weak skills, generating advanced recommendations");
+
+          const recResponse = await fetch(
+            "/api/assessment/generate-recommendations",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                jobRole,
+                experienceLevel,
+                skillGaps: [],
+                overallScore: score,
+              }),
+            }
+          );
+
+          const recData = await recResponse.json();
+
+          if (recData.success && recData.data?.recommendations) {
+            recommendations = recData.data.recommendations;
+            console.log(
+              `✅ Generated ${recommendations.length} advanced recommendations`
+            );
+          }
+        }
+      } catch (error) {
+        console.error("⚠️ Error generating recommendations:", error);
+        // Use fallback recommendations
+        recommendations = [
+          {
+            title: "Continue Learning",
+            description: "Keep improving your skills for " + jobRole,
+            link: "https://www.coursera.org/",
+            skill: jobRole,
+          },
+        ];
+      }
+
+      const results = {
+        skillGaps: skillGapsSorted,
+        overallScore: score,
+        totalQuestions,
+        correctAnswers,
+        recommendations,
+        completedAt: new Date().toISOString(),
+      };
+
+      setResults(results);
+      setCurrentStep("results");
+
+      // Clear assessment ID from storage
+      localStorage.removeItem("currentAssessmentId");
+      console.log("✅ Assessment completed successfully");
+    } catch (error) {
+      console.error("Error calculating results:", error);
+      alert(
+        "Failed to calculate results: " +
+          (error instanceof Error ? error.message : "Unknown error")
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const results = {
-      skillGaps: skillGapsSorted,
-      overallScore,
-      totalQuestions,
-      correctAnswers,
-      recommendations,
-      completedAt: new Date().toISOString(),
-    };
-
-    setResults(results);
-    setLoading(false);
-    setCurrentStep("results");
   };
 
-  const getSkillColor = (name) => {
-    const colors = {
+  const getSkillColor = (name: string) => {
+    const colors: Record<string, string> = {
       JavaScript: "bg-yellow-500",
       Python: "bg-blue-600",
       React: "bg-cyan-400",
@@ -274,50 +397,95 @@ export default function SkillGapAssessment() {
       AWS: "bg-orange-500",
       Docker: "bg-blue-500",
       Git: "bg-red-600",
+      Java: "bg-orange-600",
+      "C++": "bg-red-500",
+      TypeScript: "bg-blue-500",
+      Kotlin: "bg-purple-500",
+      Swift: "bg-orange-400",
+      Rust: "bg-orange-700",
+      Go: "bg-cyan-500",
+      PHP: "bg-indigo-600",
+      Ruby: "bg-red-700",
     };
     return colors[name] || "bg-gray-500";
   };
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleJobRoleSubmit = (e) => {
+  const handleJobRoleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (jobRole && experienceLevel) {
+    if (jobRole.trim() && experienceLevel) {
       setCurrentStep("config");
     }
   };
 
   const handleStart = async () => {
+    // Clear old assessment ID
+    localStorage.removeItem("currentAssessmentId");
+
+    // Reset state before generating new questions
+    setCurrentQuestion(0);
+    setAnswers({});
+    setSelectedAnswer(null);
+    setTimeRemaining(1800);
+    setResults(null);
+
     await generateQuestions();
     setStarted(true);
     setCurrentStep("assessment");
   };
 
-  const handleAnswerSelect = (answerIndex) => {
+  const handleAnswerSelect = (answerIndex: number) => {
     setSelectedAnswer(answerIndex);
   };
 
   const handleNext = () => {
     if (selectedAnswer !== null) {
-      const questionId = questions[currentQuestion].id;
+      // ✅ STEP 1: Save the current answer
+      const currentQ = questions[currentQuestion];
+      const questionId = currentQ.id.toString();
+
+      console.log(
+        `📝 Q${currentQuestion + 1}: Storing answer for questionId="${questionId}", answer=${selectedAnswer}`
+      );
+
       const newAnswers = { ...answers };
       newAnswers[questionId] = selectedAnswer;
-      setAnswers(newAnswers);
+
+      // ✅ IMPORTANT: Don't call setAnswers here yet if it's the last question
+      // We'll pass newAnswers directly to calculateResults()
+
       setSelectedAnswer(null);
 
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(currentQuestion + 1);
+      // ✅ STEP 2: Check if this is the last question
+      const isLastQuestion = currentQuestion === questions.length - 1;
+
+      console.log(
+        `   Current: ${currentQuestion}, Total: ${questions.length}, IsLast: ${isLastQuestion}`
+      );
+
+      if (isLastQuestion) {
+        // Last question - submit now with newAnswers
+        console.log("✅ Last question answered. Submitting assessment...");
+        console.log("📊 Final answers object:", newAnswers);
+
+        // ✅ Pass newAnswers to calculateResults() so it gets the updated answers
+        calculateResults(newAnswers);
       } else {
-        handleFinish();
+        // Not last question - update state and go to next
+        setAnswers(newAnswers);
+        setCurrentQuestion(currentQuestion + 1);
       }
     }
   };
 
   const handleFinish = () => {
+    // ✅ This is now only called if time runs out
+    console.log("⏰ Time expired, submitting...");
     calculateResults();
   };
 
@@ -336,6 +504,7 @@ export default function SkillGapAssessment() {
   };
 
   const handleReset = () => {
+    localStorage.removeItem("currentAssessmentId");
     setCurrentStep("job-role");
     setJobRole("");
     setExperienceLevel("");
@@ -345,12 +514,14 @@ export default function SkillGapAssessment() {
     setTimeRemaining(1800);
     setStarted(false);
     setResults(null);
+    setSkills([]);
   };
 
   if (loading) {
     return <LoadingOverlay message={loadingMessage} />;
   }
 
+  // Step 1: Job Role Selection
   if (currentStep === "job-role") {
     return (
       <div className="max-w-4xl mx-auto">
@@ -372,10 +543,13 @@ export default function SkillGapAssessment() {
               type="text"
               value={jobRole}
               onChange={(e) => setJobRole(e.target.value)}
-              placeholder="e.g., Full Stack Developer"
+              placeholder="e.g., Full Stack Developer, Structural Engineer, Data Scientist, Founding Engineer"
               className="w-full px-4 py-3 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500"
               required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter ANY job role - from any B.Tech branch or custom position
+            </p>
           </div>
 
           <div>
@@ -397,30 +571,35 @@ export default function SkillGapAssessment() {
             </select>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">
-              Your Current Skills
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {skills.map((skill) => {
-                const color = getSkillColor(skill.name);
-                return (
-                  <div
-                    key={skill.id}
-                    className={`${color} rounded-lg p-4 text-white`}
-                  >
-                    <div className="font-bold text-lg">{skill.name}</div>
-                    <div className="text-sm opacity-90">{skill.level}</div>
-                  </div>
-                );
-              })}
+          {skills.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">
+                Your Current Skills
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                {skills.map((skill) => {
+                  const color = getSkillColor(skill.name);
+                  return (
+                    <div
+                      key={skill.id}
+                      className={`${color} text-white rounded-full px-4 py-2 text-sm font-medium`}
+                    >
+                      {skill.name}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Assessment will be based on your target role, not your current
+                skills
+              </p>
             </div>
-          </div>
+          )}
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-            disabled={!jobRole || !experienceLevel}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            disabled={!jobRole.trim() || !experienceLevel}
           >
             Continue to Assessment
             <ArrowRight className="w-5 h-5" />
@@ -430,12 +609,13 @@ export default function SkillGapAssessment() {
     );
   }
 
+  // Step 2: Configuration
   if (currentStep === "config") {
     return (
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => setCurrentStep("job-role")}
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6 font-medium"
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6 font-medium transition"
         >
           <ChevronLeft className="w-5 h-5" />
           Back
@@ -445,18 +625,21 @@ export default function SkillGapAssessment() {
           <h1 className="text-4xl font-bold text-gray-900 mb-3">
             Skill Assessment
           </h1>
-          <p className="text-gray-600 text-lg">AI-generated for {jobRole}</p>
+          <p className="text-gray-600 text-lg">
+            Personalized for:{" "}
+            <span className="text-blue-600 font-semibold">{jobRole}</span>
+          </p>
+          <p className="text-gray-500 text-sm mt-2">
+            Questions will test skills required for your target role
+          </p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4">
-            Configuration
+            Select Difficulty Level
           </h3>
 
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Difficulty Level
-            </label>
             <div className="grid grid-cols-3 gap-4">
               {["beginner", "intermediate", "advanced"].map((level) => {
                 const isSelected = difficulty === level;
@@ -465,10 +648,10 @@ export default function SkillGapAssessment() {
                     key={level}
                     type="button"
                     onClick={() => setDifficulty(level)}
-                    className={`py-3 px-4 rounded-lg border-2 font-medium capitalize ${
+                    className={`py-3 px-4 rounded-lg border-2 font-medium capitalize transition ${
                       isSelected
                         ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-300 text-gray-700"
+                        : "border-gray-300 text-gray-700 hover:border-gray-400"
                     }`}
                   >
                     {level}
@@ -479,29 +662,33 @@ export default function SkillGapAssessment() {
           </div>
 
           <div className="border-t pt-6">
-            <h4 className="font-semibold text-gray-800 mb-4">Details</h4>
+            <h4 className="font-semibold text-gray-800 mb-4">
+              Assessment Details
+            </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-lg">
-                <Clock className="w-5 h-5 text-blue-600 mt-0.5" />
+                <Clock className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-gray-900">Duration</p>
-                  <p className="text-sm text-gray-600">30 min</p>
+                  <p className="text-sm text-gray-600">30 minutes</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-lg">
-                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5" />
+                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-gray-900">Questions</p>
-                  <p className="text-sm text-gray-600">5 AI</p>
+                  <p className="text-sm text-gray-600">5 AI-generated</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-lg">
-                <Target className="w-5 h-5 text-blue-600 mt-0.5" />
+                <Target className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-gray-900">Personalized</p>
-                  <p className="text-sm text-gray-600">Your profile</p>
+                  <p className="font-medium text-gray-900">Role-Based</p>
+                  <p className="text-sm text-gray-600">
+                    Not your current skills
+                  </p>
                 </div>
               </div>
             </div>
@@ -510,15 +697,16 @@ export default function SkillGapAssessment() {
 
         <button
           onClick={handleStart}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-lg flex items-center justify-center gap-2"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-lg flex items-center justify-center gap-2 transition"
         >
           <Play className="w-5 h-5" />
-          Start
+          Start Assessment
         </button>
       </div>
     );
   }
 
+  // Step 3: Assessment
   if (currentStep === "assessment" && questions.length > 0) {
     const question = questions[currentQuestion];
     const progress = ((currentQuestion + 1) / questions.length) * 100;
@@ -531,7 +719,7 @@ export default function SkillGapAssessment() {
               <span className="text-sm font-medium text-gray-600">
                 Q {currentQuestion + 1}/{questions.length}
               </span>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                 {question.skill}
               </span>
             </div>
@@ -547,7 +735,7 @@ export default function SkillGapAssessment() {
           <div className="mb-6">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full"
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -559,21 +747,21 @@ export default function SkillGapAssessment() {
             </h2>
 
             <div className="space-y-3">
-              {question.options.map((option, index) => {
+              {question.options.map((option: string, index: number) => {
                 const isSelected = selectedAnswer === index;
                 return (
                   <button
                     key={index}
                     onClick={() => handleAnswerSelect(index)}
-                    className={`w-full text-left p-4 rounded-lg border-2 ${
+                    className={`w-full text-left p-4 rounded-lg border-2 transition ${
                       isSelected
                         ? "border-blue-600 bg-blue-50"
-                        : "border-gray-300"
+                        : "border-gray-300 hover:border-gray-400"
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
                           isSelected
                             ? "border-blue-600 bg-blue-600"
                             : "border-gray-400"
@@ -583,7 +771,9 @@ export default function SkillGapAssessment() {
                           <div className="w-2 h-2 bg-white rounded-full" />
                         )}
                       </div>
-                      <span className="font-medium">{option}</span>
+                      <span className="font-medium text-gray-900">
+                        {option}
+                      </span>
                     </div>
                   </button>
                 );
@@ -594,39 +784,47 @@ export default function SkillGapAssessment() {
           <button
             onClick={handleNext}
             disabled={selectedAnswer === null}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition disabled:cursor-not-allowed"
           >
-            {currentQuestion < questions.length - 1 ? "Next" : "Finish"}
+            {currentQuestion < questions.length - 1
+              ? "Next Question"
+              : "Finish"}
           </button>
         </div>
       </div>
     );
   }
 
+  // Step 4: Results
   if (currentStep === "results" && results) {
-    const hasGaps = results.skillGaps.some((gap) => gap.gap > 0);
+    const hasGaps = results.skillGaps.some((gap: any) => gap.gap > 0);
 
     return (
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Results</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Assessment Complete
+          </h1>
           <p className="text-gray-600 text-lg">
             You scored {results.correctAnswers} out of {results.totalQuestions}{" "}
             correct
           </p>
         </div>
 
+        {/* Overall Score */}
         <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl shadow-lg p-8 mb-8 text-white">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold mb-2">Overall Score</h2>
-              <p className="text-blue-100">Assessment performance</p>
+              <p className="text-blue-100">
+                For <span className="font-semibold">{jobRole}</span>
+              </p>
             </div>
             <div className="text-center">
               <div className="text-6xl font-bold mb-2">
                 {results.overallScore}%
               </div>
-              <div className="bg-white bg-opacity-20 rounded-full px-4 py-1 text-sm">
+              <div className="bg-white bg-opacity-20 rounded-full px-4 py-1 text-sm font-medium">
                 {results.overallScore >= 80
                   ? "Excellent"
                   : results.overallScore >= 60
@@ -637,7 +835,9 @@ export default function SkillGapAssessment() {
           </div>
         </div>
 
+        {/* Skill Breakdown and Recommendations */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Skill Breakdown */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -645,10 +845,12 @@ export default function SkillGapAssessment() {
             </h3>
 
             <div className="space-y-4">
-              {results.skillGaps.map((gap, index) => (
-                <div key={index} className="border-l-4 border-gray-200 pl-4">
+              {results.skillGaps.map((gap: any, index: number) => (
+                <div key={index} className="border-l-4 border-blue-200 pl-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold">{gap.skill}</span>
+                    <span className="font-semibold text-gray-900">
+                      {gap.skill}
+                    </span>
                     <div className="text-right">
                       <div className="text-sm font-bold text-gray-900">
                         {gap.correctAnswers}/{gap.questionsAnswered}
@@ -658,14 +860,9 @@ export default function SkillGapAssessment() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 text-sm text-gray-600 mb-2">
-                    <span>{gap.currentLevel}</span>
-                    <span>→</span>
-                    <span>{gap.requiredLevel}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                     <div
-                      className={`h-2 rounded-full ${
+                      className={`h-2 rounded-full transition-all ${
                         gap.gap === 0
                           ? "bg-green-500"
                           : gap.gap < 30
@@ -676,7 +873,7 @@ export default function SkillGapAssessment() {
                     />
                   </div>
                   {gap.gap > 0 && (
-                    <p className="text-xs text-orange-600 mt-1">
+                    <p className="text-xs text-orange-600">
                       {gap.gap}% gap to master
                     </p>
                   )}
@@ -685,6 +882,7 @@ export default function SkillGapAssessment() {
             </div>
           </div>
 
+          {/* Recommendations */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <BookOpen className="w-6 h-6 text-blue-600" />
@@ -693,14 +891,16 @@ export default function SkillGapAssessment() {
 
             {hasGaps ? (
               <div className="space-y-4">
-                {results.recommendations.map((rec, index) => (
+                {results.recommendations.map((rec: any, index: number) => (
                   <div
                     key={index}
-                    className="border border-gray-200 rounded-lg p-4"
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
                   >
-                    <div className="flex justify-between mb-2">
-                      <h4 className="font-semibold text-sm">{rec.title}</h4>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold text-sm text-gray-900 flex-1">
+                        {rec.title}
+                      </h4>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded font-medium ml-2 flex-shrink-0">
                         {rec.skill}
                       </span>
                     </div>
@@ -711,7 +911,7 @@ export default function SkillGapAssessment() {
                       href={rec.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 text-sm font-medium"
+                      className="inline-flex items-center gap-1 text-blue-600 text-sm font-medium hover:text-blue-700 transition"
                     >
                       Learn More
                       <ExternalLink className="w-4 h-4" />
@@ -726,16 +926,16 @@ export default function SkillGapAssessment() {
                   Perfect Score!
                 </h4>
                 <p className="text-gray-600 text-sm mb-4">
-                  You mastered all the skills. Continue learning advanced
-                  topics.
+                  You have mastered all the assessed skills for {jobRole}.
+                  Continue learning and explore advanced topics.
                 </p>
                 <a
                   href="https://www.coursera.org/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 text-sm font-medium"
+                  className="inline-flex items-center gap-1 text-blue-600 text-sm font-medium hover:text-blue-700 transition"
                 >
-                  Explore Advanced Courses
+                  Explore Courses
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
@@ -743,10 +943,11 @@ export default function SkillGapAssessment() {
           </div>
         </div>
 
+        {/* Action Buttons */}
         <div className="flex flex-wrap gap-4">
           <button
             onClick={handleSave}
-            className="flex-1 min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
+            className="flex-1 min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition"
           >
             <Save className="w-5 h-5" />
             {saved ? "Saved!" : "Save Results"}
@@ -754,7 +955,7 @@ export default function SkillGapAssessment() {
 
           <button
             onClick={handleRetake}
-            className="flex-1 min-w-[200px] bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
+            className="flex-1 min-w-[200px] bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition"
           >
             <RotateCcw className="w-5 h-5" />
             Retake Assessment
@@ -762,7 +963,7 @@ export default function SkillGapAssessment() {
 
           <button
             onClick={handleReset}
-            className="flex-1 min-w-[200px] bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
+            className="flex-1 min-w-[200px] bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition"
           >
             <Home className="w-5 h-5" />
             Back to Home

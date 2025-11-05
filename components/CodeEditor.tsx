@@ -289,7 +289,7 @@ int main() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          codes: wrappedCodes, // ✅ Send ALL wrapped codes, one for each test
+          codes: wrappedCodes,
           language,
           testCases,
         }),
@@ -387,9 +387,12 @@ int main() {
           `🎉 Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nTotal Time: ${executionTime}ms`
         );
       } else {
-        const failedTest = finalResults.find((r) => !r.passed);
+        const failedTestIndex = finalResults.findIndex((r) => !r.passed);
+        const failedTest = finalResults[failedTestIndex];
+        const failedTestCase = testCases[failedTestIndex];
+
         setOutput(
-          `❌ Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\nFirst failed test:\nExpected: ${failedTest?.expectedOutput}\nActual: ${failedTest?.actualOutput?.trim() || "No output"}\nError: ${failedTest?.error || "Output mismatch"}`
+          `❌ Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\n━━━━━━━━━━━━━━━━━━━━━\nTest Case #${failedTestIndex + 1} Failed\n━━━━━━━━━━━━━━━━━━━━━\n\nInput: ${failedTestCase?.input.replace(/\n/g, " ")}\nExpected Output: ${failedTest?.expectedOutput}\nYour Output: ${failedTest?.actualOutput?.trim() || "No output"}\n\nStatus: ${failedTest?.status}\nTime: ${failedTest?.time}ms\nMemory: ${failedTest?.memory}KB\n${failedTest?.error ? `Error: ${failedTest.error}` : ""}`
         );
       }
     } catch (error) {
@@ -618,19 +621,62 @@ int main() {
                     value={index.toString()}
                     className="space-y-3 m-0 p-4"
                   >
-                    <div className="space-y-2 font-mono text-sm">
+                    <div className="space-y-3 font-mono text-sm">
                       <div>
-                        <span className="text-foreground">Input: </span>
-                        <span className="text-muted-foreground">
-                          {tc.input}
+                        <span className="text-foreground font-semibold">
+                          Input:
                         </span>
+                        <div className="bg-muted/50 p-2 rounded mt-1 text-muted-foreground">
+                          {tc.input.split("\n").join(" ")}
+                        </div>
                       </div>
+
                       <div>
-                        <span className="text-foreground">Expected: </span>
-                        <span className="text-muted-foreground">
+                        <span className="text-foreground font-semibold">
+                          Expected Output:
+                        </span>
+                        <div className="bg-green-500/10 p-2 rounded mt-1 text-green-600 dark:text-green-400">
                           {tc.expectedOutput}
-                        </span>
+                        </div>
                       </div>
+
+                      {testResults[index] && (
+                        <div>
+                          <span className="text-foreground font-semibold">
+                            Your Output:
+                          </span>
+                          <div
+                            className={`p-2 rounded mt-1 ${
+                              testResults[index].passed
+                                ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                                : "bg-red-500/10 text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {testResults[index].actualOutput?.trim() ||
+                              "No output"}
+                          </div>
+                        </div>
+                      )}
+
+                      {testResults[index] && (
+                        <div className="pt-2 border-t">
+                          <div className="text-xs text-muted-foreground">
+                            <div>⏱️ Time: {testResults[index].time}ms</div>
+                            <div>💾 Memory: {testResults[index].memory}KB</div>
+                            <div>
+                              {testResults[index].passed ? (
+                                <span className="text-green-600 dark:text-green-400">
+                                  ✅ Accepted
+                                </span>
+                              ) : (
+                                <span className="text-red-600 dark:text-red-400">
+                                  ❌ {testResults[index].status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
                 ))}

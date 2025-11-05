@@ -12,12 +12,18 @@ import { generateText } from "ai";
 
 async function parseResumeWithGroq(text: string): Promise<any> {
   try {
+    // ✅ Limit text length to prevent issues
+    const maxLength = 10000;
+    const limitedText = text.substring(0, maxLength);
+
+    console.log(`📄 Processing resume text (${limitedText.length} chars)`);
+
     const { text: response } = await generateText({
       model: groq("llama-3.1-8b-instant"),
       prompt: `Parse this resume and return ONLY valid JSON with no markdown or extra text.
 
 Resume Text:
-${text}
+${limitedText}
 
 Return exactly this JSON structure (use empty arrays if not found, null for missing optional fields):
 {
@@ -65,37 +71,56 @@ Return exactly this JSON structure (use empty arrays if not found, null for miss
   ]
 }
 
-IMPORTANT: Return ONLY JSON, nothing else.`,
-      system: "You are a resume parsing expert. Extract all resume information accurately and return only valid JSON with no explanations.",
+IMPORTANT: Return ONLY JSON, nothing else. No markdown, no explanations.`,
+      system:
+        "You are a resume parsing expert. Extract all resume information accurately and return only valid JSON with no explanations.",
     });
 
-    // Extract JSON from response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("Could not extract JSON from Groq response:", response);
-      throw new Error("Could not extract JSON from Groq response");
+    console.log("✅ Groq response received");
+
+    // ✅ Safely extract JSON
+    let parsedJson;
+    try {
+      // Try direct parse first
+      parsedJson = JSON.parse(response);
+    } catch (e) {
+      // Try extracting JSON from markdown or text
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error(
+          "❌ Could not extract JSON from Groq response:",
+          response.substring(0, 200)
+        );
+        throw new Error("Could not extract JSON from Groq response");
+      }
+      parsedJson = JSON.parse(jsonMatch[0]);
     }
 
-    return JSON.parse(jsonMatch[0]);
+    console.log("✅ JSON parsed successfully");
+    return parsedJson;
   } catch (error) {
-    console.error("Groq parsing error:", error);
+    console.error("❌ Groq parsing error:", error);
     throw error;
   }
 }
 
 export async function POST(req: NextRequest) {
+  let tempFilePath: string | null = null;
+
   try {
     const session = await auth();
     if (!session?.user?.id) {
+      console.error("❌ Unauthorized - no session");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    console.log("✅ User authenticated:", session.user.id);
+
     await dbConnect();
+    console.log("✅ Database connected");
 
     const formData: FormData = await req.formData();
     const uploadedFiles = formData.getAll("FILE");
-    let fileName = "";
-    let parsedText = "";
 
     if (!uploadedFiles || uploadedFiles.length === 0) {
       return NextResponse.json({ error: "No files found" }, { status: 404 });
@@ -110,29 +135,75 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    fileName = uuidv4();
-    const tempFilePath = `/tmp/${fileName}.pdf`;
+    console.log(`📁 File received: ${uploadedFile.name} (${uploadedFile.size} bytes)`);
+
+    // ✅ Check file size
+    const maxFileSize = 8 * 1024 * 1024; // 8MB
+    if (uploadedFile.size > maxFileSize) {
+      return NextResponse.json(
+        { error: "File size exceeds 8MB limit" },
+        { status: 400 }
+      );
+    }
+
+    const fileName = uuidv4();
+    tempFilePath = `/tmp/${fileName}.pdf`;
     const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
 
+    console.log(`💾 Writing file to: ${tempFilePath}`);
     await fs.writeFile(tempFilePath, fileBuffer);
 
+    console.log("📖 Starting PDF parsing...");
     const pdfParser = new (PDFParser as any)(null, 1);
 
-    pdfParser.on("pdfParser_dataError", (errData: any) => {
-      console.log(errData.parserError);
-    });
+    let parsedText = "";
 
+    // ✅ Better error handling
     await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("PDF parsing timeout"));
+      }, 30000); // 30 second timeout
+
       pdfParser.on("pdfParser_dataReady", () => {
-        parsedText = (pdfParser as any).getRawTextContent();
-        resolve();
+        clearTimeout(timeout);
+        try {
+          const rawText = (pdfParser as any).getRawTextContent();
+          
+          // ✅ Validate text
+          if (!rawText || typeof rawText !== "string") {
+            throw new Error("Invalid text extracted from PDF");
+          }
+          
+          // ✅ Limit to reasonable size
+          parsedText = rawText.substring(0, 20000);
+          console.log(`✅ PDF parsed: ${parsedText.length} chars extracted`);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
       });
-      pdfParser.on("pdfParser_dataError", reject);
+
+      pdfParser.on("pdfParser_dataError", (errData: any) => {
+        clearTimeout(timeout);
+        console.error("PDF Parser error:", errData);
+        reject(new Error(`PDF parsing failed: ${errData.parserError}`));
+      });
+
       pdfParser.loadPDF(tempFilePath);
     });
 
-    // Parse with Groq AI (no rate limiting issues!)
+    if (!parsedText || parsedText.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Could not extract text from PDF" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Parse with Groq
+    console.log("🤖 Parsing with Groq...");
     const parsedData = await parseResumeWithGroq(parsedText);
+
+    console.log("💾 Saving to database...");
 
     // Save to Resume collection
     const resume = await Resume.create({
@@ -145,31 +216,49 @@ export async function POST(req: NextRequest) {
       status: "completed",
     });
 
-    // Update User
+    // ✅ Update User with defaults
     await User.findByIdAndUpdate(session.user.id, {
       $set: {
         name: parsedData.name || "",
-        skills: parsedData.skills || [],
+        skills: Array.isArray(parsedData.skills) ? parsedData.skills : [],
         location: parsedData.location || "",
         website: parsedData.website || "",
       },
     });
 
-    // Update or create Profile
+    // ✅ Update or create Profile with defaults
     await Profile.findOneAndUpdate(
       { userId: session.user.id },
       {
         $set: {
-          experience: parsedData.experience || [],
-          education: parsedData.education || [],
-          projects: parsedData.projects || [],
-          certifications: parsedData.certifications || [],
+          experience: Array.isArray(parsedData.experience)
+            ? parsedData.experience
+            : [],
+          education: Array.isArray(parsedData.education)
+            ? parsedData.education
+            : [],
+          projects: Array.isArray(parsedData.projects)
+            ? parsedData.projects
+            : [],
+          certifications: Array.isArray(parsedData.certifications)
+            ? parsedData.certifications
+            : [],
         },
       },
       { upsert: true, new: true }
     );
 
-    await fs.unlink(tempFilePath);
+    // ✅ Clean up temp file
+    if (tempFilePath) {
+      try {
+        await fs.unlink(tempFilePath);
+        console.log("✅ Temp file deleted");
+      } catch (e) {
+        console.warn("Could not delete temp file:", e);
+      }
+    }
+
+    console.log("✅ Resume parsing completed successfully");
 
     const response = new NextResponse(JSON.stringify(parsedData));
     response.headers.set("FileName", fileName);
@@ -177,9 +266,19 @@ export async function POST(req: NextRequest) {
     response.headers.set("Content-Type", "application/json");
     return response;
   } catch (error) {
-    console.error("Resume parsing error:", error);
+    console.error("❌ Resume parsing error:", error);
+
+    // ✅ Clean up on error
+    if (tempFilePath) {
+      try {
+        await fs.unlink(tempFilePath);
+      } catch (e) {
+        console.warn("Could not delete temp file on error:", e);
+      }
+    }
+
     return NextResponse.json(
-      { error: "Failed to parse resume: " + (error as Error).message },
+      { error: "Failed to parse resume: " + (error instanceof Error ? error.message : "Unknown error") },
       { status: 500 }
     );
   }

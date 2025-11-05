@@ -115,6 +115,6 @@ export async function signInWithCredentials(
 }
 
 export async function handleSignOut() {
-  await signOut({ redirectTo: ROUTES.HOME });
+  await signOut({ redirect: false });
 }
 

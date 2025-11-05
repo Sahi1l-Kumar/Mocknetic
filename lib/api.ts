@@ -72,6 +72,19 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ assessmentId, answers }),
       }),
+    generateRecommendations: async (data: {
+      jobRole: string;
+      experienceLevel: string;
+      skillGaps: string[];
+      overallScore: number;
+    }) => {
+      const response = await fetch("/api/assessment/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.json();
+    },
   },
 
 };

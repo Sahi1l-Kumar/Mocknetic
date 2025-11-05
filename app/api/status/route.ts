@@ -1,4 +1,3 @@
-import { APIResponse, TestResult } from "@/types/global";
 import { NextRequest, NextResponse } from "next/server";
 
 const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com";
@@ -7,18 +6,24 @@ const JUDGE0_HOST = process.env.JUDGE0_HOST || "judge0-ce.p.rapidapi.com";
 
 interface StatusRequest {
   tokens: string[];
-  expectedOutputs?: string[]; // Add expected outputs
+  expectedOutputs?: string[];
 }
 
-interface StatusResult extends TestResult {
+interface StatusResult {
   token: string;
-  isPending: boolean;
+  status: string;
   statusId: number;
+  isPending: boolean;
+  input: string;
   expectedOutput: string;
+  actualOutput: string | null;
   passed: boolean;
+  time: string | null;
+  memory: number | null;
+  error: string | null;
 }
 
-export async function POST(request: NextRequest): Promise<APIResponse<{ results: StatusResult[] }>> {
+export async function POST(request: NextRequest): Promise<any> {
   try {
     const { tokens, expectedOutputs }: StatusRequest = await request.json();
 
@@ -73,9 +78,11 @@ export async function POST(request: NextRequest): Promise<APIResponse<{ results:
       const isPending = statusId === 1 || statusId === 2;
       const actualOutput = data.stdout || "";
 
-      // Compare outputs
+      // Trim both outputs for comparison
       const actualTrimmed = actualOutput.trim();
       const expectedTrimmed = expectedOutput.trim();
+
+      // Compare: only mark as passed if statusId is 3 (Accepted) AND outputs match
       const passed =
         statusId === 3 && actualTrimmed === expectedTrimmed;
 
@@ -86,7 +93,7 @@ export async function POST(request: NextRequest): Promise<APIResponse<{ results:
         isPending,
         input: "",
         expectedOutput: expectedOutput,
-        actualOutput: actualOutput,
+        actualOutput: actualOutput, // Store original with newline
         passed: passed,
         time: data.time || null,
         memory: data.memory || null,
