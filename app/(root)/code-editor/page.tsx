@@ -24,11 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PROBLEM_TAGS, SAMPLE_PROBLEMS } from "@/constants";
+import ROUTES from "@/constants/routes";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  Easy: "text-green-600 dark:text-green-400 border-green-600",
-  Medium: "text-yellow-600 dark:text-yellow-400 border-yellow-600",
-  Hard: "text-red-600 dark:text-red-400 border-red-600",
+  Easy: "text-emerald-600 dark:text-emerald-400 border-emerald-600",
+  Medium: "text-amber-600 dark:text-amber-400 border-amber-600",
+  Hard: "text-rose-600 dark:text-rose-400 border-rose-600",
 };
 
 export default function HomePage(): React.ReactNode {
@@ -53,16 +54,16 @@ export default function HomePage(): React.ReactNode {
   }, [searchTerm, selectedTag, difficultyFilter]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50">
       {/* Hero Section */}
-      <section className="border-b bg-gradient-to-r from-primary/10 to-primary/5">
+      <section className="border-b border-slate-200 bg-linear-to-r from-blue-600/10 via-blue-500/5 to-slate-50">
         <div className="max-w-7xl mx-auto px-6 py-7 flex flex-wrap md:flex-nowrap items-center gap-8">
           {/* Left Content */}
           <div className="flex-1 max-w-2xl">
-            <h1 className="text-4xl font-black tracking-tight leading-tight text-foreground mb-2">
+            <h1 className="text-4xl font-black tracking-tight leading-tight text-slate-900 mb-2">
               Start Your Coding Journey
             </h1>
-            <p className="text-muted-foreground mb-6 leading-relaxed">
+            <p className="text-slate-600 mb-6 leading-relaxed">
               Practice coding problems, improve your skills,
               <br />
               and prepare for technical interviews with our comprehensive
@@ -71,49 +72,74 @@ export default function HomePage(): React.ReactNode {
 
             {/* 2x2 Button Grid */}
             <div className="grid grid-cols-2 gap-3 max-w-md min-w-[250px]">
-              <Button
-                size="lg"
-                className="w-full bg-primary hover:bg-primary/90"
-              >
-                <Trophy className="mr-2 h-4 w-4" />
-                Start Learning
-              </Button>
-              <Button size="lg" variant="outline" className="w-full">
-                <Brain className="mr-2 h-4 w-4" />
-                Mock Interview
-              </Button>
-              <Link href="/editor">
-                <Button size="lg" variant="outline" className="w-full">
-                  <BarChart2 className="mr-2 h-4 w-4" />
-                  Skill Gap Analyzer
+              {/* Start Learning */}
+              <Link href={ROUTES.CODE}>
+                <Button
+                  size="lg"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Trophy className="mr-2 h-4 w-4" />
+                  Start Learning
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="w-full">
-                <ClipboardCheck className="mr-2 h-4 w-4" />
-                Assessments
-              </Button>
+
+              {/* Mock Interview */}
+              <Link href={ROUTES.INTERVIEW}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full border-slate-300 hover:bg-slate-50"
+                >
+                  <Brain className="mr-2 h-4 w-4" />
+                  Mock Interview
+                </Button>
+              </Link>
+
+              {/* Skill Gap Analyzer */}
+              <Link href={ROUTES.SKILL}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full border-slate-300 hover:bg-slate-50"
+                >
+                  <BarChart2 className="mr-2 h-4 w-4" />
+                  Skill Assessment
+                </Button>
+              </Link>
+
+              {/* Resume Parser */}
+              <Link href={ROUTES.RESUME}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full border-slate-300 hover:bg-slate-50"
+                >
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Resume Parser
+                </Button>
+              </Link>
             </div>
           </div>
 
           {/* Stats Cards */}
           <div className="flex gap-4 md:gap-6">
-            <Card className="shadow-lg w-32 h-20 sm:w-36 sm:h-24 md:w-40 md:h-28 lg:w-44 lg:h-32 xl:w-48 xl:h-36">
+            <Card className="shadow-lg w-32 h-20 sm:w-36 sm:h-24 md:w-40 md:h-28 lg:w-44 lg:h-32 xl:w-48 xl:h-36 border-slate-200">
               <CardContent className="flex flex-col items-center justify-center h-full p-2">
-                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-primary">
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-blue-600">
                   1,600+
                 </div>
-                <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mt-1 text-center">
+                <div className="text-xs sm:text-sm md:text-base font-medium text-slate-600 mt-1 text-center">
                   Problems Available
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="shadow-lg w-32 h-20 sm:w-36 sm:h-24 md:w-40 md:h-28 lg:w-44 lg:h-32 xl:w-48 xl:h-36">
+            <Card className="shadow-lg w-32 h-20 sm:w-36 sm:h-24 md:w-40 md:h-28 lg:w-44 lg:h-32 xl:w-48 xl:h-36 border-slate-200">
               <CardContent className="flex flex-col items-center justify-center h-full p-2">
-                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-green-500">
+                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-emerald-500">
                   850
                 </div>
-                <div className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground mt-1 text-center">
+                <div className="text-xs sm:text-sm md:text-base font-medium text-slate-600 mt-1 text-center">
                   Problems Solved
                 </div>
               </CardContent>
@@ -127,9 +153,9 @@ export default function HomePage(): React.ReactNode {
         <div className="grid lg:grid-cols-4 gap-8">
           {/* Tags Sidebar */}
           <aside className="lg:col-span-1 space-y-6">
-            <Card>
+            <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-6">
-                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Filter size={18} />
                   Topics
                 </h3>
@@ -140,13 +166,20 @@ export default function HomePage(): React.ReactNode {
                       onClick={() => setSelectedTag(tag.name)}
                       className={`w-full text-left p-2 rounded-lg transition-all duration-200 ${
                         selectedTag === tag.name
-                          ? "bg-primary/10 text-primary"
-                          : "hover:bg-muted text-foreground"
+                          ? "bg-blue-50 text-blue-600 border border-blue-200"
+                          : "hover:bg-slate-50 text-slate-600"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">{tag.name}</span>
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${
+                            selectedTag === tag.name
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
                           {tag.count}
                         </Badge>
                       </div>
@@ -160,16 +193,16 @@ export default function HomePage(): React.ReactNode {
           {/* Main Content */}
           <main className="lg:col-span-3 space-y-6">
             {/* Search and Filters */}
-            <Card>
+            <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-4">
                 <div className="flex flex-col lg:flex-row gap-4">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                     <Input
                       placeholder="Search questions..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
 
@@ -177,7 +210,7 @@ export default function HomePage(): React.ReactNode {
                     value={difficultyFilter}
                     onValueChange={setDifficultyFilter}
                   >
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[180px] border-slate-200">
                       <SelectValue placeholder="Difficulty" />
                     </SelectTrigger>
                     <SelectContent>
@@ -189,7 +222,7 @@ export default function HomePage(): React.ReactNode {
                   </Select>
 
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[180px] border-slate-200">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
@@ -204,33 +237,33 @@ export default function HomePage(): React.ReactNode {
             </Card>
 
             {/* Problems List */}
-            <Card>
+            <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-0">
                 {/* Header */}
-                <div className="sticky top-0 z-10 p-4 border-b bg-background">
+                <div className="sticky top-0 z-10 p-4 border-b border-slate-200 bg-slate-50">
                   <div className="grid grid-cols-12 gap-4 items-center">
                     <div className="col-span-1 text-center">
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-medium text-slate-500">
                         Status
                       </span>
                     </div>
                     <div className="col-span-5">
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-medium text-slate-500">
                         Title
                       </span>
                     </div>
                     <div className="col-span-2 text-center">
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-medium text-slate-500">
                         Acceptance
                       </span>
                     </div>
                     <div className="col-span-2 text-center">
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-medium text-slate-500">
                         Difficulty
                       </span>
                     </div>
                     <div className="col-span-2 text-center">
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-medium text-slate-500">
                         Frequency
                       </span>
                     </div>
@@ -238,19 +271,19 @@ export default function HomePage(): React.ReactNode {
                 </div>
 
                 {/* Problems */}
-                <div className="divide-y max-h-[600px] overflow-y-auto">
+                <div className="divide-y divide-slate-200 max-h-[600px] overflow-y-auto">
                   {filteredProblems.map((problem) => (
                     <div
                       key={problem.id}
-                      className="grid grid-cols-12 gap-4 items-center p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                      className="grid grid-cols-12 gap-4 items-center p-4 hover:bg-blue-50/50 transition-colors cursor-pointer"
                       onClick={() => router.push(`/problem/${problem.id}`)}
                     >
                       {/* Status */}
                       <div className="col-span-1 text-center">
                         {problem.solved ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
+                          <CheckCircle className="h-5 w-5 text-emerald-500 mx-auto" />
                         ) : (
-                          <div className="h-5 w-5 border-2 border-muted-foreground rounded-full mx-auto" />
+                          <div className="h-5 w-5 border-2 border-slate-300 rounded-full mx-auto" />
                         )}
                       </div>
 
@@ -258,9 +291,9 @@ export default function HomePage(): React.ReactNode {
                       <div className="col-span-5">
                         <div className="flex items-center gap-2">
                           {problem.premium && (
-                            <Star className="h-4 w-4 text-yellow-500" />
+                            <Star className="h-4 w-4 text-amber-500" />
                           )}
-                          <span className="text-sm text-foreground hover:text-primary">
+                          <span className="text-sm text-slate-900 hover:text-blue-600">
                             {problem.id}. {problem.title}
                           </span>
                         </div>
@@ -269,13 +302,16 @@ export default function HomePage(): React.ReactNode {
                             <Badge
                               key={tag}
                               variant="secondary"
-                              className="text-xs"
+                              className="text-xs bg-slate-100 text-slate-700"
                             >
                               {tag}
                             </Badge>
                           ))}
                           {problem.tags.length > 2 && (
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge
+                              variant="secondary"
+                              className="text-xs bg-slate-100 text-slate-700"
+                            >
                               +{problem.tags.length - 2}
                             </Badge>
                           )}
@@ -284,7 +320,7 @@ export default function HomePage(): React.ReactNode {
 
                       {/* Acceptance */}
                       <div className="col-span-2 text-center">
-                        <span className="text-xs font-medium text-muted-foreground">
+                        <span className="text-xs font-medium text-slate-600">
                           {problem.acceptance}
                         </span>
                       </div>
@@ -317,8 +353,8 @@ export default function HomePage(): React.ReactNode {
                                   (problem.frequency === "Medium" &&
                                     bar <= 3) ||
                                   (problem.frequency === "Low" && bar <= 2)
-                                    ? "bg-primary"
-                                    : "bg-muted"
+                                    ? "bg-blue-600"
+                                    : "bg-slate-300"
                                 }`}
                               />
                             ))}
