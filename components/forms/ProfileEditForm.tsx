@@ -36,54 +36,70 @@ import ROUTES from "@/constants/routes";
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  bio: z.string().max(500, "Bio must be less than 500 characters"),
-  location: z.string().optional(),
-  currentRole: z.string().optional(),
-  company: z.string().optional(),
-  website: z.string().url("Invalid URL").optional().or(z.literal("")),
-  github: z.string().optional(),
-  linkedin: z.string().optional(),
-  skills: z.array(z.string()),
-  experience: z.array(
-    z.object({
-      id: z.string(),
-      title: z.string().min(1, "Title is required"),
-      company: z.string().min(1, "Company is required"),
-      location: z.string().optional(),
-      startDate: z.string().min(1, "Start date is required"),
-      endDate: z.string().min(1, "End date is required"),
-      description: z.string().optional(),
-      current: z.boolean(),
-    })
-  ),
-  education: z.array(
-    z.object({
-      id: z.string(),
-      degree: z.string().min(1, "Degree is required"),
-      institution: z.string().min(1, "Institution is required"),
-      location: z.string().optional(),
-      startDate: z.string().min(1, "Start date is required"),
-      endDate: z.string().min(1, "End date is required"),
-      gpa: z.string().optional(),
-    })
-  ),
-  projects: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1, "Project name is required"),
-      description: z.string().min(1, "Description is required"),
-      technologies: z.array(z.string()),
-      link: z.string().url("Invalid URL").optional().or(z.literal("")),
-    })
-  ),
-  certifications: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1, "Certification name is required"),
-      issuer: z.string().min(1, "Issuer is required"),
-      date: z.string().min(1, "Date is required"),
-    })
-  ),
+  bio: z
+    .string()
+    .max(500, "Bio must be less than 500 characters")
+    .optional()
+    .or(z.literal("")),
+  location: z.string().optional().or(z.literal("")),
+  currentRole: z.string().optional().or(z.literal("")),
+  company: z.string().optional().or(z.literal("")),
+  website: z.string().optional().or(z.literal("")),
+  github: z.string().optional().or(z.literal("")),
+  linkedin: z.string().optional().or(z.literal("")),
+  skills: z.array(z.string()).optional().default([]),
+  experience: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        title: z.string().min(1, "Title is required"),
+        company: z.string().min(1, "Company is required"),
+        location: z.string().optional().or(z.literal("")),
+        startDate: z.string().min(1, "Start date is required"),
+        endDate: z.string().min(1, "End date is required"),
+        description: z.string().optional().or(z.literal("")),
+        current: z.boolean().optional().default(false),
+      })
+    )
+    .optional()
+    .default([]),
+  education: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        degree: z.string().min(1, "Degree is required"),
+        institution: z.string().min(1, "Institution is required"),
+        location: z.string().optional().or(z.literal("")),
+        startDate: z.string().min(1, "Start date is required"),
+        endDate: z.string().min(1, "End date is required"),
+        gpa: z.string().optional().or(z.literal("")),
+      })
+    )
+    .optional()
+    .default([]),
+  projects: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        name: z.string().min(1, "Project name is required"),
+        description: z.string().min(1, "Description is required"),
+        technologies: z.array(z.string()).optional().default([]),
+        link: z.string().optional().or(z.literal("")),
+      })
+    )
+    .optional()
+    .default([]),
+  certifications: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        name: z.string().min(1, "Certification name is required"),
+        issuer: z.string().min(1, "Issuer is required"),
+        date: z.string().min(1, "Date is required"),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -145,15 +161,24 @@ export default function ProfileEditForm({
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
-      // TODO: Implement actual API call
-      // await updateProfile(userId, data);
+      const response = await fetch("/api/profile/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
-      console.log("Profile data:", data);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update profile");
+      }
 
+      const result = await response.json();
       toast.success("Profile updated successfully");
       router.push(ROUTES.PROFILE(userId));
     } catch (error) {
-      toast.error("Failed to update profile");
+      toast.error((error as Error).message || "Failed to update profile");
       console.error(error);
     }
   };
@@ -164,13 +189,80 @@ export default function ProfileEditForm({
 
     setIsUploading(true);
     try {
-      // TODO: Implement resume parsing API call
-      // const parsedData = await parseResume(file);
-      // form.reset(parsedData);
+      const formData = new FormData();
+      formData.append("FILE", file);
 
-      toast.success("Resume parsed successfully");
+      const response = await fetch("/api/resume/parse", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to parse resume");
+      }
+
+      const parsedData = await response.json();
+
+      // ✅ Convert null/undefined to empty strings
+      form.reset({
+        name: parsedData.name || "",
+        email: parsedData.email || "",
+        bio: parsedData.bio || "",
+        location: parsedData.location || "",
+        currentRole: parsedData.currentRole || "",
+        company: parsedData.company || "",
+        website: parsedData.website || "",
+        github: parsedData.github || "",
+        linkedin: parsedData.linkedin || "",
+        skills: Array.isArray(parsedData.skills) ? parsedData.skills : [],
+        experience: Array.isArray(parsedData.experience)
+          ? parsedData.experience.map((exp: any) => ({
+              id: exp.id || Date.now().toString(),
+              title: exp.title || "",
+              company: exp.company || "",
+              location: exp.location || "",
+              startDate: exp.startDate || "",
+              endDate: exp.endDate || "",
+              description: exp.description || "",
+              current: exp.current || false,
+            }))
+          : [],
+        education: Array.isArray(parsedData.education)
+          ? parsedData.education.map((edu: any) => ({
+              id: edu.id || Date.now().toString(),
+              degree: edu.degree || "",
+              institution: edu.institution || "",
+              location: edu.location || "",
+              startDate: edu.startDate || "",
+              endDate: edu.endDate || "",
+              gpa: edu.gpa || "",
+            }))
+          : [],
+        projects: Array.isArray(parsedData.projects)
+          ? parsedData.projects.map((proj: any) => ({
+              id: proj.id || Date.now().toString(),
+              name: proj.name || "",
+              description: proj.description || "",
+              technologies: Array.isArray(proj.technologies)
+                ? proj.technologies
+                : [],
+              link: proj.link || "",
+            }))
+          : [],
+        certifications: Array.isArray(parsedData.certifications)
+          ? parsedData.certifications.map((cert: any) => ({
+              id: cert.id || Date.now().toString(),
+              name: cert.name || "",
+              issuer: cert.issuer || "",
+              date: cert.date || "",
+            }))
+          : [],
+      });
+
+      toast.success("Resume parsed successfully! Form has been auto-filled.");
     } catch (error) {
-      toast.error("Failed to parse resume");
+      toast.error((error as Error).message || "Failed to parse resume");
       console.error(error);
     } finally {
       setIsUploading(false);
@@ -215,6 +307,18 @@ export default function ProfileEditForm({
       `projects.${projectIndex}.technologies`,
       currentTechs.filter((_, i) => i !== techIndex)
     );
+  };
+
+  const handleSubmitClick = () => {
+    console.log("Submit button clicked!");
+    console.log("Form state:", {
+      isDirty: form.formState.isDirty,
+      isValid: form.formState.isValid,
+      isSubmitting: form.formState.isSubmitting,
+      errors: form.formState.errors,
+    });
+
+    form.handleSubmit(onSubmit)();
   };
 
   return (
@@ -996,6 +1100,7 @@ export default function ProfileEditForm({
           <div className="flex gap-4">
             <Button
               type="submit"
+              onClick={handleSubmitClick}
               disabled={form.formState.isSubmitting}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >

@@ -72,13 +72,15 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     redirect(ROUTES.SIGN_IN);
   }
 
-  const profile = await getUserProfile(params.id);
+  const { id } = await params;
+
+  const profile = await getUserProfile(id);
 
   if (!profile) {
     redirect(ROUTES.HOME);
   }
 
-  const isOwnProfile = session?.user?.id === params.id;
+  const isOwnProfile = session?.user?.id === id;
 
   return (
     <div className="min-h-screen">

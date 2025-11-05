@@ -1,75 +1,70 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import ROUTES from "@/constants/routes";
+import Link from "next/link";
+import { Upload } from "lucide-react";
 
 import ProfileEditForm from "@/components/forms/ProfileEditForm";
+import User from "@/database/user.model";
+import Profile from "@/database/profile.model";
+import dbConnect from "@/lib/mongoose";
 
-async function getUserProfile(id: string) {
-  // TODO: Replace with actual database call
-  return {
-    id: id,
-    name: "Alex Johnson",
-    email: "alex.johnson@example.com",
-    bio: "Passionate Full Stack Developer with 5+ years of experience building scalable web applications.",
-    location: "San Francisco, CA",
-    currentRole: "Senior Frontend Engineer",
-    company: "TechCorp Inc.",
-    website: "https://alexjohnson.dev",
-    github: "alexjohnson",
-    linkedin: "alexjohnson",
-    skills: [
-      "React",
-      "Next.js",
-      "TypeScript",
-      "Node.js",
-      "Express",
-      "MongoDB",
-      "PostgreSQL",
-      "AWS",
-      "Docker",
-      "GraphQL",
-    ],
-    experience: [
-      {
-        id: "1",
-        title: "Senior Frontend Engineer",
-        company: "TechCorp Inc.",
-        location: "San Francisco, CA",
-        startDate: "Jan 2022",
-        endDate: "Present",
-        description: "Lead development of customer-facing web applications.",
-        current: true,
-      },
-    ],
-    education: [
-      {
-        id: "1",
-        degree: "Bachelor of Science in Computer Science",
-        institution: "Stanford University",
-        location: "Stanford, CA",
-        startDate: "2014",
-        endDate: "2018",
-        gpa: "3.8/4.0",
-      },
-    ],
-    projects: [
-      {
-        id: "1",
-        name: "E-Commerce Platform",
-        description: "Built a full-stack e-commerce platform.",
-        technologies: ["React", "Node.js", "MongoDB"],
-        link: "https://github.com/alexjohnson/ecommerce",
-      },
-    ],
-    certifications: [
-      {
-        id: "1",
-        name: "AWS Certified Solutions Architect",
-        issuer: "Amazon Web Services",
-        date: "2023",
-      },
-    ],
-  };
+async function getUserProfile(userId: string) {
+  try {
+    await dbConnect();
+
+    const user = (await User.findById(userId).lean()) as any;
+    if (!user) return null;
+
+    const profile = (await Profile.findOne({ userId }).lean()) as any;
+
+    const profileData = {
+      id: user._id.toString(),
+      name: user.name || "",
+      email: user.email || "",
+      bio: user.bio || "",
+      location: user.location || "",
+      currentRole: user.currentRole || "",
+      company: user.company || "",
+      website: user.website || "",
+      github: user.github || "",
+      linkedin: user.linkedin || "",
+      skills: user.skills || [],
+      experience: (profile?.experience || []).map((exp: any) => ({
+        title: exp.title || "",
+        company: exp.company || "",
+        location: exp.location || "",
+        startDate: exp.startDate || "",
+        endDate: exp.endDate || "",
+        description: exp.description || "",
+        current: exp.current || false,
+      })),
+      education: (profile?.education || []).map((edu: any) => ({
+        degree: edu.degree || "",
+        institution: edu.institution || "",
+        location: edu.location || "",
+        startDate: edu.startDate || "",
+        endDate: edu.endDate || "",
+        gpa: edu.gpa || "",
+      })),
+      projects: (profile?.projects || []).map((proj: any) => ({
+        name: proj.name || "",
+        description: proj.description || "",
+        technologies: proj.technologies || [],
+        link: proj.link || "",
+      })),
+      certifications: (profile?.certifications || []).map((cert: any) => ({
+        name: cert.name || "",
+        issuer: cert.issuer || "",
+        date: cert.date || "",
+      })),
+    };
+
+    return profileData;
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    return null;
+  }
 }
 
 export default async function EditProfilePage() {
@@ -86,14 +81,34 @@ export default async function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50">
       <div className="max-w-5xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">
-            Edit Profile
-          </h1>
-          <p className="text-lg text-slate-600">
-            Update your information or upload a new resume to auto-fill
+        {/* Header with Resume Upload Button */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-slate-900 mb-2">
+              Edit Profile
+            </h1>
+            <p className="text-lg text-slate-600">
+              Update your information to improve your profile
+            </p>
+          </div>
+          {/* Resume Parser Button */}
+          <Link
+            href={ROUTES.RESUME}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          >
+            <Upload className="w-5 h-5" />
+            Upload Resume
+          </Link>
+        </div>
+
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8">
+          <p className="text-sm text-blue-900">
+            💡 <strong>Tip:</strong> Click &quot;Upload Resume&quot; to
+            automatically extract and populate your profile information using
+            AI.
           </p>
         </div>
 
