@@ -524,7 +524,7 @@ export default function SkillGapAssessment() {
   // Step 1: Job Role Selection
   if (currentStep === "job-role") {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto mt-3">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">
             What are you aiming for?
