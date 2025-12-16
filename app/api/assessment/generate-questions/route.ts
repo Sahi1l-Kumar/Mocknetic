@@ -6,18 +6,275 @@ import User from "@/database/user.model";
 import Assessment from "@/database/assessment.model";
 import dbConnect from "@/lib/mongoose";
 
+type QuestionType =
+  | "mcq"
+  | "pseudo_mcq"
+  | "descriptive"
+  | "aptitude"
+  | "reasoning"
+  | "circuit_math";
+
+interface QuestionPlan {
+  type: QuestionType;
+  count: number;
+}
+
+interface GeneratedQuestion {
+  id: string;
+  skill: string;
+  questionType: QuestionType;
+  question: string;
+  options?: string[];
+  correctAnswer?: number;
+  difficulty: string;
+  explanation?: string;
+  expectedAnswer?: string;
+  evaluationCriteria?: string;
+  expectedKeywords?: string[];
+}
+
+function getJobRolePattern(jobRole: string): {
+  degree: string;
+  pattern: {
+    mcqTechnical?: number;
+    mcqPseudoCode?: number;
+    mcqAptitude?: number;
+    softwareMcq?: number;
+    coreMcq?: number;
+    circuitMath?: number;
+    mathPhysics?: number;
+    descriptiveQuestions?: number;
+  };
+} {
+  const role = jobRole.toLowerCase().trim();
+
+  if (
+    [
+      "software developer",
+      "software engineer",
+      "developer",
+      "ai/ml engineer",
+      "ai engineer",
+      "ml engineer",
+      "cloud engineer",
+      "devops engineer",
+      "cloud/devops engineer",
+      "cybersecurity analyst",
+      "data scientist",
+      "web developer",
+      "network engineer",
+      "it consultant",
+    ].some((r) => role.includes(r))
+  ) {
+    return {
+      degree: "CSE / IT / AI-ML / CSCE",
+      pattern: {
+        mcqTechnical: 10,
+        mcqPseudoCode: 5,
+        mcqAptitude: 10,
+      },
+    };
+  }
+
+  if (
+    [
+      "tester",
+      "electronics",
+      "hardware engineer",
+      "electronics/hardware engineer",
+      "embedded systems engineer",
+      "embedded engineer",
+      "vlsi",
+      "chip design engineer",
+      "rtl",
+      "pcb designer",
+      "rf",
+      "wireless engineer",
+      "firmware engineer",
+      "telecommunications engineer",
+    ].some((r) => role.includes(r))
+  ) {
+    return {
+      degree: "ECS / ECE-like",
+      pattern: {
+        mcqAptitude: 10,
+        softwareMcq: 5,
+        coreMcq: 5,
+        mcqPseudoCode: 5,
+      },
+    };
+  }
+
+  if (
+    [
+      "electrical",
+      "etc",
+      "eee",
+      "instrumentation",
+      "e&i",
+      "rtl/design",
+      "pcb",
+      "field/service engineer",
+      "maintenance",
+      "hvac",
+      "power electronics",
+      "sales engineer",
+      "manufacturing",
+      "automation",
+    ].some((r) => role.includes(r))
+  ) {
+    return {
+      degree: "ETC / EEE / Electrical / E&I",
+      pattern: {
+        mcqAptitude: 8,
+        coreMcq: 10,
+        circuitMath: 5,
+        descriptiveQuestions: 4,
+      },
+    };
+  }
+
+  if (
+    [
+      "design engineer",
+      "cad",
+      "cae",
+      "hvac",
+      "thermal engineer",
+      "mechatronics",
+      "automation engineer",
+      "biomedical",
+      "opto-mechanical",
+      "automotive",
+      "powertrain",
+      "renewable energy",
+      "sustainability consultant",
+      "aerospace",
+      "defense",
+      "mechanical engineer",
+    ].some((r) => role.includes(r))
+  ) {
+    return {
+      degree: "Mechanical Engineering",
+      pattern: {
+        mcqAptitude: 8,
+        coreMcq: 10,
+        mathPhysics: 5,
+        descriptiveQuestions: 4,
+      },
+    };
+  }
+
+  if (
+    [
+      "site engineer",
+      "construction engineer",
+      "project engineer",
+      "project manager",
+      "structural engineer",
+      "quantity surveyor",
+      "billing engineer",
+      "cad technician",
+      "surveyor",
+      "environmental engineer",
+      "sanitary engineer",
+      "urban planner",
+      "transport planner",
+      "civil engineer",
+    ].some((r) => role.includes(r))
+  ) {
+    return {
+      degree: "Civil Engineering",
+      pattern: {
+        mcqAptitude: 8,
+        coreMcq: 10,
+        mathPhysics: 5,
+        descriptiveQuestions: 4,
+      },
+    };
+  }
+
+  if (
+    [
+      "process engineer",
+      "chemical process engineer",
+      "production",
+      "plant operator",
+      "piping engineer",
+      "development chemist",
+      "corrosion engineer",
+      "water technology",
+      "energy transition",
+      "chemical engineer",
+    ].some((r) => role.includes(r))
+  ) {
+    return {
+      degree: "Chemical Engineering",
+      pattern: {
+        mcqAptitude: 8,
+        coreMcq: 10,
+        mathPhysics: 5,
+        descriptiveQuestions: 4,
+      },
+    };
+  }
+
+  return {
+    degree: "Generic",
+    pattern: {
+      mcqTechnical: 10,
+      mcqPseudoCode: 5,
+      mcqAptitude: 10,
+    },
+  };
+}
+
+function getQuestionPlan(jobRole: string): QuestionPlan[] {
+  const { pattern } = getJobRolePattern(jobRole);
+  const plans: QuestionPlan[] = [];
+
+  if (pattern.mcqTechnical && pattern.mcqTechnical > 0) {
+    plans.push({ type: "mcq", count: pattern.mcqTechnical });
+  }
+  if (pattern.softwareMcq && pattern.softwareMcq > 0) {
+    plans.push({ type: "mcq", count: pattern.softwareMcq });
+  }
+  if (pattern.coreMcq && pattern.coreMcq > 0) {
+    plans.push({ type: "mcq", count: pattern.coreMcq });
+  }
+  if (pattern.mcqPseudoCode && pattern.mcqPseudoCode > 0) {
+    plans.push({ type: "pseudo_mcq", count: pattern.mcqPseudoCode });
+  }
+  if (pattern.mcqAptitude && pattern.mcqAptitude > 0) {
+    const half = Math.floor(pattern.mcqAptitude / 2);
+    const rest = pattern.mcqAptitude - half;
+    plans.push({ type: "aptitude", count: half });
+    plans.push({ type: "reasoning", count: rest });
+  }
+  if (pattern.circuitMath && pattern.circuitMath > 0) {
+    plans.push({ type: "circuit_math", count: pattern.circuitMath });
+  }
+  if (pattern.mathPhysics && pattern.mathPhysics > 0) {
+    plans.push({ type: "circuit_math", count: pattern.mathPhysics });
+  }
+  if (pattern.descriptiveQuestions && pattern.descriptiveQuestions > 0) {
+    plans.push({ type: "descriptive", count: pattern.descriptiveQuestions });
+  }
+
+  return plans;
+}
+
 async function generateAssessmentQuestions(
   jobRole: string,
   difficulty: string,
   experienceLevel: string,
   userSkills: string[]
-): Promise<any> {
+): Promise<{ questions: GeneratedQuestion[] }> {
   try {
     console.log(`🎯 Generating questions for: ${jobRole}`);
     console.log(`📊 Difficulty: ${difficulty}, Level: ${experienceLevel}`);
     console.log(`👤 User current skills: ${userSkills.join(", ") || "None"}`);
 
-    // Step 1: Use Llama to identify key skills for the TARGET job role
     console.log("📤 Step 1: Identifying key skills for target role...");
 
     const { text: skillsResponse } = await generateText({
@@ -36,8 +293,6 @@ Return ONLY valid JSON (no markdown):
       maxTokens: 300,
     });
 
-    console.log("✅ Skills response received");
-
     let targetSkills = [
       "Fundamentals",
       "Problem Solving",
@@ -53,119 +308,99 @@ Return ONLY valid JSON (no markdown):
         console.log(`✅ Target skills identified: ${targetSkills.join(", ")}`);
       }
     } catch (e) {
-      console.warn("⚠️ Could not parse skills, using defaults");
+      console.warn("⚠ Could not parse skills, using defaults");
     }
 
-    // Step 2: Generate questions based on TARGET job role (not user skills)
-    console.log("📤 Step 2: Generating questions for target role...");
+    const plan = getQuestionPlan(jobRole);
+    const totalQuestions = plan.reduce((sum, p) => sum + p.count, 0);
+    console.log("🧩 Question plan:", plan, "Total:", totalQuestions);
+
+    console.log("📤 Step 2: Generating mixed question set (no coding)...");
 
     const { text: response } = await generateText({
       model: groq("llama-3.1-8b-instant"),
-      prompt: `You are a technical interviewer for a ${jobRole} position.
+      prompt: `
+You are a technical interviewer designing an online assessment for the job role "${jobRole}" at "${experienceLevel}" level.
 
-Create EXACTLY 5 ${difficulty} level multiple-choice questions to assess a ${experienceLevel} candidate.
+Generate EXACTLY ${totalQuestions} questions according to the following QUESTION PLAN:
 
-Job Role: ${jobRole}
-Experience Level: ${experienceLevel}
-Difficulty Level: ${difficulty}
-Key Skills to Test: ${targetSkills.join(", ")}
+${JSON.stringify(plan, null, 2)}
 
-IMPORTANT:
-- Questions should test skills REQUIRED for the ${jobRole} role
-- Each question tests a DIFFERENT skill from: ${targetSkills.join(", ")}
-- Use real-world scenarios specific to ${jobRole} daily work
-- Make questions practical and industry-standard
-- Do NOT focus on user's current skills (${userSkills.join(", ") || "unknown"}) - focus on TARGET role requirements
-- For correctAnswer, use values 1, 2, 3, or 4 (representing which option is correct)
+QuestionType meanings:
+- "mcq": Technical or core subject multiple-choice with 4 options (only ONE correct).
+- "pseudo_mcq": MCQ where options are pseudocode / code snippets, testing algorithm understanding (no full program needed).
+- "aptitude": Multiple-choice general aptitude (numerical, verbal, word problems) with 4 options.
+- "reasoning": Multiple-choice logical / analytical reasoning with 4 options.
+- "descriptive": Candidate must write a text explanation, design, or reasoning (no options).
+- "circuit_math": Numerical or circuit / physics / math based question (no options); answer is a value.
 
-Return ONLY valid JSON (no markdown, no explanations):
+Important:
+- DO NOT generate any pure coding questions where the candidate must write full code.
+- Questions must test skills REQUIRED for the "${jobRole}" role.
+- Distribute skills across: ${targetSkills.join(", ")}.
+- Use real-world scenarios where possible.
+- Do NOT consider user's current skills (${userSkills.join(", ") || "unknown"}).
+
+For MCQ-like types ("mcq", "pseudo_mcq", "aptitude", "reasoning"):
+  - Provide exactly 4 options.
+  - Provide "correctAnswer" as 1, 2, 3 or 4.
+  - Provide a brief "explanation".
+
+For non-MCQ types ("descriptive", "circuit_math"):
+  - Do NOT provide options.
+  - Do NOT provide correctAnswer.
+  - Provide:
+    - "expectedAnswer": short ideal answer (2–4 lines).
+    - "evaluationCriteria": bullet-style text explaining how to grade the answer.
+    - "expectedKeywords": an array of 12–20 important words/phrases that MUST appear in a good answer
+       (for later keyword-overlap based auto-grading).
+
+Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact structure:
 {
   "questions": [
     {
       "id": "1",
-      "skill": "${targetSkills[0] || "Core Skill 1"}",
-      "question": "What is the best practice for [Skill1 practical scenario in ${jobRole}]?",
+      "skill": "One of: ${targetSkills.join(", ")}",
+      "questionType": "mcq | pseudo_mcq | descriptive | aptitude | reasoning | circuit_math",
+      "question": "Question text here",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correctAnswer": 1,
       "difficulty": "${difficulty}",
-      "explanation": "Explanation of why this is correct"
-    },
-    {
-      "id": "2",
-      "skill": "${targetSkills[1] || "Core Skill 2"}",
-      "question": "In [Skill2 context for ${jobRole}], what approach would you use?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": 2,
-      "difficulty": "${difficulty}",
-      "explanation": "Explanation of why this is correct"
-    },
-    {
-      "id": "3",
-      "skill": "${targetSkills[2] || "Core Skill 3"}",
-      "question": "How would you handle [Skill3 scenario in ${jobRole}]?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": 3,
-      "difficulty": "${difficulty}",
-      "explanation": "Explanation of why this is correct"
-    },
-    {
-      "id": "4",
-      "skill": "${targetSkills[3] || "Core Skill 4"}",
-      "question": "What is the correct way to [Skill4 task in ${jobRole}]?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": 4,
-      "difficulty": "${difficulty}",
-      "explanation": "Explanation of why this is correct"
-    },
-    {
-      "id": "5",
-      "skill": "${targetSkills[4] || "Core Skill 5"}",
-      "question": "When dealing with [Skill5 challenge in ${jobRole}], what is best practice?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": 1,
-      "difficulty": "${difficulty}",
-      "explanation": "Explanation of why this is correct"
+      "explanation": "Short explanation of why the answer is correct or what is being tested",
+      "expectedAnswer": "Short description of ideal answer (for non-MCQ types)",
+      "evaluationCriteria": "Key points used to evaluate answer (for non-MCQ types)",
+      "expectedKeywords": ["keyword1", "keyword2"]
     }
   ]
-}`,
-      system: `You are a technical interviewer for ${jobRole}. 
-Generate questions for the TARGET job role requirements, not for user's current skill level.
-Return ONLY valid JSON. No markdown. No explanations.
-For correctAnswer, use 1, 2, 3, or 4 to indicate which option is correct.`,
+}
+`,
+      system: `You are a strict JSON generator and technical interviewer for ${jobRole}.
+Generate questions for the TARGET role only.
+Return ONLY valid JSON. No markdown. No extra text before or after JSON.
+Never output "coding" as questionType.`,
       temperature: 0.7,
-      maxTokens: 2500,
+      maxTokens: 3500,
     });
 
     console.log("✅ Questions response received");
     console.log("📝 Preview:", response.substring(0, 300));
 
-    // Parse JSON with fallback methods
-    let parsed = null;
+    let parsed: { questions: GeneratedQuestion[] } | null = null;
 
     try {
       parsed = JSON.parse(response);
       console.log("✅ Direct JSON parse successful");
     } catch (e) {
-      console.log("⚠️ Direct parse failed, trying extraction...");
-
-      // Extract from markdown
-      const markdownMatch = response.match(/``````/);
-      if (markdownMatch) {
-        parsed = JSON.parse(markdownMatch[1]);
-        console.log("✅ Markdown extraction successful");
+      console.log("⚠ Direct parse failed, trying extraction...");
+      const bracketMatch = response.match(/\{[\s\S]*\}/);
+      if (bracketMatch) {
+        parsed = JSON.parse(bracketMatch[0]);
+        console.log("✅ Bracket extraction successful");
       } else {
-        // Extract first { to last }
-        const bracketMatch = response.match(/\{[\s\S]*\}/);
-        if (bracketMatch) {
-          parsed = JSON.parse(bracketMatch[0]);
-          console.log("✅ Bracket extraction successful");
-        } else {
-          throw new Error("No valid JSON found");
-        }
+        throw new Error("No valid JSON found");
       }
     }
 
-    // Validate structure
     if (!parsed || !parsed.questions || !Array.isArray(parsed.questions)) {
       throw new Error("Invalid questions structure");
     }
@@ -174,37 +409,67 @@ For correctAnswer, use 1, 2, 3, or 4 to indicate which option is correct.`,
       throw new Error("No questions generated");
     }
 
-    console.log(`✅ Generated ${parsed.questions.length} questions`);
-
-    // Validate and convert each question
     parsed.questions.forEach((q: any, idx: number) => {
       if (!q.id) throw new Error(`Q${idx + 1}: missing id`);
       if (!q.skill) throw new Error(`Q${idx + 1}: missing skill`);
+      if (!q.questionType) throw new Error(`Q${idx + 1}: missing questionType`);
       if (!q.question) throw new Error(`Q${idx + 1}: missing question`);
-      if (!Array.isArray(q.options))
-        throw new Error(`Q${idx + 1}: options not array`);
-      if (q.options.length !== 4)
-        throw new Error(
-          `Q${idx + 1}: need 4 options, got ${q.options.length}`
-        );
-      if (typeof q.correctAnswer !== "number")
-        throw new Error(`Q${idx + 1}: correctAnswer not number`);
 
-      // ✅ FIX: Convert 1-indexed (1,2,3,4) to 0-indexed (0,1,2,3)
-      if (q.correctAnswer < 1 || q.correctAnswer > 4) {
-        console.warn(
-          `⚠️ Q${idx + 1}: Invalid correctAnswer ${q.correctAnswer}, setting to 1`
-        );
-        q.correctAnswer = 1;
+      if (q.questionType === "coding") {
+        throw new Error(`Q${idx + 1}: coding type found but is not allowed`);
       }
 
-      console.log(
-        `   Q${idx + 1}: Converting correctAnswer from ${q.correctAnswer} → ${q.correctAnswer - 1}`
-      );
-      q.correctAnswer = q.correctAnswer - 1; // Convert to 0-indexed
+      const qt = q.questionType as QuestionType;
+
+      if (
+        qt === "mcq" ||
+        qt === "pseudo_mcq" ||
+        qt === "aptitude" ||
+        qt === "reasoning"
+      ) {
+        if (!Array.isArray(q.options))
+          throw new Error(`Q${idx + 1}: options not array for MCQ-like`);
+        if (q.options.length !== 4)
+          throw new Error(
+            `Q${idx + 1}: need 4 options, got ${q.options.length}`
+          );
+        if (typeof q.correctAnswer !== "number")
+          throw new Error(`Q${idx + 1}: correctAnswer not number`);
+
+        if (q.correctAnswer < 1 || q.correctAnswer > 4) {
+          console.warn(
+            `⚠ Q${idx + 1}: Invalid correctAnswer ${q.correctAnswer}, setting to 1`
+          );
+          q.correctAnswer = 1;
+        }
+
+        console.log(
+          `   Q${idx + 1}: correctAnswer is ${q.correctAnswer} (1-indexed)`
+        );
+      } else {
+        delete q.options;
+        delete q.correctAnswer;
+
+        // NEW: Log descriptive/circuit_math fields
+        console.log(
+          `   Q${idx + 1} (${qt}): expectedAnswer="${q.expectedAnswer || "MISSING"}"`
+        );
+        console.log(
+          `   Q${idx + 1} (${qt}): evaluationCriteria="${q.evaluationCriteria || "MISSING"}"`
+        );
+        console.log(
+          `   Q${idx + 1} (${qt}): expectedKeywords count=${q.expectedKeywords?.length || 0}`
+        );
+      }
+
+      if (qt === "descriptive" || qt === "circuit_math") {
+        if (!Array.isArray(q.expectedKeywords)) {
+          q.expectedKeywords = [];
+        }
+      }
     });
 
-    console.log("✅ All validations passed and answers converted to 0-indexed");
+    console.log(`✅ All validations passed and MCQ answers kept at 1-indexed`);
     return parsed;
   } catch (error) {
     console.error("❌ Question generation error:", error);
@@ -233,7 +498,6 @@ export async function POST(req: NextRequest) {
 
     console.log("📋 Request body:", { jobRole, difficulty, experienceLevel });
 
-    // Validate inputs
     if (!jobRole || typeof jobRole !== "string" || jobRole.trim() === "") {
       console.error("❌ Invalid jobRole:", jobRole);
       return NextResponse.json(
@@ -284,7 +548,6 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ Input validation passed`);
 
-    // Fetch user to get current skills (for context only, not for question generation)
     const user = (await User.findById(session.user.id).lean()) as any;
     if (!user) {
       console.error("❌ User not found");
@@ -297,7 +560,6 @@ export async function POST(req: NextRequest) {
     const userSkills = user?.skills || [];
     console.log(`👤 User current skills: ${userSkills.join(", ") || "None"}`);
 
-    // Generate questions based on TARGET job role
     console.log(`🚀 Generating questions for "${jobRole}"...`);
     const parsedData = await generateAssessmentQuestions(
       jobRole,
@@ -306,53 +568,79 @@ export async function POST(req: NextRequest) {
       userSkills
     );
 
-    // Save assessment with proper structure for scoring
     console.log("💾 Saving assessment to database...");
+
+    // NEW: Log sample question before saving
+    if (parsedData.questions.length > 0) {
+      const descriptiveQ = parsedData.questions.find(
+        (q) =>
+          q.questionType === "descriptive" || q.questionType === "circuit_math"
+      );
+      if (descriptiveQ) {
+        console.log("📝 Sample descriptive question:", {
+          id: descriptiveQ.id,
+          type: descriptiveQ.questionType,
+          hasExpectedAnswer: !!descriptiveQ.expectedAnswer,
+          hasEvaluationCriteria: !!descriptiveQ.evaluationCriteria,
+          keywordsCount: descriptiveQ.expectedKeywords?.length || 0,
+        });
+      }
+    }
+
     const assessment = await Assessment.create({
       userId: session.user.id,
       jobRole,
       experienceLevel,
       difficulty,
-      questions: parsedData.questions.map((q: any) => ({
-        questionId: q.id, // Store as string for easy lookup
+      questions: parsedData.questions.map((q: GeneratedQuestion) => ({
+        questionId: q.id,
         skill: q.skill,
+        questionType: q.questionType,
         question: q.question,
-        options: q.options,
-        correctAnswer: Number(q.correctAnswer), // Now 0-indexed (0,1,2,3)
-        userAnswer: null, // Will be set during submission
-        isCorrect: null, // Will be calculated during submission
+        options: q.options || [],
+        correctAnswer:
+          typeof q.correctAnswer === "number" ? Number(q.correctAnswer) : null,
+        expectedAnswer: q.expectedAnswer || null,
+        evaluationCriteria: Array.isArray(q.evaluationCriteria)
+          ? q.evaluationCriteria.join("\n")
+          : q.evaluationCriteria || null,
+        expectedKeywords: q.expectedKeywords || [],
+        userAnswer: null,
+        isCorrect: null,
       })),
       score: 0,
       totalQuestions: parsedData.questions.length,
-      completedAt: null, // Set when submitted
+      completedAt: null,
     });
 
     console.log(`✅ Assessment saved: ${assessment._id}`);
-    console.log(`📊 Questions stored in DB:`, assessment.questions.length);
-    assessment.questions.forEach((q: any, idx: number) => {
-      console.log(
-        `   Q${idx + 1}: id=${q.questionId}, correctAnswer=${q.correctAnswer} (0-indexed) (type: ${typeof q.correctAnswer})`
-      );
-    });
+    console.log(`📊 Questions stored in DB: ${assessment.questions.length}`);
 
-    // Return assessment ID and questions for frontend
     const responseData = {
       success: true,
       data: {
         assessmentId: assessment._id.toString(),
-        questions: parsedData.questions.map((q: any) => ({
+        questions: parsedData.questions.map((q: GeneratedQuestion) => ({
           id: q.id,
           skill: q.skill,
+          questionType: q.questionType,
           question: q.question,
-          options: q.options,
+          options: q.options || [],
           difficulty: q.difficulty,
           explanation: q.explanation,
-          correctAnswer: q.correctAnswer, // 0-indexed for frontend
+          expectedAnswer: q.expectedAnswer,
+          evaluationCriteria: q.evaluationCriteria,
+          expectedKeywords: q.expectedKeywords || [],
+          correctAnswer:
+            typeof q.correctAnswer === "number" ? q.correctAnswer : null,
         })),
       },
     };
 
-    console.log("✅ Returning response:", JSON.stringify(responseData, null, 2));
+    console.log(
+      "✅ Returning response:",
+      JSON.stringify(responseData, null, 2)
+    );
 
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {

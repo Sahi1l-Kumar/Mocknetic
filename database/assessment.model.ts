@@ -8,15 +8,19 @@ export interface IAssessment {
   questions: {
     questionId: string;
     skill: string;
+    questionType: string;
     question: string;
-    options: string[];
-    correctAnswer: number;
-    userAnswer: number;
-    isCorrect: boolean;
+    options?: string[];
+    correctAnswer?: number;
+    expectedAnswer?: string;
+    evaluationCriteria?: string;
+    expectedKeywords?: string[];
+    userAnswer?: number | string;
+    isCorrect?: boolean;
   }[];
   score: number;
   totalQuestions: number;
-  completedAt: Date;
+  completedAt?: Date;
 }
 
 export interface IAssessmentDoc extends IAssessment, Document {}
@@ -29,18 +33,22 @@ const AssessmentSchema = new Schema<IAssessment>(
     difficulty: { type: String, required: true },
     questions: [
       {
-        questionId: String,
-        skill: String,
-        question: String,
-        options: [String],
-        correctAnswer: Number,
-        userAnswer: Number,
-        isCorrect: Boolean,
+        questionId: { type: String, required: true },
+        skill: { type: String, required: true },
+        questionType: { type: String, required: true },
+        question: { type: String, required: true },
+        options: { type: [String], default: [] },
+        correctAnswer: { type: Number, default: null },
+        expectedAnswer: { type: String, default: null },
+        evaluationCriteria: { type: String, default: null },
+        expectedKeywords: { type: [String], default: [] },
+        userAnswer: { type: Schema.Types.Mixed, default: null },
+        isCorrect: { type: Boolean, default: null },
       },
     ],
     score: { type: Number, default: 0 },
     totalQuestions: { type: Number, default: 0 },
-    completedAt: { type: Date, default: Date.now },
+    completedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

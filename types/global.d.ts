@@ -101,3 +101,30 @@ export interface ProblemData {
     [language: string]: string;
   };
 }
+
+type QuestionType =
+  | "mcq"
+  | "pseudo_mcq"
+  | "descriptive"
+  | "aptitude"
+  | "reasoning"
+  | "circuit_math";
+
+interface QuestionPlan {
+  type: QuestionType;
+  count: number;
+}
+
+interface GeneratedQuestion {
+  id: string;
+  skill: string;
+  questionType: QuestionType;
+  question: string;
+  options?: string[];          
+  correctAnswer?: number;     
+  difficulty: string;
+  explanation?: string;
+  expectedAnswer?: string;     
+  evaluationCriteria?: string; 
+  expectedKeywords?: string[];
+}
