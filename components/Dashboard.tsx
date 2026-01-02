@@ -1,4 +1,12 @@
-import { Target, TrendingUp, Trophy, ArrowRight } from "lucide-react";
+import {
+  Target,
+  TrendingUp,
+  Trophy,
+  ArrowRight,
+  GraduationCap,
+  BookOpen,
+  Clock,
+} from "lucide-react";
 import ROUTES from "@/constants/routes";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -22,6 +30,8 @@ interface DashboardData {
   projects: any[];
   recentAssessments: any[];
   recentActivity: any[];
+  joinedClasses: any[];
+  pendingClassAssessments: number;
 }
 
 async function getDashboardData(userId: string): Promise<DashboardData | null> {
@@ -41,6 +51,43 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       .limit(10)
       .lean()) as any[];
 
+    // TODO: Fetch joined classes from database
+    // This is mock data - replace with actual database query
+    const joinedClasses = [
+      {
+        _id: "1",
+        name: "Machine Learning",
+        teacherName: "Dr. Smith",
+        code: "ML2024",
+        pendingAssessments: 2,
+        completedAssessments: 5,
+        lastActivity: new Date(),
+      },
+      {
+        _id: "2",
+        name: "Deep Learning",
+        teacherName: "Prof. Johnson",
+        code: "DL2024",
+        pendingAssessments: 1,
+        completedAssessments: 3,
+        lastActivity: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      },
+      {
+        _id: "3",
+        name: "Data Structures",
+        teacherName: "Dr. Williams",
+        code: "DS2024",
+        pendingAssessments: 0,
+        completedAssessments: 8,
+        lastActivity: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      },
+    ];
+
+    const pendingClassAssessments = joinedClasses.reduce(
+      (sum, c) => sum + c.pendingAssessments,
+      0
+    );
+
     // Calculate skill mastery
     const uniqueSkills = new Set<string>();
     const masteredSkills = new Set<string>();
@@ -54,7 +101,7 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       });
     });
 
-    // Calculate problems solved (use completed assessments as proxy)
+    // Calculate problems solved
     const problemsSolved = assessments.reduce(
       (sum: number, a: any) => sum + (a.totalQuestions || 0),
       0
@@ -72,7 +119,7 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
           )
         : 0;
 
-    // Calculate overall progress (based on completed assessments)
+    // Calculate overall progress
     const overallProgress =
       assessments.length > 0
         ? Math.round((completedInterviews.length / assessments.length) * 100)
@@ -103,6 +150,8 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       projects: profile?.projects || [],
       recentAssessments: assessments.slice(0, 5),
       recentActivity,
+      joinedClasses,
+      pendingClassAssessments,
     };
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -208,6 +257,111 @@ async function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Joined Classes Section */}
+        {data.joinedClasses.length > 0 && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">
+                Your Classes
+              </h2>
+              <Link
+                href={ROUTES.SKILL}
+                className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm flex items-center space-x-1"
+              >
+                <span>Join New Class</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {data.joinedClasses.map((classroom: any) => (
+                <div
+                  key={classroom._id}
+                  className="bg-white rounded-xl p-6 shadow-lg border-2 border-slate-200 hover:border-indigo-400 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="bg-indigo-100 rounded-lg p-3">
+                      <GraduationCap className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold">
+                      {classroom.code}
+                    </div>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">
+                    {classroom.name}
+                  </h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    {classroom.teacherName}
+                  </p>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Pending</span>
+                      <span className="font-semibold text-orange-600">
+                        {classroom.pendingAssessments} assessments
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Completed</span>
+                      <span className="font-semibold text-emerald-600">
+                        {classroom.completedAssessments} assessments
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                    <div className="flex items-center space-x-1 text-xs text-slate-500">
+                      <Clock className="w-3 h-3" />
+                      <span>
+                        {new Date(classroom.lastActivity).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {classroom.pendingAssessments > 0 && (
+                      <Link
+                        href={`/classroom/${classroom._id}`}
+                        className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
+                      >
+                        View →
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending Class Assessments Alert */}
+        {data.pendingClassAssessments > 0 && (
+          <div className="mb-12">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-white/20 rounded-lg p-3">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-1">
+                      {data.pendingClassAssessments} Pending Assessment
+                      {data.pendingClassAssessments !== 1 ? "s" : ""}
+                    </h3>
+                    <p className="text-orange-100">
+                      Complete your assignments from your teachers
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={ROUTES.SKILL}
+                  className="bg-white text-orange-600 px-6 py-3 rounded-lg hover:bg-orange-50 transition-all font-semibold"
+                >
+                  View All
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Learning Path */}
         <div className="mb-8">

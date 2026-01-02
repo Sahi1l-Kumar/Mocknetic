@@ -1,10 +1,12 @@
-import { Schema, models, model, Document } from "mongoose";
+import { Schema, models, model, Document, Types } from "mongoose";
 
 export interface IAssessment {
   userId: string;
-  jobRole: string;
-  experienceLevel: string;
+  jobRole?: string;
+  experienceLevel?: string;
   difficulty: string;
+  classroomId?: Types.ObjectId;
+  assessmentType: "interview" | "classroom";
   questions: {
     questionId: string;
     skill: string;
@@ -28,9 +30,15 @@ export interface IAssessmentDoc extends IAssessment, Document {}
 const AssessmentSchema = new Schema<IAssessment>(
   {
     userId: { type: String, required: true },
-    jobRole: { type: String, required: true },
-    experienceLevel: { type: String, required: true },
+    jobRole: { type: String },
+    experienceLevel: { type: String },
     difficulty: { type: String, required: true },
+    classroomId: { type: Schema.Types.ObjectId, ref: "Classroom" },
+    assessmentType: {
+      type: String,
+      enum: ["interview", "classroom"],
+      default: "interview",
+    },
     questions: [
       {
         questionId: { type: String, required: true },
@@ -52,6 +60,9 @@ const AssessmentSchema = new Schema<IAssessment>(
   },
   { timestamps: true }
 );
+
+AssessmentSchema.index({ userId: 1, assessmentType: 1 });
+AssessmentSchema.index({ classroomId: 1 });
 
 const Assessment =
   models?.Assessment || model<IAssessment>("Assessment", AssessmentSchema);

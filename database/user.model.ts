@@ -13,6 +13,7 @@ export interface IUser {
   github?: string;
   linkedin?: string;
   skills?: string[];
+  role: "student" | "teacher";
 }
 
 export interface IUserDoc extends IUser, Document {}
@@ -31,6 +32,7 @@ const UserSchema = new Schema<IUser>(
     github: { type: String },
     linkedin: { type: String },
     skills: [{ type: String }],
+    role: { type: String, enum: ["student", "teacher"], default: "student" },
   },
   { timestamps: true }
 );
