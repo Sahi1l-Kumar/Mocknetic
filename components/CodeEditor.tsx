@@ -122,68 +122,401 @@ export default function CodeEditor({
 
     switch (language) {
       case "javascript":
-        if (problemId === 1) {
-          const [numsStr, targetStr] = input.split("\n");
-          return `${userCode}
+        return wrapJavaScript(userCode, input, problemId);
+      case "python":
+        return wrapPython(userCode, input, problemId);
+      case "java":
+        return wrapJava(userCode, input, problemId);
+      case "cpp":
+        return wrapCpp(userCode, input, problemId);
+      default:
+        return userCode;
+    }
+  };
 
-const nums = ${numsStr};
-const target = ${targetStr};
+  const wrapJavaScript = (
+    userCode: string,
+    input: string,
+    problemId: number
+  ): string => {
+    const lines = input.split("\n");
+
+    switch (problemId) {
+      case 1: // Two Sum
+        return `${userCode}
+const nums = ${lines[0]};
+const target = ${lines[1]};
 console.log(JSON.stringify(twoSum(nums, target)));`;
-        } else {
-          return `${userCode}
 
+      case 9: // Palindrome Number
+        return `${userCode}
 const x = ${input};
 console.log(isPalindrome(x));`;
-        }
 
-      case "python":
-        if (problemId === 1) {
-          const [numsStr, targetStr] = input.split("\n");
-          return `${userCode}
+      case 20: // Valid Parentheses
+        return `${userCode}
+const s = ${input};
+console.log(isValid(s));`;
 
-nums = ${numsStr}
-target = ${targetStr}
+      case 21: // Merge Two Sorted Lists
+        return `${userCode}
+function ListNode(val, next) {
+    this.val = (val===undefined ? 0 : val)
+    this.next = (next===undefined ? null : next)
+}
+function arrayToList(arr) {
+    if (!arr || arr.length === 0) return null;
+    let head = new ListNode(arr[0]);
+    let curr = head;
+    for (let i = 1; i < arr.length; i++) {
+        curr.next = new ListNode(arr[i]);
+        curr = curr.next;
+    }
+    return head;
+}
+function listToArray(head) {
+    let result = [];
+    while (head) {
+        result.push(head.val);
+        head = head.next;
+    }
+    return result;
+}
+const list1 = arrayToList(${lines[0]});
+const list2 = arrayToList(${lines[1]});
+console.log(JSON.stringify(listToArray(mergeTwoLists(list1, list2))));`;
+
+      case 53: // Maximum Subarray
+        return `${userCode}
+const nums = ${input};
+console.log(maxSubArray(nums));`;
+
+      case 121: // Best Time to Buy and Sell Stock
+        return `${userCode}
+const prices = ${input};
+console.log(maxProfit(prices));`;
+
+      case 206: // Reverse Linked List
+        return `${userCode}
+function ListNode(val, next) {
+    this.val = (val===undefined ? 0 : val)
+    this.next = (next===undefined ? null : next)
+}
+function arrayToList(arr) {
+    if (!arr || arr.length === 0) return null;
+    let head = new ListNode(arr[0]);
+    let curr = head;
+    for (let i = 1; i < arr.length; i++) {
+        curr.next = new ListNode(arr[i]);
+        curr = curr.next;
+    }
+    return head;
+}
+function listToArray(head) {
+    let result = [];
+    while (head) {
+        result.push(head.val);
+        head = head.next;
+    }
+    return result;
+}
+const head = arrayToList(${input});
+console.log(JSON.stringify(listToArray(reverseList(head))));`;
+
+      case 15: // 3Sum
+        return `${userCode}
+const nums = ${input};
+console.log(JSON.stringify(threeSum(nums)));`;
+
+      default:
+        return userCode;
+    }
+  };
+
+  const wrapPython = (
+    userCode: string,
+    input: string,
+    problemId: number
+  ): string => {
+    const lines = input.split("\n");
+
+    switch (problemId) {
+      case 1: // Two Sum
+        return `${userCode}
+nums = ${lines[0]}
+target = ${lines[1]}
 solution = Solution()
 print(solution.twoSum(nums, target))`;
-        } else {
-          return `${userCode}
 
+      case 9: // Palindrome Number
+        return `${userCode}
 x = ${input}
 solution = Solution()
 print(solution.isPalindrome(x))`;
-        }
 
-      case "java":
-        if (problemId === 1) {
-          const [numsStr, targetStr] = input.split("\n");
-          const numsArray = numsStr.slice(1, -1);
-          return `${userCode}
+      case 20: // Valid Parentheses
+        return `${userCode}
+s = ${input}
+solution = Solution()
+print(solution.isValid(s))`;
 
+      case 21: // Merge Two Sorted Lists
+        return `${userCode}
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def array_to_list(arr):
+    if not arr:
+        return None
+    head = ListNode(arr[0])
+    curr = head
+    for i in range(1, len(arr)):
+        curr.next = ListNode(arr[i])
+        curr = curr.next
+    return head
+
+def list_to_array(head):
+    result = []
+    while head:
+        result.append(head.val)
+        head = head.next
+    return result
+
+list1 = array_to_list(${lines[0]})
+list2 = array_to_list(${lines[1]})
+solution = Solution()
+print(list_to_array(solution.mergeTwoLists(list1, list2)))`;
+
+      case 53: // Maximum Subarray
+        return `${userCode}
+nums = ${input}
+solution = Solution()
+print(solution.maxSubArray(nums))`;
+
+      case 121: // Best Time to Buy and Sell Stock
+        return `${userCode}
+prices = ${input}
+solution = Solution()
+print(solution.maxProfit(prices))`;
+
+      case 206: // Reverse Linked List
+        return `${userCode}
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def array_to_list(arr):
+    if not arr:
+        return None
+    head = ListNode(arr[0])
+    curr = head
+    for i in range(1, len(arr)):
+        curr.next = ListNode(arr[i])
+        curr = curr.next
+    return head
+
+def list_to_array(head):
+    result = []
+    while head:
+        result.append(head.val)
+        head = head.next
+    return result
+
+head = array_to_list(${input})
+solution = Solution()
+print(list_to_array(solution.reverseList(head)))`;
+
+      case 15: // 3Sum
+        return `${userCode}
+nums = ${input}
+solution = Solution()
+print(solution.threeSum(nums))`;
+
+      default:
+        return userCode;
+    }
+  };
+
+  const wrapJava = (
+    userCode: string,
+    input: string,
+    problemId: number
+  ): string => {
+    const lines = input.split("\n");
+
+    switch (problemId) {
+      case 1: // Two Sum
+        const nums1 = lines[0].slice(1, -1);
+        return `${userCode}
 class Main {
     public static void main(String[] args) {
         Solution sol = new Solution();
-        int[] nums = {${numsArray}};
-        int target = ${targetStr};
+        int[] nums = {${nums1}};
+        int target = ${lines[1]};
         int[] result = sol.twoSum(nums, target);
         System.out.println("[" + result[0] + "," + result[1] + "]");
     }
 }`;
-        } else {
-          return `${userCode}
 
+      case 9: // Palindrome Number
+        return `${userCode}
 class Main {
     public static void main(String[] args) {
         Solution sol = new Solution();
         System.out.println(sol.isPalindrome(${input}));
     }
 }`;
-        }
 
-      case "cpp":
-        if (problemId === 1) {
-          const [numsStr, targetStr] = input.split("\n");
-          const numsArray = numsStr.slice(1, -1);
-          return `#include <iostream>
+      case 20: // Valid Parentheses
+        return `${userCode}
+class Main {
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        System.out.println(sol.isValid(${input}));
+    }
+}`;
+
+      case 21: // Merge Two Sorted Lists
+        const list1Arr = lines[0].slice(1, -1);
+        const list2Arr = lines[1].slice(1, -1);
+        return `${userCode}
+class Main {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode() {}
+        ListNode(int val) { this.val = val; }
+        ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+    }
+    
+    static ListNode arrayToList(int[] arr) {
+        if (arr.length == 0) return null;
+        ListNode head = new ListNode(arr[0]);
+        ListNode curr = head;
+        for (int i = 1; i < arr.length; i++) {
+            curr.next = new ListNode(arr[i]);
+            curr = curr.next;
+        }
+        return head;
+    }
+    
+    static String listToString(ListNode head) {
+        StringBuilder sb = new StringBuilder("[");
+        while (head != null) {
+            sb.append(head.val);
+            if (head.next != null) sb.append(",");
+            head = head.next;
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        int[] arr1 = {${list1Arr}};
+        int[] arr2 = {${list2Arr}};
+        ListNode list1 = arrayToList(arr1);
+        ListNode list2 = arrayToList(arr2);
+        System.out.println(listToString(sol.mergeTwoLists(list1, list2)));
+    }
+}`;
+
+      case 53: // Maximum Subarray
+        const nums53 = input.slice(1, -1);
+        return `${userCode}
+class Main {
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        int[] nums = {${nums53}};
+        System.out.println(sol.maxSubArray(nums));
+    }
+}`;
+
+      case 121: // Best Time to Buy and Sell Stock
+        const prices121 = input.slice(1, -1);
+        return `${userCode}
+class Main {
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        int[] prices = {${prices121}};
+        System.out.println(sol.maxProfit(prices));
+    }
+}`;
+
+      case 206: // Reverse Linked List
+        const nums206 = input.slice(1, -1);
+        return `${userCode}
+class Main {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode() {}
+        ListNode(int val) { this.val = val; }
+        ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+    }
+    
+    static ListNode arrayToList(int[] arr) {
+        if (arr.length == 0) return null;
+        ListNode head = new ListNode(arr[0]);
+        ListNode curr = head;
+        for (int i = 1; i < arr.length; i++) {
+            curr.next = new ListNode(arr[i]);
+            curr = curr.next;
+        }
+        return head;
+    }
+    
+    static String listToString(ListNode head) {
+        StringBuilder sb = new StringBuilder("[");
+        while (head != null) {
+            sb.append(head.val);
+            if (head.next != null) sb.append(",");
+            head = head.next;
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+    
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        int[] arr = {${nums206}};
+        ListNode head = arrayToList(arr);
+        System.out.println(listToString(sol.reverseList(head)));
+    }
+}`;
+
+      case 15: // 3Sum
+        const nums15 = input.slice(1, -1);
+        return `${userCode}
+import java.util.*;
+class Main {
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        int[] nums = {${nums15}};
+        List<List<Integer>> result = sol.threeSum(nums);
+        System.out.println(result);
+    }
+}`;
+
+      default:
+        return userCode;
+    }
+  };
+
+  const wrapCpp = (
+    userCode: string,
+    input: string,
+    problemId: number
+  ): string => {
+    const lines = input.split("\n");
+
+    switch (problemId) {
+      case 1: // Two Sum
+        const nums1 = lines[0].slice(1, -1);
+        return `#include <iostream>
 #include <vector>
 using namespace std;
 
@@ -191,14 +524,15 @@ ${userCode}
 
 int main() {
     Solution solution;
-    vector<int> nums = {${numsArray}};
-    int target = ${targetStr};
+    vector<int> nums = {${nums1}};
+    int target = ${lines[1]};
     vector<int> result = solution.twoSum(nums, target);
     cout << "[" << result[0] << "," << result[1] << "]" << endl;
     return 0;
 }`;
-        } else {
-          return `#include <iostream>
+
+      case 9: // Palindrome Number
+        return `#include <iostream>
 using namespace std;
 
 ${userCode}
@@ -208,7 +542,169 @@ int main() {
     cout << (solution.isPalindrome(${input}) ? "true" : "false") << endl;
     return 0;
 }`;
+
+      case 20: // Valid Parentheses
+        return `#include <iostream>
+#include <string>
+using namespace std;
+
+${userCode}
+
+int main() {
+    Solution solution;
+    string s = ${input};
+    cout << (solution.isValid(s) ? "true" : "false") << endl;
+    return 0;
+}`;
+
+      case 21: // Merge Two Sorted Lists
+        const list1Cpp = lines[0].slice(1, -1);
+        const list2Cpp = lines[1].slice(1, -1);
+        return `#include <iostream>
+#include <vector>
+using namespace std;
+
+${userCode}
+
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+
+ListNode* arrayToList(vector<int> arr) {
+    if (arr.empty()) return nullptr;
+    ListNode* head = new ListNode(arr[0]);
+    ListNode* curr = head;
+    for (int i = 1; i < arr.size(); i++) {
+        curr->next = new ListNode(arr[i]);
+        curr = curr->next;
+    }
+    return head;
+}
+
+void printList(ListNode* head) {
+    cout << "[";
+    while (head) {
+        cout << head->val;
+        if (head->next) cout << ",";
+        head = head->next;
+    }
+    cout << "]" << endl;
+}
+
+int main() {
+    Solution solution;
+    vector<int> arr1 = {${list1Cpp}};
+    vector<int> arr2 = {${list2Cpp}};
+    ListNode* list1 = arrayToList(arr1);
+    ListNode* list2 = arrayToList(arr2);
+    printList(solution.mergeTwoLists(list1, list2));
+    return 0;
+}`;
+
+      case 53: // Maximum Subarray
+        const nums53 = input.slice(1, -1);
+        return `#include <iostream>
+#include <vector>
+using namespace std;
+
+${userCode}
+
+int main() {
+    Solution solution;
+    vector<int> nums = {${nums53}};
+    cout << solution.maxSubArray(nums) << endl;
+    return 0;
+}`;
+
+      case 121: // Best Time to Buy and Sell Stock
+        const prices121 = input.slice(1, -1);
+        return `#include <iostream>
+#include <vector>
+using namespace std;
+
+${userCode}
+
+int main() {
+    Solution solution;
+    vector<int> prices = {${prices121}};
+    cout << solution.maxProfit(prices) << endl;
+    return 0;
+}`;
+
+      case 206: // Reverse Linked List
+        const nums206 = input.slice(1, -1);
+        return `#include <iostream>
+#include <vector>
+using namespace std;
+
+${userCode}
+
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+
+ListNode* arrayToList(vector<int> arr) {
+    if (arr.empty()) return nullptr;
+    ListNode* head = new ListNode(arr[0]);
+    ListNode* curr = head;
+    for (int i = 1; i < arr.size(); i++) {
+        curr->next = new ListNode(arr[i]);
+        curr = curr->next;
+    }
+    return head;
+}
+
+void printList(ListNode* head) {
+    cout << "[";
+    while (head) {
+        cout << head->val;
+        if (head->next) cout << ",";
+        head = head->next;
+    }
+    cout << "]" << endl;
+}
+
+int main() {
+    Solution solution;
+    vector<int> arr = {${nums206}};
+    ListNode* head = arrayToList(arr);
+    printList(solution.reverseList(head));
+    return 0;
+}`;
+
+      case 15: // 3Sum
+        const nums15 = input.slice(1, -1);
+        return `#include <iostream>
+#include <vector>
+using namespace std;
+
+${userCode}
+
+int main() {
+    Solution solution;
+    vector<int> nums = {${nums15}};
+    vector<vector<int>> result = solution.threeSum(nums);
+    cout << "[";
+    for (int i = 0; i < result.size(); i++) {
+        cout << "[";
+        for (int j = 0; j < result[i].size(); j++) {
+            cout << result[i][j];
+            if (j < result[i].size() - 1) cout << ",";
         }
+        cout << "]";
+        if (i < result.size() - 1) cout << ",";
+    }
+    cout << "]" << endl;
+    return 0;
+}`;
 
       default:
         return userCode;
