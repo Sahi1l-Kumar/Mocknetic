@@ -48,6 +48,8 @@ export const SignUpSchema = z.object({
     .regex(/[^a-zA-Z0-9]/, {
       message: "Password must contain at least one special character.",
     }),
+
+  role: z.enum(["student", "teacher"]).optional().default("student"),
 });
 
 export const UserSchema = z.object({
@@ -59,6 +61,7 @@ export const UserSchema = z.object({
   bio: z.string().optional(),
   image: z.string().url({ message: "Please provide a valid URL." }).optional(),
   location: z.string().optional(),
+  role: z.enum(["student", "teacher"]).default("student"), // NEW FIELD
 });
 
 export const AccountSchema = z.object({
@@ -100,6 +103,7 @@ export const SignInWithOAuthSchema = z.object({
       .string()
       .email({ message: "Please provide a valid email address." }),
     image: z.string().url("Invalid image URL").optional(),
+    role: z.enum(["student", "teacher"]).optional().default("student"),
   }),
 });
 
@@ -118,4 +122,32 @@ export const CreateChatSchema = z.object({
 
 export const GetChatSchema = z.object({
   chatId: z.string().min(1, { message: "Chat ID is required." }),
+});
+
+export const CreateClassroomSchema = z.object({
+  name: z.string().min(1, { message: "Classroom name is required." }).max(100),
+  description: z.string().optional(),
+  subject: z.string().optional(),
+});
+
+export const JoinClassroomSchema = z.object({
+  code: z
+    .string()
+    .length(6, { message: "Class code must be exactly 6 characters." })
+    .regex(/^[A-Z0-9]+$/, {
+      message: "Class code can only contain uppercase letters and numbers.",
+    }),
+});
+
+export const CreateClassroomAssessmentSchema = z.object({
+  classroomId: z.string().min(1, { message: "Classroom ID is required." }),
+  title: z.string().min(1, { message: "Assessment title is required." }),
+  description: z.string().optional(),
+  curriculum: z
+    .string()
+    .min(50, { message: "Curriculum must be at least 50 characters." }),
+  curriculumFile: z.string().url().optional(),
+  dueDate: z.string().datetime().optional(),
+  difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+  totalQuestions: z.number().min(1).max(50).default(10),
 });

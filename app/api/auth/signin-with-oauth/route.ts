@@ -8,6 +8,7 @@ import handleError from "@/lib/handlers/error";
 import { ValidationError } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
 import { SignInWithOAuthSchema } from "@/lib/validations";
+import { ErrorResponse } from "@/types/global";
 
 export async function POST(request: Request) {
   const { provider, providerAccountId, user } = await request.json();
@@ -27,25 +28,26 @@ export async function POST(request: Request) {
     if (!validatedData.success)
       throw new ValidationError(validatedData.error.flatten().fieldErrors);
 
-    const { name, username, email, image } = user;
+    const { name, username, email, image, role = "student" } = user;
 
     const slugifiedUsername = slugify(username, {
       lower: true,
       strict: true,
       trim: true,
     });
-   
+
     const update = {
       $set: {
         name: name,
         image: image,
       },
     };
-   
+
     const onInsert = {
       $setOnInsert: {
         username: slugifiedUsername,
         email: email,
+        role: role,
       },
     };
 
@@ -89,7 +91,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     await session.abortTransaction();
     console.error("OAuth sign in error:", error);
-    return handleError(error, "api") as ErrorResponse; 
+    return handleError(error, "api") as ErrorResponse;
   } finally {
     session.endSession();
   }

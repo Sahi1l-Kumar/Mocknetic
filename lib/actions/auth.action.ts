@@ -13,11 +13,10 @@ import { NotFoundError } from "../http-errors";
 import { SignInSchema, SignUpSchema } from "../validations";
 
 import { signOut } from "@/auth";
-import ROUTES from "@/constants/routes";
 import { ActionResponse, ErrorResponse } from "@/types/global";
 
 export async function signUpWithCredentials(
-  params: AuthCredentials
+  params: AuthCredentials & { role?: "student" | "teacher" }
 ): Promise<ActionResponse> {
   const validationResult = await action({ params, schema: SignUpSchema });
 
@@ -25,7 +24,13 @@ export async function signUpWithCredentials(
     return handleError(validationResult) as ErrorResponse;
   }
 
-  const { name, username, email, password } = validationResult.params!;
+  const {
+    name,
+    username,
+    email,
+    password,
+    role = "student",
+  } = validationResult.params!;
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -45,7 +50,7 @@ export async function signUpWithCredentials(
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const [newUser] = await User.create([{ username, name, email }], {
+    const [newUser] = await User.create([{ username, name, email, role }], {
       session,
     });
 
@@ -117,4 +122,3 @@ export async function signInWithCredentials(
 export async function handleSignOut() {
   await signOut({ redirect: false });
 }
-

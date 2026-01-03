@@ -3,10 +3,11 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
-import { IAccountDoc } from "./database/account.model";
-import { IUserDoc } from "./database/user.model";
-import { api } from "./lib/api";
-import { SignInSchema } from "./lib/validations";
+import { IAccountDoc } from "@/database/account.model";
+import { IUserDoc } from "@/database/user.model";
+import { api } from "@/lib/api";
+import { SignInSchema } from "@/lib/validations";
+import { ActionResponse } from "@/types/global";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -41,6 +42,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               name: existingUser.name,
               email: existingUser.email,
               image: existingUser.image,
+              role: existingUser.role,
             };
           }
         }
@@ -51,9 +53,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async session({ session, token }) {
       session.user.id = token.sub as string;
+      session.user.role = token.role as "student" | "teacher";
       return session;
     },
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
       if (account) {
         const { data: existingAccount, success } =
           (await api.accounts.getByProvider(
@@ -66,7 +69,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const userId = existingAccount.userId;
 
-        if (userId) token.sub = userId.toString();
+        if (userId) {
+          token.sub = userId.toString();
+
+          // Fetch user role
+          const { data: existingUser } = (await api.users.getById(
+            userId.toString()
+          )) as ActionResponse<IUserDoc>;
+
+          if (existingUser) {
+            token.role = existingUser.role;
+          }
+        }
+      }
+
+      // Set role from user object during initial sign in
+      if (user && "role" in user && user.role) {
+        token.role = user.role;
       }
 
       return token;
@@ -83,6 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           account.provider === "github"
             ? (profile?.login as string)
             : (user.name?.toLowerCase() as string),
+        role: "student" as const,
       };
 
       const { success } = (await api.auth.oAuthSignIn({

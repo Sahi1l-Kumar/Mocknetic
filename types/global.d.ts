@@ -120,11 +120,11 @@ interface GeneratedQuestion {
   skill: string;
   questionType: QuestionType;
   question: string;
-  options?: string[];          
-  correctAnswer?: number;     
+  options?: string[];
+  correctAnswer?: number;
   difficulty: string;
   explanation?: string;
-  expectedAnswer?: string;     
-  evaluationCriteria?: string; 
+  expectedAnswer?: string;
+  evaluationCriteria?: string;
   expectedKeywords?: string[];
 }
