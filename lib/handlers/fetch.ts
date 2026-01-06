@@ -1,3 +1,4 @@
+import { ActionResponse } from "@/types/global";
 import { RequestError } from "../http-errors";
 import logger from "../logger";
 import handleError from "./error";

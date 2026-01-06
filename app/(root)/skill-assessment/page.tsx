@@ -8,7 +8,7 @@ import {
   Play,
   ChevronLeft,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingOverlay } from "@/components/Loader";
 import { api } from "@/lib/api";
@@ -33,6 +33,24 @@ interface GeneratedQuestion {
   expectedAnswer?: string;
   evaluationCriteria?: string;
   expectedKeywords?: string[];
+}
+
+interface UserSkillsResponse {
+  success: boolean;
+  data?: {
+    skills?: string[];
+  };
+}
+
+interface GenerateQuestionsResponse {
+  success: boolean;
+  data?: {
+    questions?: GeneratedQuestion[];
+    assessmentId?: string;
+  };
+  error?: {
+    message?: string;
+  };
 }
 
 const experienceLevels = [
@@ -84,9 +102,9 @@ export default function SkillGapAssessment() {
       setSelectedAnswer(null);
       setTextAnswer("");
     }
-  }, [currentQuestion]);
+  }, [currentQuestion, questions.length]);
 
-  const fetchUserSkills = async () => {
+  const fetchUserSkills = useCallback(async () => {
     setLoading(true);
     setLoadingMessage("Loading your skills...");
 
@@ -98,7 +116,9 @@ export default function SkillGapAssessment() {
         throw new Error("Not authenticated");
       }
 
-      const response = await api.users.getById(session.user.id);
+      const response = (await api.users.getById(
+        session.user.id
+      )) as UserSkillsResponse;
 
       if (response.success && response.data?.skills) {
         const skillList = response.data.skills.map(
@@ -117,20 +137,20 @@ export default function SkillGapAssessment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const generateQuestions = async () => {
+  const generateQuestions = useCallback(async () => {
     setLoading(true);
     setLoadingMessage(
       "Generating personalized questions for " + jobRole + "..."
     );
 
     try {
-      const response = await api.assessment.generateQuestions(
+      const response = (await api.assessment.generateQuestions(
         jobRole,
         difficulty,
         experienceLevel
-      );
+      )) as GenerateQuestionsResponse;
 
       if (
         response.success &&
@@ -152,7 +172,7 @@ export default function SkillGapAssessment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobRole, difficulty, experienceLevel]);
 
   const calculateResults = async (
     answersToUse?: Record<string, number | string>
@@ -392,9 +412,9 @@ export default function SkillGapAssessment() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = useCallback(() => {
     calculateResults();
-  };
+  }, []);
 
   if (loading) {
     return <LoadingOverlay message={loadingMessage} />;
@@ -543,7 +563,7 @@ export default function SkillGapAssessment() {
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-lg">
-                <Clock className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <Clock className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <div>
                   <p className="font-medium text-gray-900">Duration</p>
                   <p className="text-sm text-gray-600">30 minutes</p>
@@ -551,7 +571,7 @@ export default function SkillGapAssessment() {
               </div>
 
               <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-lg">
-                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <div>
                   <p className="font-medium text-gray-900">Questions</p>
                   <p className="text-sm text-gray-600">AI-generated</p>
@@ -559,7 +579,7 @@ export default function SkillGapAssessment() {
               </div>
 
               <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-lg">
-                <Target className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <Target className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <div>
                   <p className="font-medium text-gray-900">Role-Based</p>
                   <p className="text-sm text-gray-600">Not current skills</p>

@@ -17,16 +17,16 @@ export const useSocket = () => {
       setIsConnected(false);
     }
 
-    if (socket.connected) {
+    if (socket?.connected) {
       setIsConnected(true);
     }
 
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
+    socket?.on("connect", onConnect);
+    socket?.on("disconnect", onDisconnect);
 
     return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
+      socket?.off("connect", onConnect);
+      socket?.off("disconnect", onDisconnect);
     };
   }, []);
 

@@ -9,6 +9,18 @@ import { api } from "@/lib/api";
 import { SignInSchema } from "@/lib/validations";
 import { ActionResponse } from "@/types/global";
 
+declare module "next-auth" {
+  interface User {
+    role?: "student" | "teacher";
+  }
+  interface Session {
+    user: User & {
+      id: string;
+      role?: "student" | "teacher";
+    };
+  }
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google,

@@ -8,7 +8,6 @@ import handleError from "@/lib/handlers/error";
 import { ValidationError } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
 import { SignInWithOAuthSchema } from "@/lib/validations";
-import { ErrorResponse } from "@/types/global";
 
 export async function POST(request: Request) {
   const { provider, providerAccountId, user } = await request.json();
@@ -91,7 +90,9 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     await session.abortTransaction();
     console.error("OAuth sign in error:", error);
-    return handleError(error, "api") as ErrorResponse;
+
+    const errorResponse = handleError(error, "api");
+    return errorResponse as NextResponse;
   } finally {
     session.endSession();
   }

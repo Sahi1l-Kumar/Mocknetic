@@ -2,13 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  Star,
-  Award,
-  TrendingUp,
-  CheckCircle,
-  AlertCircle,
-} from "lucide-react";
+import { Award, TrendingUp, CheckCircle, AlertCircle } from "lucide-react";
 
 interface FeedbackData {
   question_number: number;
@@ -136,7 +130,7 @@ export default function FeedbackPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -317,7 +311,7 @@ export default function FeedbackPage() {
                       Question:
                     </h4>
                     <p className="text-slate-700 leading-relaxed bg-white p-3 rounded">
-                      "{fb.question}"
+                      &quot;{fb.question}&quot;
                     </p>
                   </div>
 
@@ -326,7 +320,7 @@ export default function FeedbackPage() {
                       Your Answer:
                     </h4>
                     <p className="text-slate-700 leading-relaxed bg-white p-3 rounded">
-                      "{fb.answer}"
+                      &quot;{fb.answer}&quot;
                     </p>
                   </div>
 

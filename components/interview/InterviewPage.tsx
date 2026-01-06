@@ -88,12 +88,14 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         const reader = new FileReader();
         reader.onload = () => {
           const base64Audio = (reader.result as string).split(",")[1];
-          socket.emit("send_audio_chunk", {
-            session_id: sessionId,
-            audio_data: base64Audio,
-            is_final: true,
-            timestamp: Date.now(),
-          });
+          if (socket) {
+            socket.emit("send_audio_chunk", {
+              session_id: sessionId,
+              audio_data: base64Audio,
+              is_final: true,
+              timestamp: Date.now(),
+            });
+          }
           setRecordingStatus("processing");
         };
         reader.readAsDataURL(blob);
@@ -142,11 +144,13 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     if (isRecording) stopRecording();
     setTranscript("");
     setRecordingStatus("waiting_for_next");
-    socket.emit("skip_question", {
-      session_id: sessionId,
-      question_number: currentQuestion?.question_number,
-      timestamp: Date.now(),
-    });
+    if (socket) {
+      socket.emit("skip_question", {
+        session_id: sessionId,
+        question_number: currentQuestion?.question_number,
+        timestamp: Date.now(),
+      });
+    }
   };
 
   const playAndAutoListen = async (
@@ -286,7 +290,9 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
       joinEmitted = true;
       console.log("✅ Emitting join_interview (first time only)");
       setIsSocketConnected(true);
-      socket.emit("join_interview", { session_id: sessionId });
+      if (socket) {
+        socket.emit("join_interview", { session_id: sessionId });
+      }
     }
 
     function onDisconnect() {
@@ -422,7 +428,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-4">
       <div className="w-full max-w-7xl bg-white rounded-lg shadow-lg p-8 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-slate-800">
@@ -444,7 +450,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
         )}
 
         {isComplete && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 shadow-lg">
+          <div className="bg-linear-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 shadow-lg">
             <div className="flex items-center gap-4">
               <div className="bg-green-500 text-white rounded-full p-3">
                 <Check className="w-8 h-8" />
@@ -514,8 +520,8 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm h-80 overflow-y-auto space-y-3">
-              <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
+            <div className="bg-linear-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm h-80 overflow-y-auto space-y-3">
+              <div className="sticky top-0 bg-linear-to-r from-blue-50 to-blue-100 pb-2">
                 <div className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold">
                   Question {currentQuestion?.question_number || "—"} /{" "}
                   {maxQuestions}
@@ -578,7 +584,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
             </div>
 
             {qaHistory.length > 1 && (
-              <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
+              <div className="bg-linear-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-purple-700">
                     🧠 AI Context Active
@@ -593,8 +599,8 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           </div>
 
           <div className="lg:col-span-2 space-y-2">
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-6 rounded-lg h-80 overflow-y-auto shadow-sm">
-              <h3 className="font-bold text-green-700 mb-4 text-lg sticky top-0 bg-gradient-to-r from-green-50 to-green-100 pb-2">
+            <div className="bg-linear-to-br from-green-50 to-green-100 border-2 border-green-300 p-6 rounded-lg h-80 overflow-y-auto shadow-sm">
+              <h3 className="font-bold text-green-700 mb-4 text-lg sticky top-0 bg-linear-to-r from-green-50 to-green-100 pb-2">
                 Your Answer
               </h3>
               {transcript ? (
@@ -656,7 +662,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
           <div className="bg-white border-2 border-slate-200 rounded-xl p-6 space-y-4 shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shadow-md">
+                <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shadow-md">
                   {qaHistory.length}
                 </div>
                 Interview History
@@ -671,11 +677,11 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
               {qaHistory.map((qa, idx) => (
                 <div
                   key={idx}
-                  className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
+                  className="bg-linear-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
                 >
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b-2 border-blue-200">
+                  <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-4 border-b-2 border-blue-200">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 bg-blue-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                      <div className="shrink-0 bg-blue-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         Q{idx + 1}
                       </div>
                       <div className="flex-1">
@@ -688,7 +694,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
 
                   <div className="bg-white p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                      <div className="shrink-0 bg-linear-to-br from-green-500 to-emerald-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         A
                       </div>
                       <div className="flex-1 flex items-start gap-2">
@@ -697,7 +703,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                         </p>
                         <button
                           onClick={() => copyToClipboard(qa.answer, idx)}
-                          className="flex-shrink-0 p-2 hover:bg-slate-100 rounded-lg transition-all duration-200 group"
+                          className="shrink-0 p-2 hover:bg-slate-100 rounded-lg transition-all duration-200 group"
                           title="Copy answer"
                         >
                           {copiedIndex === idx ? (

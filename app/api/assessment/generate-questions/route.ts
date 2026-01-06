@@ -279,7 +279,7 @@ async function generateAssessmentQuestions(
 
     const { text: skillsResponse } = await generateText({
       model: groq("llama-3.1-8b-instant"),
-      prompt: `You are a career advisor.
+      prompt: `You are a career advisor. Return ONLY valid JSON. No explanations, no markdown.
 
 For a "${jobRole}" position at "${experienceLevel}" level, identify exactly 5 CRITICAL technical skills needed.
 
@@ -287,10 +287,7 @@ Return ONLY valid JSON (no markdown):
 {
   "skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5"]
 }`,
-      system:
-        "You are a career advisor. Return ONLY valid JSON. No explanations, no markdown.",
       temperature: 0.6,
-      maxTokens: 300,
     });
 
     let targetSkills = [
@@ -307,7 +304,7 @@ Return ONLY valid JSON (no markdown):
         targetSkills = parsed.skills.slice(0, 5);
         console.log(`✅ Target skills identified: ${targetSkills.join(", ")}`);
       }
-    } catch (e) {
+    } catch {
       console.warn("⚠ Could not parse skills, using defaults");
     }
 
@@ -319,7 +316,11 @@ Return ONLY valid JSON (no markdown):
 
     const { text: response } = await generateText({
       model: groq("llama-3.1-8b-instant"),
-      prompt: `
+      prompt: `You are a strict JSON generator and technical interviewer for ${jobRole}.
+Generate questions for the TARGET role only.
+Return ONLY valid JSON. No markdown. No extra text before or after JSON.
+Never output "coding" as questionType.
+
 You are a technical interviewer designing an online assessment for the job role "${jobRole}" at "${experienceLevel}" level.
 
 Generate EXACTLY ${totalQuestions} questions according to the following QUESTION PLAN:
@@ -372,14 +373,8 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
       "expectedKeywords": ["keyword1", "keyword2"]
     }
   ]
-}
-`,
-      system: `You are a strict JSON generator and technical interviewer for ${jobRole}.
-Generate questions for the TARGET role only.
-Return ONLY valid JSON. No markdown. No extra text before or after JSON.
-Never output "coding" as questionType.`,
+}`,
       temperature: 0.7,
-      maxTokens: 3500,
     });
 
     console.log("✅ Questions response received");
@@ -390,7 +385,7 @@ Never output "coding" as questionType.`,
     try {
       parsed = JSON.parse(response);
       console.log("✅ Direct JSON parse successful");
-    } catch (e) {
+    } catch {
       console.log("⚠ Direct parse failed, trying extraction...");
       const bracketMatch = response.match(/\{[\s\S]*\}/);
       if (bracketMatch) {

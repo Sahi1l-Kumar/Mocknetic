@@ -22,12 +22,7 @@ import Link from "next/link";
 import User from "@/database/user.model";
 import Profile from "@/database/profile.model";
 import dbConnect from "@/lib/mongoose";
-
-interface ProfilePageProps {
-  params: {
-    id: string;
-  };
-}
+import { RouteParams } from "@/types/global";
 
 async function getUserProfile(id: string) {
   try {
@@ -65,7 +60,7 @@ async function getUserProfile(id: string) {
   }
 }
 
-export default async function ProfilePage({ params }: ProfilePageProps) {
+export default async function ProfilePage({ params }: RouteParams) {
   const session = await auth();
 
   if (!session?.user) {
@@ -86,7 +81,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-          <div className="h-32 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 relative">
+          <div className="h-32 bg-linear-to-r from-blue-600 via-blue-700 to-blue-800 relative">
             <div className="absolute -bottom-16 left-8">
               <UserAvatar
                 id={profile.id}
