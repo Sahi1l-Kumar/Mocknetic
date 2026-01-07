@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
@@ -34,6 +35,7 @@ const RootLayout = async ({
       >
         <SessionProvider session={session}>
           {children}
+          <Analytics />
           <Toaster />
         </SessionProvider>
       </body>
