@@ -158,30 +158,6 @@ export default function SkillGapAssessment() {
   const [timeRemaining, setTimeRemaining] = useState<number>(1800);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
 
-  useEffect(() => {
-    if (currentStep === "job-role") {
-      fetchUserSkills();
-    }
-  }, [currentStep]);
-
-  useEffect(() => {
-    if (started && timeRemaining > 0) {
-      const timer = setInterval(() => {
-        setTimeRemaining((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    } else if (timeRemaining === 0 && started) {
-      handleFinish();
-    }
-  }, [started, timeRemaining]);
-
-  useEffect(() => {
-    if (questions.length > 0) {
-      setSelectedAnswer(null);
-      setTextAnswer("");
-    }
-  }, [currentQuestion, questions.length]);
-
   const fetchUserSkills = useCallback(async (): Promise<void> => {
     setLoading(true);
     setLoadingMessage("Loading your skills...");
@@ -217,6 +193,169 @@ export default function SkillGapAssessment() {
     }
   }, []);
 
+  const calculateResults = useCallback(
+    async (answersToUse?: Record<string, number | string>): Promise<void> => {
+      setLoading(true);
+      setLoadingMessage("Submitting and analyzing your assessment...");
+
+      try {
+        const assessmentId = localStorage.getItem("currentAssessmentId");
+
+        if (!assessmentId) {
+          throw new Error("Assessment ID not found");
+        }
+
+        const finalAnswers = answersToUse || answers;
+
+        if (Object.keys(finalAnswers).length < questions.length) {
+          throw new Error(
+            `Not all questions answered (${Object.keys(finalAnswers).length}/${questions.length})`
+          );
+        }
+
+        const submitData = (await api.skillassessment.submitAnswers(
+          assessmentId,
+          finalAnswers
+        )) as SubmitAnswersResponse;
+
+        if (!submitData.success) {
+          throw new Error(submitData.error || "Failed to submit");
+        }
+
+        const {
+          score,
+          correctAnswers,
+          totalQuestions,
+          questions: dbQuestions,
+        } = submitData.data!;
+
+        const skillPerformance: Record<string, SkillPerformance> = {};
+
+        dbQuestions.forEach((q: AssessmentQuestion) => {
+          if (!skillPerformance[q.skill]) {
+            skillPerformance[q.skill] = {
+              skill: q.skill,
+              total: 0,
+              correct: 0,
+            };
+          }
+          skillPerformance[q.skill].total += 1;
+          if (q.isCorrect) {
+            skillPerformance[q.skill].correct += 1;
+          }
+        });
+
+        const skillGaps: SkillGap[] = Object.values(skillPerformance).map(
+          (skill) => {
+            const accuracy = Math.round((skill.correct / skill.total) * 100);
+            const gap = Math.max(0, 100 - accuracy);
+
+            return {
+              skill: skill.skill,
+              gap,
+              accuracy,
+              questionsAnswered: skill.total,
+              correctAnswers: skill.correct,
+            };
+          }
+        );
+
+        const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
+
+        let recommendations: Recommendation[] = [];
+        try {
+          const weakSkills = skillGapsSorted
+            .filter((gap) => gap.gap > 0)
+            .slice(0, 3)
+            .map((gap) => gap.skill);
+
+          if (!jobRole || !experienceLevel) {
+            console.error("Missing jobRole or experienceLevel!");
+            throw new Error("Job role or experience level not set");
+          }
+
+          const recData = (await api.skillassessment.generateRecommendations({
+            jobRole: jobRole,
+            experienceLevel: experienceLevel,
+            skillGaps: weakSkills.length > 0 ? weakSkills : [],
+            overallScore: score,
+          })) as RecommendationsResponse;
+
+          if (recData.success && recData.data?.recommendations) {
+            recommendations = recData.data.recommendations;
+          } else {
+            console.warn("No recommendations returned, using fallback");
+            throw new Error("No recommendations in response");
+          }
+        } catch (error) {
+          console.error("Error generating recommendations:", error);
+          recommendations = [
+            {
+              title: "Continue Learning",
+              description:
+                "Keep improving your skills for " + (jobRole || "your career"),
+              link: "https://www.coursera.org/",
+              skill: jobRole || "General",
+            },
+          ];
+        }
+
+        const results: AssessmentResults = {
+          skillGaps: skillGapsSorted,
+          overallScore: score,
+          totalQuestions,
+          correctAnswers,
+          questions: dbQuestions,
+          recommendations,
+          completedAt: new Date().toISOString(),
+        };
+
+        localStorage.setItem("assessmentResults", JSON.stringify(results));
+        localStorage.setItem("assessmentJobRole", jobRole || "");
+        localStorage.removeItem("currentAssessmentId");
+
+        router.push("/skill-assessment/result");
+      } catch (error) {
+        console.error("Error calculating results:", error);
+        alert(
+          "Failed to calculate results: " +
+            (error instanceof Error ? error.message : "Unknown error")
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [answers, questions, jobRole, experienceLevel, router]
+  );
+
+  const handleFinish = useCallback((): void => {
+    calculateResults();
+  }, [calculateResults]);
+
+  useEffect(() => {
+    if (currentStep === "job-role") {
+      fetchUserSkills();
+    }
+  }, [currentStep, fetchUserSkills]);
+
+  useEffect(() => {
+    if (started && timeRemaining > 0) {
+      const timer = setInterval(() => {
+        setTimeRemaining((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (timeRemaining === 0 && started) {
+      handleFinish();
+    }
+  }, [started, timeRemaining, handleFinish]);
+
+  useEffect(() => {
+    if (questions.length > 0) {
+      setSelectedAnswer(null);
+      setTextAnswer("");
+    }
+  }, [currentQuestion, questions.length]);
+
   const generateQuestions = useCallback(async (): Promise<void> => {
     setLoading(true);
     setLoadingMessage(
@@ -251,141 +390,6 @@ export default function SkillGapAssessment() {
       setLoading(false);
     }
   }, [jobRole, difficulty, experienceLevel]);
-
-  const calculateResults = async (
-    answersToUse?: Record<string, number | string>
-  ): Promise<void> => {
-    setLoading(true);
-    setLoadingMessage("Submitting and analyzing your assessment...");
-
-    try {
-      const assessmentId = localStorage.getItem("currentAssessmentId");
-
-      if (!assessmentId) {
-        throw new Error("Assessment ID not found");
-      }
-
-      const finalAnswers = answersToUse || answers;
-
-      if (Object.keys(finalAnswers).length < questions.length) {
-        throw new Error(
-          `Not all questions answered (${Object.keys(finalAnswers).length}/${questions.length})`
-        );
-      }
-
-      const submitData = (await api.skillassessment.submitAnswers(
-        assessmentId,
-        finalAnswers
-      )) as SubmitAnswersResponse;
-
-      if (!submitData.success) {
-        throw new Error(submitData.error || "Failed to submit");
-      }
-
-      const {
-        score,
-        correctAnswers,
-        totalQuestions,
-        questions: dbQuestions,
-      } = submitData.data!;
-
-      const skillPerformance: Record<string, SkillPerformance> = {};
-
-      dbQuestions.forEach((q: AssessmentQuestion) => {
-        if (!skillPerformance[q.skill]) {
-          skillPerformance[q.skill] = {
-            skill: q.skill,
-            total: 0,
-            correct: 0,
-          };
-        }
-        skillPerformance[q.skill].total += 1;
-        if (q.isCorrect) {
-          skillPerformance[q.skill].correct += 1;
-        }
-      });
-
-      const skillGaps: SkillGap[] = Object.values(skillPerformance).map(
-        (skill) => {
-          const accuracy = Math.round((skill.correct / skill.total) * 100);
-          const gap = Math.max(0, 100 - accuracy);
-
-          return {
-            skill: skill.skill,
-            gap,
-            accuracy,
-            questionsAnswered: skill.total,
-            correctAnswers: skill.correct,
-          };
-        }
-      );
-
-      const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
-
-      let recommendations: Recommendation[] = [];
-      try {
-        const weakSkills = skillGapsSorted
-          .filter((gap) => gap.gap > 0)
-          .slice(0, 3)
-          .map((gap) => gap.skill);
-
-        // Make sure jobRole and experienceLevel are set
-        if (!jobRole || !experienceLevel) {
-          console.error("Missing jobRole or experienceLevel!");
-          throw new Error("Job role or experience level not set");
-        }
-
-        const recData = (await api.skillassessment.generateRecommendations({
-          jobRole: jobRole,
-          experienceLevel: experienceLevel,
-          skillGaps: weakSkills.length > 0 ? weakSkills : [],
-          overallScore: score,
-        })) as RecommendationsResponse;
-
-        if (recData.success && recData.data?.recommendations) {
-          recommendations = recData.data.recommendations;
-        } else {
-          console.warn("No recommendations returned, using fallback");
-          throw new Error("No recommendations in response");
-        }
-      } catch (error) {
-        console.error("Error generating recommendations:", error);
-        recommendations = [
-          {
-            title: "Continue Learning",
-            description:
-              "Keep improving your skills for " + (jobRole || "your career"),
-            link: "https://www.coursera.org/",
-            skill: jobRole || "General",
-          },
-        ];
-      }
-
-      const results: AssessmentResults = {
-        skillGaps: skillGapsSorted,
-        overallScore: score,
-        totalQuestions,
-        correctAnswers,
-        questions: dbQuestions,
-        recommendations,
-        completedAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem("assessmentResults", JSON.stringify(results));
-      localStorage.setItem("assessmentJobRole", jobRole || "");
-      localStorage.removeItem("currentAssessmentId");
-
-      router.push("/skill-assessment/result");
-    } catch (error) {
-      console.error("Error calculating results:", error);
-      alert(
-        "Failed to calculate results: " +
-          (error instanceof Error ? error.message : "Unknown error")
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getSkillColor = (name: string): string => {
     const colors: Record<string, string> = {
@@ -480,10 +484,6 @@ export default function SkillGapAssessment() {
       setTextAnswer("");
     }
   };
-
-  const handleFinish = useCallback((): void => {
-    calculateResults();
-  }, [answers, questions]);
 
   if (loading) {
     return <LoadingOverlay message={loadingMessage} />;

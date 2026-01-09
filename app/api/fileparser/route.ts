@@ -82,7 +82,8 @@ IMPORTANT: Return ONLY JSON, nothing else. No markdown, no explanations.`,
       if (!jsonMatch) {
         console.error(
           "Could not extract JSON from Groq response:",
-          response.substring(0, 200)
+          response.substring(0, 200),
+          e
         );
         throw new Error("Could not extract JSON from Groq response");
       }

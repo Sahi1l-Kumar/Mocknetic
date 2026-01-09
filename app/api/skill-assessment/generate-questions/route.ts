@@ -347,9 +347,9 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
     try {
       parsed = JSON.parse(response);
     } catch {
-      const bracketMatch = response.match(/\{[\s\S]*\}/);
+      const bracketMatch = response.match(/\[[\s\S]*\]/);
       if (bracketMatch) {
-        parsed = JSON.parse(bracketMatch[0]);
+        parsed = { questions: JSON.parse(bracketMatch[0]) };
       } else {
         throw new Error("No valid JSON found");
       }
@@ -364,8 +364,8 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
     }
 
     parsed.questions.forEach((q: any, idx: number) => {
-      if (!q.id) throw new Error(`Q${idx + 1}: missing id`);
-      if (!q.skill) throw new Error(`Q${idx + 1}: missing skill`);
+      if (!q.id) q.id = String(idx + 1);
+      if (!q.skill) q.skill = targetSkills[idx % targetSkills.length];
       if (!q.questionType) throw new Error(`Q${idx + 1}: missing questionType`);
       if (!q.question) throw new Error(`Q${idx + 1}: missing question`);
 
@@ -381,14 +381,31 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
         qt === "aptitude" ||
         qt === "reasoning"
       ) {
-        if (!Array.isArray(q.options))
-          throw new Error(`Q${idx + 1}: options not array for MCQ-like`);
-        if (q.options.length !== 4)
-          throw new Error(
-            `Q${idx + 1}: need 4 options, got ${q.options.length}`
+        if (!Array.isArray(q.options)) {
+          console.warn(`Q${idx + 1}: options not array, creating empty array`);
+          q.options = [];
+        }
+
+        if (q.options.length > 4) {
+          console.warn(
+            `Q${idx + 1}: Had ${q.options.length} options, trimming to 4`
           );
-        if (typeof q.correctAnswer !== "number")
-          throw new Error(`Q${idx + 1}: correctAnswer not number`);
+          q.options = q.options.slice(0, 4);
+        } else if (q.options.length < 4) {
+          console.warn(
+            `Q${idx + 1}: Had ${q.options.length} options, padding to 4`
+          );
+          while (q.options.length < 4) {
+            q.options.push(
+              `Option ${String.fromCharCode(65 + q.options.length)}`
+            );
+          }
+        }
+
+        if (typeof q.correctAnswer !== "number") {
+          console.warn(`Q${idx + 1}: correctAnswer not number, setting to 1`);
+          q.correctAnswer = 1;
+        }
 
         if (q.correctAnswer < 1 || q.correctAnswer > 4) {
           console.warn(

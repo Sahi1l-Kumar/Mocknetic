@@ -25,71 +25,98 @@ export default function InterviewSetup({
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Get devices only once on mount
   useEffect(() => {
+    const getDevices = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const deviceList = await navigator.mediaDevices.enumerateDevices();
+
+        const cameras = deviceList.filter(
+          (device) => device.kind === "videoinput"
+        );
+        const microphones = deviceList.filter(
+          (device) => device.kind === "audioinput"
+        );
+
+        setDevices({ cameras, microphones });
+
+        if (cameras.length > 0) setSelectedCamera(cameras[0].deviceId);
+        if (microphones.length > 0)
+          setSelectedMicrophone(microphones[0].deviceId);
+      } catch (error) {
+        console.error("Error getting devices:", error);
+      }
+    };
+
     getDevices();
+  }, []); // Empty dependency array - run once
+
+  // Start stream when devices change
+  useEffect(() => {
+    if (!selectedCamera || !selectedMicrophone) return;
+
+    let isActive = true;
+
+    const startStream = async () => {
+      try {
+        // Stop existing stream
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+
+        const constraints = {
+          video: cameraEnabled
+            ? { deviceId: { exact: selectedCamera } }
+            : false,
+          audio: { deviceId: { exact: selectedMicrophone } },
+        };
+
+        const mediaStream =
+          await navigator.mediaDevices.getUserMedia(constraints);
+
+        if (!isActive) {
+          // Component unmounted, stop the stream
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        setStream(mediaStream);
+
+        if (videoRef.current && cameraEnabled) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      } catch (error) {
+        console.error("Error starting stream:", error);
+      }
+    };
+
+    startStream();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedCamera, selectedMicrophone, cameraEnabled]);
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [stream]);
 
+  // Update video element when camera is toggled
   useEffect(() => {
-    if (selectedCamera && selectedMicrophone) {
-      startStream();
-    }
-  }, [selectedCamera, selectedMicrophone, cameraEnabled]);
-
-  const getDevices = async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      const deviceList = await navigator.mediaDevices.enumerateDevices();
-
-      const cameras = deviceList.filter(
-        (device) => device.kind === "videoinput"
-      );
-      const microphones = deviceList.filter(
-        (device) => device.kind === "audioinput"
-      );
-
-      setDevices({ cameras, microphones });
-
-      if (cameras.length > 0) setSelectedCamera(cameras[0].deviceId);
-      if (microphones.length > 0)
-        setSelectedMicrophone(microphones[0].deviceId);
-    } catch (error) {
-      console.error("Error getting devices:", error);
-    }
-  };
-
-  const startStream = async () => {
-    try {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+    if (videoRef.current) {
+      if (cameraEnabled && stream) {
+        videoRef.current.srcObject = stream;
+      } else {
+        videoRef.current.srcObject = null;
       }
-
-      const constraints = {
-        video: cameraEnabled
-          ? { deviceId: selectedCamera ? { exact: selectedCamera } : undefined }
-          : false,
-        audio: {
-          deviceId: selectedMicrophone
-            ? { exact: selectedMicrophone }
-            : undefined,
-        },
-      };
-
-      const mediaStream =
-        await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
-
-      if (videoRef.current && cameraEnabled) {
-        videoRef.current.srcObject = mediaStream;
-      }
-    } catch (error) {
-      console.error("Error starting stream:", error);
     }
-  };
+  }, [cameraEnabled, stream]);
 
   const toggleCamera = () => {
     setCameraEnabled((prev) => !prev);
