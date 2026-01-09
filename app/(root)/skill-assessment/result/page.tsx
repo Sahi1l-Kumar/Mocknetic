@@ -197,7 +197,7 @@ export default function AssessmentResult() {
                       <h4 className="font-semibold text-sm text-slate-900 flex-1">
                         {rec.title}
                       </h4>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded font-medium ml-2 flex-shrink-0">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded font-medium ml-2 shrink-0">
                         {rec.skill}
                       </span>
                     </div>

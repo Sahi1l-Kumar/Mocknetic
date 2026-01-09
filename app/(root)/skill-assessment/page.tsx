@@ -35,6 +35,17 @@ interface GeneratedQuestion {
   expectedKeywords?: string[];
 }
 
+interface Skill {
+  id: string;
+  name: string;
+}
+
+interface SessionResponse {
+  user?: {
+    id: string;
+  };
+}
+
 interface UserSkillsResponse {
   success: boolean;
   data?: {
@@ -53,30 +64,98 @@ interface GenerateQuestionsResponse {
   };
 }
 
-const experienceLevels = [
+interface SubmitAnswersResponse {
+  success: boolean;
+  data?: {
+    score: number;
+    correctAnswers: number;
+    totalQuestions: number;
+    questions: AssessmentQuestion[];
+  };
+  error?: string;
+}
+
+interface AssessmentQuestion {
+  questionId: string;
+  question: string;
+  skill: string;
+  questionType: QuestionType;
+  options?: string[];
+  userAnswer: number | string | null;
+  correctAnswer?: number;
+  expectedAnswer?: string;
+  evaluationCriteria?: string;
+  expectedKeywords?: string[];
+  isCorrect: boolean;
+}
+
+interface SkillPerformance {
+  skill: string;
+  total: number;
+  correct: number;
+}
+
+interface SkillGap {
+  skill: string;
+  gap: number;
+  accuracy: number;
+  questionsAnswered: number;
+  correctAnswers: number;
+}
+
+interface Recommendation {
+  title: string;
+  description: string;
+  link: string;
+  skill: string;
+}
+
+interface RecommendationsResponse {
+  success: boolean;
+  data?: {
+    recommendations: Recommendation[];
+  };
+}
+
+interface AssessmentResults {
+  skillGaps: SkillGap[];
+  overallScore: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  questions: AssessmentQuestion[];
+  recommendations: Recommendation[];
+  completedAt: string;
+}
+
+type CurrentStep = "job-role" | "config" | "assessment";
+
+const experienceLevels: readonly string[] = [
   "Entry Level",
   "Mid Level",
   "Senior Level",
   "Lead/Principal",
-];
+] as const;
+
+const DIFFICULTY_LEVELS = ["beginner", "intermediate", "advanced"] as const;
+type DifficultyLevel = (typeof DIFFICULTY_LEVELS)[number];
 
 export default function SkillGapAssessment() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState("job-role");
-  const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("");
+  const [currentStep, setCurrentStep] = useState<CurrentStep>("job-role");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>("");
 
-  const [jobRole, setJobRole] = useState("");
-  const [experienceLevel, setExperienceLevel] = useState("");
-  const [skills, setSkills] = useState<{ id: string; name: string }[]>([]);
+  const [jobRole, setJobRole] = useState<string>("");
+  const [experienceLevel, setExperienceLevel] = useState<string>("");
+  const [skills, setSkills] = useState<Skill[]>([]);
 
-  const [difficulty, setDifficulty] = useState("intermediate");
-  const [started, setStarted] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>("intermediate");
+  const [started, setStarted] = useState<boolean>(false);
+  const [currentQuestion, setCurrentQuestion] = useState<number>(0);
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [textAnswer, setTextAnswer] = useState("");
-  const [timeRemaining, setTimeRemaining] = useState(1800);
+  const [textAnswer, setTextAnswer] = useState<string>("");
+  const [timeRemaining, setTimeRemaining] = useState<number>(1800);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
 
   useEffect(() => {
@@ -96,7 +175,6 @@ export default function SkillGapAssessment() {
     }
   }, [started, timeRemaining]);
 
-  // Reset answer fields when question changes
   useEffect(() => {
     if (questions.length > 0) {
       setSelectedAnswer(null);
@@ -104,13 +182,13 @@ export default function SkillGapAssessment() {
     }
   }, [currentQuestion, questions.length]);
 
-  const fetchUserSkills = useCallback(async () => {
+  const fetchUserSkills = useCallback(async (): Promise<void> => {
     setLoading(true);
     setLoadingMessage("Loading your skills...");
 
     try {
       const sessionResponse = await fetch("/api/auth/session");
-      const session = await sessionResponse.json();
+      const session: SessionResponse = await sessionResponse.json();
 
       if (!session?.user?.id) {
         throw new Error("Not authenticated");
@@ -121,7 +199,7 @@ export default function SkillGapAssessment() {
       )) as UserSkillsResponse;
 
       if (response.success && response.data?.skills) {
-        const skillList = response.data.skills.map(
+        const skillList: Skill[] = response.data.skills.map(
           (skill: string, idx: number) => ({
             id: String(idx),
             name: skill,
@@ -139,14 +217,14 @@ export default function SkillGapAssessment() {
     }
   }, []);
 
-  const generateQuestions = useCallback(async () => {
+  const generateQuestions = useCallback(async (): Promise<void> => {
     setLoading(true);
     setLoadingMessage(
       "Generating personalized questions for " + jobRole + "..."
     );
 
     try {
-      const response = (await api.assessment.generateQuestions(
+      const response = (await api.skillassessment.generateQuestions(
         jobRole,
         difficulty,
         experienceLevel
@@ -168,7 +246,7 @@ export default function SkillGapAssessment() {
       console.error("Error generating questions:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to generate questions";
-      alert("❌ " + errorMessage);
+      alert("Error: " + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -176,7 +254,7 @@ export default function SkillGapAssessment() {
 
   const calculateResults = async (
     answersToUse?: Record<string, number | string>
-  ) => {
+  ): Promise<void> => {
     setLoading(true);
     setLoadingMessage("Submitting and analyzing your assessment...");
 
@@ -195,16 +273,15 @@ export default function SkillGapAssessment() {
         );
       }
 
-      const response = await fetch("/api/assessment/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          assessmentId,
-          answers: finalAnswers,
-        }),
-      });
+      // Debug logging
+      console.log("=== SUBMITTING ASSESSMENT ===");
+      console.log("jobRole:", jobRole);
+      console.log("experienceLevel:", experienceLevel);
 
-      const submitData = await response.json();
+      const submitData = (await api.skillassessment.submitAnswers(
+        assessmentId,
+        finalAnswers
+      )) as SubmitAnswersResponse;
 
       if (!submitData.success) {
         throw new Error(submitData.error || "Failed to submit");
@@ -215,14 +292,11 @@ export default function SkillGapAssessment() {
         correctAnswers,
         totalQuestions,
         questions: dbQuestions,
-      } = submitData.data;
+      } = submitData.data!;
 
-      const skillPerformance: Record<
-        string,
-        { skill: string; total: number; correct: number }
-      > = {};
+      const skillPerformance: Record<string, SkillPerformance> = {};
 
-      dbQuestions.forEach((q: any) => {
+      dbQuestions.forEach((q: AssessmentQuestion) => {
         if (!skillPerformance[q.skill]) {
           skillPerformance[q.skill] = {
             skill: q.skill,
@@ -236,60 +310,71 @@ export default function SkillGapAssessment() {
         }
       });
 
-      const skillGaps = Object.values(skillPerformance).map((skill) => {
-        const accuracy = Math.round((skill.correct / skill.total) * 100);
-        const gap = Math.max(0, 100 - accuracy);
+      const skillGaps: SkillGap[] = Object.values(skillPerformance).map(
+        (skill) => {
+          const accuracy = Math.round((skill.correct / skill.total) * 100);
+          const gap = Math.max(0, 100 - accuracy);
 
-        return {
-          skill: skill.skill,
-          gap,
-          accuracy,
-          questionsAnswered: skill.total,
-          correctAnswers: skill.correct,
-        };
-      });
+          return {
+            skill: skill.skill,
+            gap,
+            accuracy,
+            questionsAnswered: skill.total,
+            correctAnswers: skill.correct,
+          };
+        }
+      );
 
       const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
 
-      let recommendations = [];
+      let recommendations: Recommendation[] = [];
       try {
         const weakSkills = skillGapsSorted
           .filter((gap) => gap.gap > 0)
           .slice(0, 3)
           .map((gap) => gap.skill);
 
-        const recResponse = await fetch(
-          "/api/assessment/generate-recommendations",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jobRole,
-              experienceLevel,
-              skillGaps: weakSkills.length > 0 ? weakSkills : [],
-              overallScore: score,
-            }),
-          }
-        );
+        console.log("=== CALLING RECOMMENDATIONS API ===");
+        console.log("jobRole:", jobRole);
+        console.log("experienceLevel:", experienceLevel);
+        console.log("weakSkills:", weakSkills);
+        console.log("score:", score);
 
-        const recData = await recResponse.json();
+        // Make sure jobRole and experienceLevel are set
+        if (!jobRole || !experienceLevel) {
+          console.error("Missing jobRole or experienceLevel!");
+          throw new Error("Job role or experience level not set");
+        }
+
+        const recData = (await api.skillassessment.generateRecommendations({
+          jobRole: jobRole,
+          experienceLevel: experienceLevel,
+          skillGaps: weakSkills.length > 0 ? weakSkills : [],
+          overallScore: score,
+        })) as RecommendationsResponse;
+
+        console.log("Recommendations response:", recData);
 
         if (recData.success && recData.data?.recommendations) {
           recommendations = recData.data.recommendations;
+        } else {
+          console.warn("No recommendations returned, using fallback");
+          throw new Error("No recommendations in response");
         }
       } catch (error) {
         console.error("Error generating recommendations:", error);
         recommendations = [
           {
             title: "Continue Learning",
-            description: "Keep improving your skills for " + jobRole,
+            description:
+              "Keep improving your skills for " + (jobRole || "your career"),
             link: "https://www.coursera.org/",
-            skill: jobRole,
+            skill: jobRole || "General",
           },
         ];
       }
 
-      const results = {
+      const results: AssessmentResults = {
         skillGaps: skillGapsSorted,
         overallScore: score,
         totalQuestions,
@@ -299,12 +384,10 @@ export default function SkillGapAssessment() {
         completedAt: new Date().toISOString(),
       };
 
-      // Store in localStorage
       localStorage.setItem("assessmentResults", JSON.stringify(results));
-      localStorage.setItem("assessmentJobRole", jobRole);
+      localStorage.setItem("assessmentJobRole", jobRole || "");
       localStorage.removeItem("currentAssessmentId");
 
-      // Navigate to results page
       router.push("/skill-assessment/result");
     } catch (error) {
       console.error("Error calculating results:", error);
@@ -317,7 +400,7 @@ export default function SkillGapAssessment() {
     }
   };
 
-  const getSkillColor = (name: string) => {
+  const getSkillColor = (name: string): string => {
     const colors: Record<string, string> = {
       JavaScript: "bg-yellow-500",
       Python: "bg-blue-600",
@@ -340,20 +423,20 @@ export default function SkillGapAssessment() {
     return colors[name] || "bg-gray-500";
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleJobRoleSubmit = (e: React.FormEvent) => {
+  const handleJobRoleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (jobRole.trim() && experienceLevel) {
       setCurrentStep("config");
     }
   };
 
-  const handleStart = async () => {
+  const handleStart = async (): Promise<void> => {
     localStorage.removeItem("currentAssessmentId");
     localStorage.removeItem("assessmentResults");
     localStorage.removeItem("assessmentJobRole");
@@ -368,15 +451,15 @@ export default function SkillGapAssessment() {
     setCurrentStep("assessment");
   };
 
-  const handleAnswerSelect = (answerIndex: number) => {
+  const handleAnswerSelect = (answerIndex: number): void => {
     setSelectedAnswer(answerIndex);
   };
 
-  const isMCQType = (type: QuestionType) => {
+  const isMCQType = (type: QuestionType): boolean => {
     return ["mcq", "pseudo_mcq", "aptitude", "reasoning"].includes(type);
   };
 
-  const handleNext = () => {
+  const handleNext = (): void => {
     const currentQ = questions[currentQuestion];
     const questionId = currentQ.id.toString();
 
@@ -402,19 +485,23 @@ export default function SkillGapAssessment() {
     const isLastQuestion = currentQuestion === questions.length - 1;
 
     if (isLastQuestion) {
+      // Debug: Log state before calling calculateResults
+      console.log("=== FINAL SUBMISSION DEBUG ===");
+      console.log("jobRole from state:", jobRole);
+      console.log("experienceLevel from state:", experienceLevel);
+
       calculateResults(newAnswers);
     } else {
       setAnswers(newAnswers);
       setCurrentQuestion(currentQuestion + 1);
-      // Clear answers for next question
       setSelectedAnswer(null);
       setTextAnswer("");
     }
   };
 
-  const handleFinish = useCallback(() => {
+  const handleFinish = useCallback((): void => {
     calculateResults();
-  }, []);
+  }, [answers, questions]);
 
   if (loading) {
     return <LoadingOverlay message={loadingMessage} />;
@@ -537,7 +624,7 @@ export default function SkillGapAssessment() {
 
           <div className="mb-6">
             <div className="grid grid-cols-3 gap-4">
-              {["beginner", "intermediate", "advanced"].map((level) => {
+              {DIFFICULTY_LEVELS.map((level) => {
                 const isSelected = difficulty === level;
                 return (
                   <button

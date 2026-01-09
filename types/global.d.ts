@@ -128,3 +128,147 @@ interface GeneratedQuestion {
   evaluationCriteria?: string;
   expectedKeywords?: string[];
 }
+
+interface ParsedResumeData {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  website: string;
+  skills: string[];
+  experience: Array<{
+    title: string;
+    company: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+    description: string;
+    current: boolean;
+  }>;
+  education: Array<{
+    degree: string;
+    institution: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+    gpa: string | null;
+  }>;
+  projects: Array<{
+    name: string;
+    description: string;
+    technologies: string[];
+    link: string | null;
+  }>;
+  certifications: Array<{
+    name: string;
+    issuer: string;
+    date: string;
+  }>;
+}
+
+interface FileParserResponse {
+  success: boolean;
+  data?: ParsedResumeData & {
+    resumeId: string;
+    fileName: string;
+  };
+  error?: string;
+}
+
+interface GenerateQuestionsRequest {
+  jobRole: string;
+  difficulty: string;
+  experienceLevel: string;
+}
+
+interface SubmitAnswersRequest {
+  assessmentId: string;
+  answers: Record<string, string | number>;
+}
+
+interface GenerateRecommendationsRequest {
+  jobRole: string;
+  experienceLevel: string;
+  skillGaps: string[];
+  overallScore: number;
+}
+
+interface ExecuteCodeRequest {
+  code: string;
+  language: string;
+  input?: string;
+}
+
+interface SubmitCodeRequest {
+  codes: string[];
+  language: string;
+  testCases: TestCase[];
+}
+
+interface CheckStatusRequest {
+  tokens: string[];
+  expectedOutputs?: string[];
+}
+
+interface SubmitCodeResponse {
+  submissionIds: string[];
+  totalTestCases: number;
+}
+
+interface StatusResult {
+  token: string;
+  status: string;
+  statusId: number;
+  isPending: boolean;
+  input: string;
+  expectedOutput: string;
+  actualOutput: string | null;
+  passed: boolean;
+  time: string | null;
+  memory: number | null;
+  error: string | null;
+}
+
+interface CheckStatusResponse {
+  results: StatusResult[];
+}
+
+interface SubmitAnswersResponse {
+  success: boolean;
+  data?: {
+    score: number;
+    correctAnswers: number;
+    totalQuestions: number;
+    questions: AssessmentQuestion[];
+  };
+  error?: string;
+}
+
+interface AssessmentQuestion {
+  questionId: string;
+  question: string;
+  skill: string;
+  questionType: QuestionType;
+  options?: string[];
+  userAnswer: number | string | null;
+  correctAnswer?: number;
+  expectedAnswer?: string;
+  evaluationCriteria?: string;
+  expectedKeywords?: string[];
+  isCorrect: boolean;
+}
+
+interface RecommendationsResponse {
+  success: boolean;
+  data?: {
+    recommendations: Recommendation[];
+  };
+  error?: string;
+}
+
+interface Recommendation {
+  title: string;
+  description: string;
+  link: string;
+  skill: string;
+}

@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LANGUAGE_IDS } from "@/constants";
-import { APIResponse, ExecutionResult } from "@/types/global";
+import {
+  APIResponse,
+  ExecuteCodeRequest,
+  ExecutionResult,
+} from "@/types/global";
 
 const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
 const JUDGE0_HOST = process.env.JUDGE0_HOST || "judge0-ce.p.rapidapi.com";
 
-export async function POST(request: NextRequest): Promise<APIResponse<ExecutionResult>> {
+export async function POST(
+  request: NextRequest
+): Promise<APIResponse<ExecutionResult>> {
   try {
-    const { code, language, input } = await request.json();
+    const { code, language, input }: ExecuteCodeRequest = await request.json();
 
     if (!code || !language) {
       return NextResponse.json(
@@ -81,7 +87,7 @@ export async function POST(request: NextRequest): Promise<APIResponse<ExecutionR
       { status: 200 }
     );
   } catch (error) {
-    console.error("❌ Execute error:", error);
+    console.error("Execute error:", error);
     return NextResponse.json(
       {
         success: false,

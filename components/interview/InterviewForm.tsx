@@ -51,7 +51,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       const formDataForParsing = new FormData();
       formDataForParsing.append("FILE", file);
 
-      const response = await fetch("/api/resume/parse", {
+      const response = await fetch("/api/fileparser", {
         method: "POST",
         body: formDataForParsing,
       });

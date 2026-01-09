@@ -1,31 +1,21 @@
+import {
+  APIResponse,
+  CheckStatusResponse,
+  CheckStatusRequest,
+  StatusResult,
+} from "@/types/global";
 import { NextRequest, NextResponse } from "next/server";
 
 const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
 const JUDGE0_HOST = process.env.JUDGE0_HOST || "judge0-ce.p.rapidapi.com";
 
-interface StatusRequest {
-  tokens: string[];
-  expectedOutputs?: string[];
-}
-
-interface StatusResult {
-  token: string;
-  status: string;
-  statusId: number;
-  isPending: boolean;
-  input: string;
-  expectedOutput: string;
-  actualOutput: string | null;
-  passed: boolean;
-  time: string | null;
-  memory: number | null;
-  error: string | null;
-}
-
-export async function POST(request: NextRequest): Promise<any> {
+export async function POST(
+  request: NextRequest
+): Promise<APIResponse<CheckStatusResponse>> {
   try {
-    const { tokens, expectedOutputs }: StatusRequest = await request.json();
+    const { tokens, expectedOutputs }: CheckStatusRequest =
+      await request.json();
 
     if (!tokens || !Array.isArray(tokens)) {
       return NextResponse.json(
@@ -78,13 +68,10 @@ export async function POST(request: NextRequest): Promise<any> {
       const isPending = statusId === 1 || statusId === 2;
       const actualOutput = data.stdout || "";
 
-      // Trim both outputs for comparison
       const actualTrimmed = actualOutput.trim();
       const expectedTrimmed = expectedOutput.trim();
 
-      // Compare: only mark as passed if statusId is 3 (Accepted) AND outputs match
-      const passed =
-        statusId === 3 && actualTrimmed === expectedTrimmed;
+      const passed = statusId === 3 && actualTrimmed === expectedTrimmed;
 
       results.push({
         token,
@@ -93,7 +80,7 @@ export async function POST(request: NextRequest): Promise<any> {
         isPending,
         input: "",
         expectedOutput: expectedOutput,
-        actualOutput: actualOutput, // Store original with newline
+        actualOutput: actualOutput,
         passed: passed,
         time: data.time || null,
         memory: data.memory || null,
@@ -109,12 +96,13 @@ export async function POST(request: NextRequest): Promise<any> {
       { status: 200 }
     );
   } catch (error) {
-    console.error("❌ Status check error:", error);
+    console.error("Status check error:", error);
     return NextResponse.json(
       {
         success: false,
         error: {
-          message: error instanceof Error ? error.message : "Status check failed",
+          message:
+            error instanceof Error ? error.message : "Status check failed",
         },
       },
       { status: 500 }

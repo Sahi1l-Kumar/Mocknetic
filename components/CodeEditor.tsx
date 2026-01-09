@@ -20,14 +20,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PROBLEM_DATA } from "@/constants";
-import type {
-  APIResponse,
-  ExecutionResult,
+import { api } from "@/lib/api";
+import {
   TestCase,
   TestResult,
+  StatusResult,
+  ExecutionResult,
+  SubmitCodeResponse,
+  CheckStatusResponse,
 } from "@/types/global";
 
-const FONT_SIZES = [12, 14, 16, 18, 20, 24];
+const FONT_SIZES = [12, 14, 16, 18, 20, 24] as const;
 
 interface LanguageOption {
   label: string;
@@ -54,7 +57,7 @@ export default function CodeEditor({
   const [code, setCode] = useState<string>("");
   const [output, setOutput] = useState<string>("");
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [fontSize, setFontSize] = useState<number>(16);
+  const [fontSize, setFontSize] = useState<(typeof FONT_SIZES)[number]>(16);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
@@ -99,7 +102,7 @@ export default function CodeEditor({
       setLanguage(firstLang.value);
       setCode(firstLang.template);
     }
-  }, [problemId]);
+  }, [problemId, LANGUAGES]);
 
   useEffect(() => {
     const selectedLang = LANGUAGES.find((lang) => lang.value === language);
@@ -719,50 +722,45 @@ int main() {
     try {
       const firstTestCase = testCases[0];
       if (!firstTestCase) {
-        setOutput("❌ No test cases available");
+        setOutput("No test cases available");
         return;
       }
 
       const wrappedCode = wrapCodeForExecution(code, firstTestCase);
 
-      const response = await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: wrappedCode,
-          language,
-          input: firstTestCase.input,
-        }),
+      const response = await api.judge0.execute({
+        code: wrappedCode,
+        language,
+        input: firstTestCase.input,
       });
 
-      const data: APIResponse<ExecutionResult> = await response.json();
       const endTime = Date.now();
       setExecutionTime(endTime - startTime);
 
-      if (!data.success) {
-        setOutput(`❌ Error: ${data.error?.message}`);
+      if (!response.success) {
+        setOutput(`Error: ${response.error?.message}`);
         return;
       }
 
-      const result = data.data!;
+      const result = response.data! as ExecutionResult;
 
       if (result.statusId === 3) {
         setOutput(
-          `✅ Code executed successfully!\n\nOutput: ${result.stdout || "No output"}\nExpected: ${firstTestCase.expectedOutput}\nTime: ${result.time || "N/A"}ms\nMemory: ${result.memory || "N/A"}KB`
+          `Code executed successfully!\n\nOutput: ${result.stdout || "No output"}\nExpected: ${firstTestCase.expectedOutput}\nTime: ${result.time || "N/A"}ms\nMemory: ${result.memory || "N/A"}KB`
         );
       } else if (result.statusId === 6) {
         setOutput(
-          `❌ Compilation Error\n\n${result.compile_output || result.stderr || "Unknown error"}`
+          `Compilation Error\n\n${result.compile_output || result.stderr || "Unknown error"}`
         );
       } else {
         setOutput(
-          `❌ ${result.status}\n\n${result.stderr || result.compile_output || "Runtime error"}`
+          `${result.status}\n\n${result.stderr || result.compile_output || "Runtime error"}`
         );
       }
     } catch (error) {
-      console.error("❌ Run error:", error);
+      console.error("Run error:", error);
       setOutput(
-        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     } finally {
       setIsRunning(false);
@@ -776,78 +774,41 @@ int main() {
     const startTime = Date.now();
 
     try {
-      // WRAP each test case
       const wrappedCodes = testCases.map((tc) =>
         wrapCodeForExecution(code, tc)
       );
 
-      const submitResponse = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          codes: wrappedCodes,
-          language,
-          testCases,
-        }),
+      const submitResponse = await api.judge0.submit({
+        codes: wrappedCodes,
+        language,
+        testCases,
       });
 
-      const submitData: APIResponse<{
-        submissionIds: string[];
-        totalTestCases: number;
-      }> = await submitResponse.json();
-
-      if (!submitData.success) {
-        setOutput(`❌ Error: ${submitData.error?.message}`);
+      if (!submitResponse.success) {
+        setOutput(`Error: ${submitResponse.error?.message}`);
         setIsRunning(false);
         return;
       }
 
-      const submissionIds = submitData.data!.submissionIds;
-      console.log(`📤 Submitted ${submissionIds.length} test cases`);
+      const submissionIds = (submitResponse.data! as SubmitCodeResponse)
+        .submissionIds;
+      console.log(`Submitted ${submissionIds.length} test cases`);
 
       let allDone = false;
       let attempts = 0;
       const maxAttempts = 30;
-      let finalResults: Array<{
-        token: string;
-        status: string;
-        isPending: boolean;
-        actualOutput: string | null;
-        passed: boolean;
-        time: string | null;
-        memory: number | null;
-        error: string | null;
-        expectedOutput: string;
-      }> = [];
+      let finalResults: StatusResult[] = [];
 
       while (!allDone && attempts < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        const statusResponse = await fetch("/api/status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tokens: submissionIds,
-            expectedOutputs: testCases.map((tc) => tc.expectedOutput),
-          }),
+        const statusResponse = await api.judge0.checkStatus({
+          tokens: submissionIds,
+          expectedOutputs: testCases.map((tc) => tc.expectedOutput),
         });
 
-        const statusData: APIResponse<{
-          results: Array<{
-            token: string;
-            status: string;
-            isPending: boolean;
-            actualOutput: string | null;
-            passed: boolean;
-            time: string | null;
-            memory: number | null;
-            error: string | null;
-            expectedOutput: string;
-          }>;
-        }> = await statusResponse.json();
-
-        if (statusData.success) {
-          finalResults = statusData.data!.results;
+        if (statusResponse.success) {
+          finalResults = (statusResponse.data! as CheckStatusResponse).results;
           allDone = finalResults.every((r) => !r.isPending);
 
           const currentResults: TestResult[] = finalResults.map((result) => ({
@@ -880,7 +841,7 @@ int main() {
           ) / totalTests;
 
         setOutput(
-          `🎉 Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nTotal Time: ${executionTime}ms`
+          `Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nTotal Time: ${executionTime}ms`
         );
       } else {
         const failedTestIndex = finalResults.findIndex((r) => !r.passed);
@@ -888,13 +849,13 @@ int main() {
         const failedTestCase = testCases[failedTestIndex];
 
         setOutput(
-          `❌ Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\n━━━━━━━━━━━━━━━━━━━━━\nTest Case #${failedTestIndex + 1} Failed\n━━━━━━━━━━━━━━━━━━━━━\n\nInput: ${failedTestCase?.input.replace(/\n/g, " ")}\nExpected Output: ${failedTest?.expectedOutput}\nYour Output: ${failedTest?.actualOutput?.trim() || "No output"}\n\nStatus: ${failedTest?.status}\nTime: ${failedTest?.time}ms\nMemory: ${failedTest?.memory}KB\n${failedTest?.error ? `Error: ${failedTest.error}` : ""}`
+          `Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\nTest Case #${failedTestIndex + 1} Failed\n\nInput: ${failedTestCase?.input.replace(/\n/g, " ")}\nExpected Output: ${failedTest?.expectedOutput}\nYour Output: ${failedTest?.actualOutput?.trim() || "No output"}\n\nStatus: ${failedTest?.status}\nTime: ${failedTest?.time}ms\nMemory: ${failedTest?.memory}KB\n${failedTest?.error ? `Error: ${failedTest.error}` : ""}`
         );
       }
     } catch (error) {
-      console.error("❌ Submit error:", error);
+      console.error("Submit error:", error);
       setOutput(
-        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     } finally {
       setIsRunning(false);
@@ -946,7 +907,9 @@ int main() {
           {showSettings && (
             <select
               value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
+              onChange={(e) =>
+                setFontSize(Number(e.target.value) as typeof fontSize)
+              }
               className="bg-background border border-border px-2 py-1 rounded text-sm w-20"
             >
               {FONT_SIZES.map((size) => (
@@ -1071,7 +1034,7 @@ int main() {
           onValueChange={setActiveTab}
           className="flex flex-col h-full"
         >
-          <TabsList className="flex-shrink-0 w-full rounded-none">
+          <TabsList className="shrink-0 w-full rounded-none">
             <TabsTrigger value="testcase">Testcases</TabsTrigger>
             <TabsTrigger value="result">
               Results
@@ -1090,7 +1053,7 @@ int main() {
           >
             <Tabs defaultValue="0" className="h-full flex flex-col">
               <TabsList
-                className="grid w-full flex-shrink-0"
+                className="grid w-full shrink-0"
                 style={{
                   gridTemplateColumns: `repeat(${Math.min(testCases.length, 3)}, 1fr)`,
                 }}
@@ -1157,16 +1120,16 @@ int main() {
                       {testResults[index] && (
                         <div className="pt-2 border-t">
                           <div className="text-xs text-muted-foreground">
-                            <div>⏱️ Time: {testResults[index].time}ms</div>
-                            <div>💾 Memory: {testResults[index].memory}KB</div>
+                            <div>Time: {testResults[index].time}ms</div>
+                            <div>Memory: {testResults[index].memory}KB</div>
                             <div>
                               {testResults[index].passed ? (
                                 <span className="text-green-600 dark:text-green-400">
-                                  ✅ Accepted
+                                  Accepted
                                 </span>
                               ) : (
                                 <span className="text-red-600 dark:text-red-400">
-                                  ❌ {testResults[index].status}
+                                  {testResults[index].status}
                                 </span>
                               )}
                             </div>

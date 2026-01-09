@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LANGUAGE_IDS } from "@/constants";
-import { APIResponse, TestCase } from "@/types/global";
+import {
+  APIResponse,
+  SubmitCodeResponse,
+  SubmitCodeRequest,
+} from "@/types/global";
 
 const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
 const JUDGE0_HOST = process.env.JUDGE0_HOST || "judge0-ce.p.rapidapi.com";
 
-interface SubmitRequest {
-  codes: string[]; // Changed to array of wrapped codes
-  language: string;
-  testCases: TestCase[];
-}
-
 export async function POST(
   request: NextRequest
-): Promise<
-  APIResponse<{ submissionIds: string[]; totalTestCases: number }>
-> {
+): Promise<APIResponse<SubmitCodeResponse>> {
   try {
-    const { codes, language, testCases }: SubmitRequest =
+    const { codes, language, testCases }: SubmitCodeRequest =
       await request.json();
 
     if (!codes || !Array.isArray(codes) || codes.length === 0) {
@@ -60,13 +56,11 @@ export async function POST(
 
     const submissionIds: string[] = [];
 
-    // Submit each wrapped code (each has different test values)
     for (let i = 0; i < codes.length; i++) {
       const wrappedCode = codes[i];
-      const testCase = testCases[i];
 
       const body = {
-        source_code: wrappedCode, // Already includes Main class and test values
+        source_code: wrappedCode,
         language_id: languageId,
       };
 
@@ -86,11 +80,11 @@ export async function POST(
       const data = await response.json();
       submissionIds.push(data.token);
       console.log(
-        `✅ Submitted test case ${i + 1}/${codes.length} - Token: ${data.token}`
+        `Submitted test case ${i + 1}/${codes.length} - Token: ${data.token}`
       );
     }
 
-    console.log(`✅ All ${submissionIds.length} test cases submitted`);
+    console.log(`All ${submissionIds.length} test cases submitted`);
 
     return NextResponse.json(
       {
@@ -103,7 +97,7 @@ export async function POST(
       { status: 202 }
     );
   } catch (error) {
-    console.error("❌ Submit error:", error);
+    console.error("Submit error:", error);
     return NextResponse.json(
       {
         success: false,

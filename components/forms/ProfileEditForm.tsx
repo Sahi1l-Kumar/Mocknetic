@@ -192,7 +192,7 @@ export default function ProfileEditForm({
       const formData = new FormData();
       formData.append("FILE", file);
 
-      const response = await fetch("/api/resume/parse", {
+      const response = await fetch("/api/fileparser", {
         method: "POST",
         body: formData,
       });

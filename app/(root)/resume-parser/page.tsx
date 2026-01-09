@@ -53,7 +53,7 @@ export default function ResumeParserPage() {
 
     try {
       setIsParsing(true);
-      const response = await fetch("/api/resume/parse", {
+      const response = await fetch("/api/fileparser", {
         method: "POST",
         body: formData,
       });

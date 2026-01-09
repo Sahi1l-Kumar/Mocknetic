@@ -2,8 +2,17 @@ import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { groq } from "@ai-sdk/groq";
+import { Recommendation, RecommendationsResponse } from "@/types/global";
 
-export async function POST(req: NextRequest) {
+interface CourseInfo {
+  title: string;
+  link: string;
+  description: string;
+}
+
+export async function POST(
+  req: NextRequest
+): Promise<NextResponse<RecommendationsResponse>> {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -13,17 +22,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { jobRole, experienceLevel, skillGaps, overallScore } =
-      await req.json();
+    const body = await req.json();
+    const jobRole = body.jobRole || "";
+    const experienceLevel = body.experienceLevel || "Entry Level";
+    const skillGaps = Array.isArray(body.skillGaps) ? body.skillGaps : [];
+    const overallScore = body.overallScore || 0;
 
-    console.log(`📚 Generating recommendations for: ${jobRole}`);
-    console.log(`📊 Skill gaps:`, skillGaps);
-
-    if (!jobRole || !Array.isArray(skillGaps)) {
+    if (!jobRole) {
+      console.error("Validation failed: jobRole is empty");
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid request: jobRole and skillGaps required",
+          error: "Invalid request: jobRole is required",
         },
         { status: 400 }
       );
@@ -89,10 +99,12 @@ If none of the fixed course URLs match the skill, you MUST use an appropriate se
         const prompt = `You are a career development expert specializing in skill development and learning resources.
 
 Job Role: ${jobRole}
-Experience Level: ${experienceLevel || "Entry Level"}
+Experience Level: ${experienceLevel}
 Overall Score: ${overallScore}%
 Skills needing improvement: ${
-          skillGaps.length > 0 ? skillGaps.join(", ") : "None - all skills mastered"
+          skillGaps.length > 0
+            ? skillGaps.join(", ")
+            : "None - all skills mastered"
         }
 
 Task: Generate ${skillGaps.length > 0 ? "3-5" : "3"} high-quality learning resource recommendations as a JSON array.
@@ -132,7 +144,7 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
           temperature: 0.4,
         });
 
-        console.log("🤖 AI Response:", text);
+        console.log("AI Response:", text);
 
         let cleanedText = text.trim();
 
@@ -148,7 +160,7 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
           cleanedText = arrayMatch[0];
         }
 
-        recommendations = JSON.parse(cleanedText);
+        const parsedRecommendations = JSON.parse(cleanedText);
 
         if (!Array.isArray(recommendations)) {
           throw new Error("Response is not an array");
@@ -180,18 +192,19 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
           return {
             title: rec.title || "Learning Resource",
             description: rec.description || "Enhance your skills.",
-            link: link || `https://www.coursera.org/search?query=${encodedSkill}`,
+            link:
+              link || `https://www.coursera.org/search?query=${encodedSkill}`,
             skill,
           };
         });
 
-        console.log(`✅ Generated ${recommendations.length} recommendations`);
+        console.log(`Generated ${recommendations.length} recommendations`);
       } catch (parseError) {
         console.error("Failed to parse AI response:", parseError);
         recommendations = null;
       }
     } else {
-      console.warn("⚠️ Groq API key not found, using fallback recommendations");
+      console.warn("Groq API key not found, using fallback recommendations");
     }
 
     if (!recommendations || !Array.isArray(recommendations)) {
@@ -202,7 +215,7 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
       );
     }
 
-    return NextResponse.json(
+    return NextResponse.json<RecommendationsResponse>(
       {
         success: true,
         data: { recommendations },
@@ -233,7 +246,7 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
       },
     ];
 
-    return NextResponse.json(
+    return NextResponse.json<RecommendationsResponse>(
       {
         success: true,
         data: { recommendations: fallback },

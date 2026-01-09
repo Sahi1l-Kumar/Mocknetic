@@ -9,14 +9,14 @@ import User from "@/database/user.model";
 import dbConnect from "@/lib/mongoose";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
+import { ParsedResumeData } from "@/types/global";
 
-async function parseResumeWithGroq(text: string): Promise<any> {
+async function parseResumeWithGroq(text: string): Promise<ParsedResumeData> {
   try {
-    // ✅ Limit text length to prevent issues
     const maxLength = 10000;
     const limitedText = text.substring(0, maxLength);
 
-    console.log(`📄 Processing resume text (${limitedText.length} chars)`);
+    console.log(`Processing resume text (${limitedText.length} chars)`);
 
     const { text: response } = await generateText({
       model: groq("llama-3.1-8b-instant"),
@@ -76,19 +76,16 @@ IMPORTANT: Return ONLY JSON, nothing else. No markdown, no explanations.`,
         "You are a resume parsing expert. Extract all resume information accurately and return only valid JSON with no explanations.",
     });
 
-    console.log("✅ Groq response received");
+    console.log("Groq response received");
 
-    // ✅ Safely extract JSON
-    let parsedJson;
+    let parsedJson: ParsedResumeData;
     try {
-      // Try direct parse first
       parsedJson = JSON.parse(response);
     } catch (e) {
-      // Try extracting JSON from markdown or text
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.error(
-          "❌ Could not extract JSON from Groq response:",
+          "Could not extract JSON from Groq response:",
           response.substring(0, 200)
         );
         throw new Error("Could not extract JSON from Groq response");
@@ -96,10 +93,10 @@ IMPORTANT: Return ONLY JSON, nothing else. No markdown, no explanations.`,
       parsedJson = JSON.parse(jsonMatch[0]);
     }
 
-    console.log("✅ JSON parsed successfully");
+    console.log("JSON parsed successfully");
     return parsedJson;
   } catch (error) {
-    console.error("❌ Groq parsing error:", error);
+    console.error("Groq parsing error:", error);
     throw error;
   }
 }
@@ -110,14 +107,14 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      console.error("❌ Unauthorized - no session");
+      console.error("Unauthorized - no session");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("✅ User authenticated:", session.user.id);
+    console.log("User authenticated:", session.user.id);
 
     await dbConnect();
-    console.log("✅ Database connected");
+    console.log("Database connected");
 
     const formData: FormData = await req.formData();
     const uploadedFiles = formData.getAll("FILE");
@@ -135,10 +132,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`📁 File received: ${uploadedFile.name} (${uploadedFile.size} bytes)`);
+    console.log(
+      `File received: ${uploadedFile.name} (${uploadedFile.size} bytes)`
+    );
 
-    // ✅ Check file size
-    const maxFileSize = 8 * 1024 * 1024; // 8MB
+    const maxFileSize = 8 * 1024 * 1024;
     if (uploadedFile.size > maxFileSize) {
       return NextResponse.json(
         { error: "File size exceeds 8MB limit" },
@@ -150,33 +148,30 @@ export async function POST(req: NextRequest) {
     tempFilePath = `/tmp/${fileName}.pdf`;
     const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
 
-    console.log(`💾 Writing file to: ${tempFilePath}`);
+    console.log(`Writing file to: ${tempFilePath}`);
     await fs.writeFile(tempFilePath, fileBuffer);
 
-    console.log("📖 Starting PDF parsing...");
+    console.log("Starting PDF parsing...");
     const pdfParser = new (PDFParser as any)(null, 1);
 
     let parsedText = "";
 
-    // ✅ Better error handling
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("PDF parsing timeout"));
-      }, 30000); // 30 second timeout
+      }, 30000);
 
       pdfParser.on("pdfParser_dataReady", () => {
         clearTimeout(timeout);
         try {
           const rawText = (pdfParser as any).getRawTextContent();
-          
-          // ✅ Validate text
+
           if (!rawText || typeof rawText !== "string") {
             throw new Error("Invalid text extracted from PDF");
           }
-          
-          // ✅ Limit to reasonable size
+
           parsedText = rawText.substring(0, 20000);
-          console.log(`✅ PDF parsed: ${parsedText.length} chars extracted`);
+          console.log(`PDF parsed: ${parsedText.length} chars extracted`);
           resolve();
         } catch (err) {
           reject(err);
@@ -199,13 +194,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Parse with Groq
-    console.log("🤖 Parsing with Groq...");
+    console.log("Parsing with Groq...");
     const parsedData = await parseResumeWithGroq(parsedText);
 
-    console.log("💾 Saving to database...");
+    console.log("Saving to database...");
 
-    // Save to Resume collection
     const resume = await Resume.create({
       userId: session.user.id,
       filename: uploadedFile.name,
@@ -216,7 +209,6 @@ export async function POST(req: NextRequest) {
       status: "completed",
     });
 
-    // ✅ Update User with defaults
     await User.findByIdAndUpdate(session.user.id, {
       $set: {
         name: parsedData.name || "",
@@ -226,7 +218,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // ✅ Update or create Profile with defaults
     await Profile.findOneAndUpdate(
       { userId: session.user.id },
       {
@@ -248,17 +239,16 @@ export async function POST(req: NextRequest) {
       { upsert: true, new: true }
     );
 
-    // ✅ Clean up temp file
     if (tempFilePath) {
       try {
         await fs.unlink(tempFilePath);
-        console.log("✅ Temp file deleted");
+        console.log("Temp file deleted");
       } catch (e) {
         console.warn("Could not delete temp file:", e);
       }
     }
 
-    console.log("✅ Resume parsing completed successfully");
+    console.log("Resume parsing completed successfully");
 
     const response = new NextResponse(JSON.stringify(parsedData));
     response.headers.set("FileName", fileName);
@@ -266,9 +256,8 @@ export async function POST(req: NextRequest) {
     response.headers.set("Content-Type", "application/json");
     return response;
   } catch (error) {
-    console.error("❌ Resume parsing error:", error);
+    console.error("Resume parsing error:", error);
 
-    // ✅ Clean up on error
     if (tempFilePath) {
       try {
         await fs.unlink(tempFilePath);
@@ -278,7 +267,11 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Failed to parse resume: " + (error instanceof Error ? error.message : "Unknown error") },
+      {
+        error:
+          "Failed to parse resume: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      },
       { status: 500 }
     );
   }

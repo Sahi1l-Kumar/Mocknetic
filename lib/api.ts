@@ -3,6 +3,13 @@ import { IAccount } from "@/database/account.model";
 import { IUser } from "@/database/user.model";
 
 import { fetchHandler } from "./handlers/fetch";
+import {
+  CheckStatusRequest,
+  ExecuteCodeRequest,
+  FileParserResponse,
+  GenerateRecommendationsRequest,
+  SubmitCodeRequest,
+} from "@/types/global";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
@@ -19,6 +26,7 @@ export const api = {
         body: JSON.stringify({ user, provider, providerAccountId }),
       }),
   },
+
   users: {
     getAll: () => fetchHandler(`${API_BASE_URL}/users`),
     getById: (id: string) => fetchHandler(`${API_BASE_URL}/users/${id}`),
@@ -40,6 +48,7 @@ export const api = {
     delete: (id: string) =>
       fetchHandler(`${API_BASE_URL}/users/${id}`, { method: "DELETE" }),
   },
+
   accounts: {
     getAll: () => fetchHandler(`${API_BASE_URL}/accounts`),
     getById: (id: string) => fetchHandler(`${API_BASE_URL}/accounts/${id}`),
@@ -61,30 +70,92 @@ export const api = {
     delete: (id: string) =>
       fetchHandler(`${API_BASE_URL}/accounts/${id}`, { method: "DELETE" }),
   },
-  assessment: {
-    generateQuestions: (jobRole: string, difficulty: string, experienceLevel: string) =>
-      fetchHandler(`${API_BASE_URL}/assessment/generate-questions`, {
+
+  skillassessment: {
+    generateQuestions: (
+      jobRole: string,
+      difficulty: string,
+      experienceLevel: string
+    ) =>
+      fetchHandler(`${API_BASE_URL}/skill-assessment/generate-questions`, {
         method: "POST",
         body: JSON.stringify({ jobRole, difficulty, experienceLevel }),
       }),
-    submitAnswers: (assessmentId: string, answers: Record<string, number>) =>
-      fetchHandler(`${API_BASE_URL}/assessment/submit-answers`, {
+    submitAnswers: (
+      assessmentId: string,
+      answers: Record<string, string | number>
+    ) =>
+      fetchHandler(`${API_BASE_URL}/skill-assessment/submit`, {
         method: "POST",
         body: JSON.stringify({ assessmentId, answers }),
       }),
-    generateRecommendations: async (data: {
-      jobRole: string;
-      experienceLevel: string;
-      skillGaps: string[];
-      overallScore: number;
-    }) => {
-      const response = await fetch("/api/assessment/recommendations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      return response.json();
+    generateRecommendations: (data: GenerateRecommendationsRequest) =>
+      fetchHandler(
+        `${API_BASE_URL}/skill-assessment/generate-recommendations`,
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      ),
+  },
+
+  resume: {
+    parse: async (file: File): Promise<FileParserResponse> => {
+      const formData = new FormData();
+      formData.append("FILE", file);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/fileparser`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          return {
+            success: false,
+            error: errorData.error || "Failed to parse resume",
+          };
+        }
+
+        const data = await response.json();
+        const resumeId = response.headers.get("ResumeId");
+        const fileName = response.headers.get("FileName");
+
+        return {
+          success: true,
+          data: {
+            ...data,
+            resumeId: resumeId || "",
+            fileName: fileName || "",
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
     },
   },
 
+  judge0: {
+    execute: (data: ExecuteCodeRequest) =>
+      fetchHandler(`${API_BASE_URL}/judge0/execute`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    submit: (data: SubmitCodeRequest) =>
+      fetchHandler(`${API_BASE_URL}/judge0/submit`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    checkStatus: (data: CheckStatusRequest) =>
+      fetchHandler(`${API_BASE_URL}/judge0/status`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
 };

@@ -5,33 +5,7 @@ import { generateText } from "ai";
 import User from "@/database/user.model";
 import Assessment from "@/database/assessment.model";
 import dbConnect from "@/lib/mongoose";
-
-type QuestionType =
-  | "mcq"
-  | "pseudo_mcq"
-  | "descriptive"
-  | "aptitude"
-  | "reasoning"
-  | "circuit_math";
-
-interface QuestionPlan {
-  type: QuestionType;
-  count: number;
-}
-
-interface GeneratedQuestion {
-  id: string;
-  skill: string;
-  questionType: QuestionType;
-  question: string;
-  options?: string[];
-  correctAnswer?: number;
-  difficulty: string;
-  explanation?: string;
-  expectedAnswer?: string;
-  evaluationCriteria?: string;
-  expectedKeywords?: string[];
-}
+import { QuestionPlan, GeneratedQuestion, QuestionType } from "@/types/global";
 
 function getJobRolePattern(jobRole: string): {
   degree: string;
@@ -272,12 +246,6 @@ async function generateAssessmentQuestions(
   userSkills: string[]
 ): Promise<{ questions: GeneratedQuestion[] }> {
   try {
-    console.log(`🎯 Generating questions for: ${jobRole}`);
-    console.log(`📊 Difficulty: ${difficulty}, Level: ${experienceLevel}`);
-    console.log(`👤 User current skills: ${userSkills.join(", ") || "None"}`);
-
-    console.log("📤 Step 1: Identifying key skills for target role...");
-
     const { text: skillsResponse } = await generateText({
       model: groq("llama-3.1-8b-instant"),
       prompt: `You are a career advisor. Return ONLY valid JSON. No explanations, no markdown.
