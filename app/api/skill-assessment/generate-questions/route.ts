@@ -271,17 +271,13 @@ Return ONLY valid JSON (no markdown):
       const parsed = JSON.parse(skillsResponse);
       if (parsed.skills && Array.isArray(parsed.skills)) {
         targetSkills = parsed.skills.slice(0, 5);
-        console.log(`✅ Target skills identified: ${targetSkills.join(", ")}`);
       }
     } catch {
-      console.warn("⚠ Could not parse skills, using defaults");
+      console.warn("Could not parse skills, using defaults");
     }
 
     const plan = getQuestionPlan(jobRole);
     const totalQuestions = plan.reduce((sum, p) => sum + p.count, 0);
-    console.log("🧩 Question plan:", plan, "Total:", totalQuestions);
-
-    console.log("📤 Step 2: Generating mixed question set (no coding)...");
 
     const { text: response } = await generateText({
       model: groq("llama-3.1-8b-instant"),
@@ -346,20 +342,14 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
       temperature: 0.7,
     });
 
-    console.log("✅ Questions response received");
-    console.log("📝 Preview:", response.substring(0, 300));
-
     let parsed: { questions: GeneratedQuestion[] } | null = null;
 
     try {
       parsed = JSON.parse(response);
-      console.log("✅ Direct JSON parse successful");
     } catch {
-      console.log("⚠ Direct parse failed, trying extraction...");
       const bracketMatch = response.match(/\{[\s\S]*\}/);
       if (bracketMatch) {
         parsed = JSON.parse(bracketMatch[0]);
-        console.log("✅ Bracket extraction successful");
       } else {
         throw new Error("No valid JSON found");
       }
@@ -402,33 +392,13 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
 
         if (q.correctAnswer < 1 || q.correctAnswer > 4) {
           console.warn(
-            `⚠ Q${idx + 1}: Invalid correctAnswer ${q.correctAnswer}, setting to 1`
+            `Q${idx + 1}: Invalid correctAnswer ${q.correctAnswer}, setting to 1`
           );
           q.correctAnswer = 1;
         }
-
-        console.log(
-          `   Q${idx + 1}: correctAnswer is ${q.correctAnswer} (1-indexed)`
-        );
       } else {
         delete q.options;
         delete q.correctAnswer;
-
-        console.log(
-          `   Q${idx + 1} (${qt}): expectedAnswer="${
-            q.expectedAnswer || "MISSING"
-          }"`
-        );
-        console.log(
-          `   Q${idx + 1} (${qt}): evaluationCriteria="${
-            q.evaluationCriteria || "MISSING"
-          }"`
-        );
-        console.log(
-          `   Q${idx + 1} (${qt}): expectedKeywords count=${
-            q.expectedKeywords?.length || 0
-          }`
-        );
       }
 
       if (qt === "descriptive" || qt === "circuit_math") {
@@ -438,21 +408,17 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
       }
     });
 
-    console.log(`✅ All validations passed and MCQ answers kept at 1-indexed`);
     return parsed;
   } catch (error) {
-    console.error("❌ Question generation error:", error);
+    console.error("Question generation error:", error);
     throw error;
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("📨 Received assessment generation request");
-
     const session = await auth();
     if (!session?.user?.id) {
-      console.error("❌ Unauthorized");
       return NextResponse.json(
         { success: false, error: { message: "Unauthorized - Please login" } },
         { status: 401 }
@@ -460,15 +426,11 @@ export async function POST(req: NextRequest) {
     }
 
     await dbConnect();
-    console.log("✅ Database connected");
 
     const body = await req.json();
     const { jobRole, difficulty, experienceLevel } = body;
 
-    console.log("📋 Request body:", { jobRole, difficulty, experienceLevel });
-
     if (!jobRole || typeof jobRole !== "string" || jobRole.trim() === "") {
-      console.error("❌ Invalid jobRole:", jobRole);
       return NextResponse.json(
         {
           success: false,
@@ -485,7 +447,6 @@ export async function POST(req: NextRequest) {
       typeof difficulty !== "string" ||
       !["beginner", "intermediate", "advanced"].includes(difficulty)
     ) {
-      console.error("❌ Invalid difficulty:", difficulty);
       return NextResponse.json(
         {
           success: false,
@@ -503,7 +464,6 @@ export async function POST(req: NextRequest) {
       typeof experienceLevel !== "string" ||
       experienceLevel.trim() === ""
     ) {
-      console.error("❌ Invalid experienceLevel:", experienceLevel);
       return NextResponse.json(
         {
           success: false,
@@ -515,11 +475,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`✅ Input validation passed`);
-
     const user = (await User.findById(session.user.id).lean()) as any;
     if (!user) {
-      console.error("❌ User not found");
       return NextResponse.json(
         { success: false, error: { message: "User not found" } },
         { status: 404 }
@@ -527,33 +484,13 @@ export async function POST(req: NextRequest) {
     }
 
     const userSkills = user?.skills || [];
-    console.log(`👤 User current skills: ${userSkills.join(", ") || "None"}`);
 
-    console.log(`🚀 Generating questions for "${jobRole}"...`);
     const parsedData = await generateAssessmentQuestions(
       jobRole,
       difficulty,
       experienceLevel,
       userSkills
     );
-
-    console.log("💾 Saving assessment to database...");
-
-    if (parsedData.questions.length > 0) {
-      const descriptiveQ = parsedData.questions.find(
-        (q) =>
-          q.questionType === "descriptive" || q.questionType === "circuit_math"
-      );
-      if (descriptiveQ) {
-        console.log("📝 Sample descriptive question:", {
-          id: descriptiveQ.id,
-          type: descriptiveQ.questionType,
-          hasExpectedAnswer: !!descriptiveQ.expectedAnswer,
-          hasEvaluationCriteria: !!descriptiveQ.evaluationCriteria,
-          keywordsCount: descriptiveQ.expectedKeywords?.length || 0,
-        });
-      }
-    }
 
     const assessment = await Assessment.create({
       userId: session.user.id,
@@ -581,39 +518,31 @@ export async function POST(req: NextRequest) {
       completedAt: null,
     });
 
-    console.log(`✅ Assessment saved: ${assessment._id}`);
-    console.log(`📊 Questions stored in DB: ${assessment.questions.length}`);
-
-    const responseData = {
-      success: true,
-      data: {
-        assessmentId: assessment._id.toString(),
-        questions: parsedData.questions.map((q: GeneratedQuestion) => ({
-          id: q.id,
-          skill: q.skill,
-          questionType: q.questionType,
-          question: q.question,
-          options: q.options || [],
-          difficulty: q.difficulty,
-          explanation: q.explanation,
-          expectedAnswer: q.expectedAnswer,
-          evaluationCriteria: q.evaluationCriteria,
-          expectedKeywords: q.expectedKeywords || [],
-          correctAnswer:
-            typeof q.correctAnswer === "number" ? q.correctAnswer : null,
-        })),
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          assessmentId: assessment._id.toString(),
+          questions: parsedData.questions.map((q: GeneratedQuestion) => ({
+            id: q.id,
+            skill: q.skill,
+            questionType: q.questionType,
+            question: q.question,
+            options: q.options || [],
+            difficulty: q.difficulty,
+            explanation: q.explanation,
+            expectedAnswer: q.expectedAnswer,
+            evaluationCriteria: q.evaluationCriteria,
+            expectedKeywords: q.expectedKeywords || [],
+            correctAnswer:
+              typeof q.correctAnswer === "number" ? q.correctAnswer : null,
+          })),
+        },
       },
-    };
-
-    console.log(
-      "✅ Returning response:",
-      JSON.stringify(responseData, null, 2)
+      { status: 200 }
     );
-
-    return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
-    console.error("❌ FATAL ERROR in generate-questions:", error);
-    console.error("Error stack:", error instanceof Error ? error.stack : "");
+    console.error("Error in generate-questions:", error);
 
     const errorMessage =
       error instanceof Error ? error.message : "Failed to generate questions";

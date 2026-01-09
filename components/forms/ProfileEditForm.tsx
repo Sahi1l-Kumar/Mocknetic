@@ -174,7 +174,7 @@ export default function ProfileEditForm({
         throw new Error(error.error || "Failed to update profile");
       }
 
-      const result = await response.json();
+      await response.json();
       toast.success("Profile updated successfully");
       router.push(ROUTES.PROFILE(userId));
     } catch (error) {
@@ -310,14 +310,6 @@ export default function ProfileEditForm({
   };
 
   const handleSubmitClick = () => {
-    console.log("Submit button clicked!");
-    console.log("Form state:", {
-      isDirty: form.formState.isDirty,
-      isValid: form.formState.isValid,
-      isSubmitting: form.formState.isSubmitting,
-      errors: form.formState.errors,
-    });
-
     form.handleSubmit(onSubmit)();
   };
 

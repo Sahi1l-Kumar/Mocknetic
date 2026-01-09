@@ -12,13 +12,11 @@ export default function Interview() {
   const [sessionId, setSessionId] = useState<string>("");
 
   const handleFormSubmit = (id: string) => {
-    console.log("📝 Form submitted, session ID:", id);
     setSessionId(id);
     setCurrentPage("setup");
   };
 
   const handleSetupComplete = () => {
-    console.log("✅ Setup complete, starting interview");
     setCurrentPage("interview");
   };
 

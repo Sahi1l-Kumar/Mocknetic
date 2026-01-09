@@ -79,12 +79,7 @@ export async function POST(
 
       const data = await response.json();
       submissionIds.push(data.token);
-      console.log(
-        `Submitted test case ${i + 1}/${codes.length} - Token: ${data.token}`
-      );
     }
-
-    console.log(`All ${submissionIds.length} test cases submitted`);
 
     return NextResponse.json(
       {

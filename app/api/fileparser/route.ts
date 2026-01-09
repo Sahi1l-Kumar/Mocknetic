@@ -16,8 +16,6 @@ async function parseResumeWithGroq(text: string): Promise<ParsedResumeData> {
     const maxLength = 10000;
     const limitedText = text.substring(0, maxLength);
 
-    console.log(`Processing resume text (${limitedText.length} chars)`);
-
     const { text: response } = await generateText({
       model: groq("llama-3.1-8b-instant"),
       prompt: `Parse this resume and return ONLY valid JSON with no markdown or extra text.
@@ -76,8 +74,6 @@ IMPORTANT: Return ONLY JSON, nothing else. No markdown, no explanations.`,
         "You are a resume parsing expert. Extract all resume information accurately and return only valid JSON with no explanations.",
     });
 
-    console.log("Groq response received");
-
     let parsedJson: ParsedResumeData;
     try {
       parsedJson = JSON.parse(response);
@@ -93,7 +89,6 @@ IMPORTANT: Return ONLY JSON, nothing else. No markdown, no explanations.`,
       parsedJson = JSON.parse(jsonMatch[0]);
     }
 
-    console.log("JSON parsed successfully");
     return parsedJson;
   } catch (error) {
     console.error("Groq parsing error:", error);
@@ -111,10 +106,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("User authenticated:", session.user.id);
-
     await dbConnect();
-    console.log("Database connected");
 
     const formData: FormData = await req.formData();
     const uploadedFiles = formData.getAll("FILE");
@@ -132,10 +124,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(
-      `File received: ${uploadedFile.name} (${uploadedFile.size} bytes)`
-    );
-
     const maxFileSize = 8 * 1024 * 1024;
     if (uploadedFile.size > maxFileSize) {
       return NextResponse.json(
@@ -148,10 +136,8 @@ export async function POST(req: NextRequest) {
     tempFilePath = `/tmp/${fileName}.pdf`;
     const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
 
-    console.log(`Writing file to: ${tempFilePath}`);
     await fs.writeFile(tempFilePath, fileBuffer);
 
-    console.log("Starting PDF parsing...");
     const pdfParser = new (PDFParser as any)(null, 1);
 
     let parsedText = "";
@@ -171,7 +157,6 @@ export async function POST(req: NextRequest) {
           }
 
           parsedText = rawText.substring(0, 20000);
-          console.log(`PDF parsed: ${parsedText.length} chars extracted`);
           resolve();
         } catch (err) {
           reject(err);
@@ -194,10 +179,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("Parsing with Groq...");
     const parsedData = await parseResumeWithGroq(parsedText);
-
-    console.log("Saving to database...");
 
     const resume = await Resume.create({
       userId: session.user.id,
@@ -242,13 +224,10 @@ export async function POST(req: NextRequest) {
     if (tempFilePath) {
       try {
         await fs.unlink(tempFilePath);
-        console.log("Temp file deleted");
       } catch (e) {
         console.warn("Could not delete temp file:", e);
       }
     }
-
-    console.log("Resume parsing completed successfully");
 
     const response = new NextResponse(JSON.stringify(parsedData));
     response.headers.set("FileName", fileName);

@@ -50,7 +50,6 @@ export default function FeedbackPage() {
 
     const fetchFeedback = async () => {
       try {
-        console.log(`📊 Fetching feedback for session: ${sessionId}`);
         const response = await fetch(
           `${PYTHON_API}/api/interview/feedback/${sessionId}`
         );
@@ -60,11 +59,9 @@ export default function FeedbackPage() {
         }
 
         const data = await response.json();
-        console.log("✅ Feedback received:", data);
         setFeedbackData(data);
         setError(null);
       } catch (err) {
-        console.error("❌ Error fetching feedback:", err);
         setError(
           err instanceof Error ? err.message : "Failed to fetch feedback"
         );

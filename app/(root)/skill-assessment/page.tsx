@@ -273,11 +273,6 @@ export default function SkillGapAssessment() {
         );
       }
 
-      // Debug logging
-      console.log("=== SUBMITTING ASSESSMENT ===");
-      console.log("jobRole:", jobRole);
-      console.log("experienceLevel:", experienceLevel);
-
       const submitData = (await api.skillassessment.submitAnswers(
         assessmentId,
         finalAnswers
@@ -334,12 +329,6 @@ export default function SkillGapAssessment() {
           .slice(0, 3)
           .map((gap) => gap.skill);
 
-        console.log("=== CALLING RECOMMENDATIONS API ===");
-        console.log("jobRole:", jobRole);
-        console.log("experienceLevel:", experienceLevel);
-        console.log("weakSkills:", weakSkills);
-        console.log("score:", score);
-
         // Make sure jobRole and experienceLevel are set
         if (!jobRole || !experienceLevel) {
           console.error("Missing jobRole or experienceLevel!");
@@ -352,8 +341,6 @@ export default function SkillGapAssessment() {
           skillGaps: weakSkills.length > 0 ? weakSkills : [],
           overallScore: score,
         })) as RecommendationsResponse;
-
-        console.log("Recommendations response:", recData);
 
         if (recData.success && recData.data?.recommendations) {
           recommendations = recData.data.recommendations;
@@ -485,11 +472,6 @@ export default function SkillGapAssessment() {
     const isLastQuestion = currentQuestion === questions.length - 1;
 
     if (isLastQuestion) {
-      // Debug: Log state before calling calculateResults
-      console.log("=== FINAL SUBMISSION DEBUG ===");
-      console.log("jobRole from state:", jobRole);
-      console.log("experienceLevel from state:", experienceLevel);
-
       calculateResults(newAnswers);
     } else {
       setAnswers(newAnswers);

@@ -29,7 +29,6 @@ export async function POST(
     const overallScore = body.overallScore || 0;
 
     if (!jobRole) {
-      console.error("Validation failed: jobRole is empty");
       return NextResponse.json(
         {
           success: false,
@@ -39,7 +38,7 @@ export async function POST(
       );
     }
 
-    let recommendations: any;
+    let recommendations: Recommendation[];
     const apiKey = process.env.GROQ_API_KEY;
 
     if (apiKey) {
@@ -144,8 +143,6 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
           temperature: 0.4,
         });
 
-        console.log("AI Response:", text);
-
         let cleanedText = text.trim();
 
         if (cleanedText.startsWith("```")) {
@@ -203,8 +200,6 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
         console.error("Failed to parse AI response:", parseError);
         recommendations = null;
       }
-    } else {
-      console.warn("Groq API key not found, using fallback recommendations");
     }
 
     if (!recommendations || !Array.isArray(recommendations)) {

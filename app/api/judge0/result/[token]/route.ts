@@ -7,15 +7,12 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
-    console.log("Result API called for token:", token);
 
     if (!token) {
       return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
     const result = await judge0Service.getSubmissionResult(token);
-
-    console.log("Result retrieved:", result);
 
     return NextResponse.json({
       success: true,

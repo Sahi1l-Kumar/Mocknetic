@@ -96,9 +96,6 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
         data.append("resume", formData.resume);
       }
 
-      console.log("📤 Submitting interview form...");
-      console.log(`🎯 Max Questions: ${formData.maxQuestions}`);
-
       const response = await fetch(`${API_BASE}/api/interview/create`, {
         method: "POST",
         body: data,
@@ -109,7 +106,6 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
       }
 
       const result = await response.json();
-      console.log("✅ Interview created:", result);
 
       if (result.success && result.session_id) {
         toast.success(
