@@ -61,7 +61,7 @@ export const UserSchema = z.object({
   bio: z.string().optional(),
   image: z.string().url({ message: "Please provide a valid URL." }).optional(),
   location: z.string().optional(),
-  role: z.enum(["student", "teacher"]).default("student"), // NEW FIELD
+  role: z.enum(["student", "teacher"]).default("student"),
 });
 
 export const AccountSchema = z.object({
@@ -96,13 +96,11 @@ export const SignInWithOAuthSchema = z.object({
     .min(1, { message: "Provider Account ID is required." }),
   user: z.object({
     name: z.string().min(1, { message: "Name is required." }),
-    username: z
-      .string()
-      .min(3, { message: "Username must be at least 3 characters long." }),
+    username: z.string().optional(),
     email: z
       .string()
       .email({ message: "Please provide a valid email address." }),
-    image: z.string().url("Invalid image URL").optional(),
+    image: z.string().optional(),
     role: z.enum(["student", "teacher"]).optional().default("student"),
   }),
 });

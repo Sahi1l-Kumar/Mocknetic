@@ -84,7 +84,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (userId) {
           token.sub = userId.toString();
 
-          // Fetch user role
           const { data: existingUser } = (await api.users.getById(
             userId.toString()
           )) as ActionResponse<IUserDoc>;
@@ -95,7 +94,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       }
 
-      // Set role from user object during initial sign in
       if (user && "role" in user && user.role) {
         token.role = user.role;
       }
@@ -109,11 +107,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const userInfo = {
         name: user.name!,
         email: user.email!,
-        image: user.image!,
+        image: user.image || "",
         username:
           account.provider === "github"
             ? (profile?.login as string)
-            : (user.name?.toLowerCase() as string),
+            : user.email?.split("@")[0] || "user",
         role: "student" as const,
       };
 

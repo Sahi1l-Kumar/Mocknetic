@@ -29,39 +29,44 @@ export async function POST(request: Request) {
 
     const { name, username, email, image, role = "student" } = user;
 
-    const slugifiedUsername = slugify(username, {
-      lower: true,
-      strict: true,
-      trim: true,
-    });
+    let existingUser = await User.findOne({ email }).session(session);
 
-    const update = {
-      $set: {
-        name: name,
-        image: image,
-      },
-    };
+    if (existingUser) {
+      existingUser.name = name;
+      existingUser.image = image;
+      await existingUser.save({ session });
+    } else {
+      const baseUsername = slugify(username || email.split("@")[0], {
+        lower: true,
+        strict: true,
+        trim: true,
+      });
 
-    const onInsert = {
-      $setOnInsert: {
-        username: slugifiedUsername,
-        email: email,
-        role: role,
-      },
-    };
+      let finalUsername = baseUsername;
+      const usernameExists = await User.findOne({
+        username: baseUsername,
+      }).session(session);
 
-    const updateOrInsert = { ...update, ...onInsert };
-
-    const existingUser = await User.findOneAndUpdate(
-      { email },
-      updateOrInsert,
-      {
-        new: true,
-        upsert: true,
-        session,
-        runValidators: true,
+      if (usernameExists) {
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        finalUsername = `${baseUsername}-${randomSuffix}`;
       }
-    );
+
+      const [newUser] = await User.create(
+        [
+          {
+            name,
+            username: finalUsername,
+            email,
+            image,
+            role,
+          },
+        ],
+        { session }
+      );
+
+      existingUser = newUser;
+    }
 
     const existingAccount = await Account.findOne({
       userId: existingUser._id,
@@ -86,7 +91,14 @@ export async function POST(request: Request) {
 
     await session.commitTransaction();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: existingUser._id.toString(),
+        email: existingUser.email,
+        username: existingUser.username,
+      },
+    });
   } catch (error: unknown) {
     await session.abortTransaction();
     console.error("OAuth sign in error:", error);

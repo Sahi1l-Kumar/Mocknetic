@@ -201,7 +201,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
             </div>
 
             {/* NEW: Number of Questions Selector */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 space-y-4">
+            <div className="bg-linear-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-900 mb-4">
                   📝 Number of Interview Questions
@@ -218,7 +218,7 @@ export default function InterviewForm({ onSubmit }: InterviewFormProps) {
                     className="flex-1 h-3 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
                     disabled={loading || parsingResume}
                   />
-                  <div className="bg-white border-2 border-blue-500 rounded-lg px-4 py-2 min-w-[4rem] text-center">
+                  <div className="bg-white border-2 border-blue-500 rounded-lg px-4 py-2 min-w-16 text-center">
                     <span className="text-2xl font-bold text-blue-600">
                       {formData.maxQuestions}
                     </span>
