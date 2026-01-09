@@ -38,7 +38,7 @@ export async function POST(
       );
     }
 
-    let recommendations: Recommendation[];
+    let recommendations: Recommendation[] = [];
     const apiKey = process.env.GROQ_API_KEY;
 
     if (apiKey) {
@@ -157,14 +157,14 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
           cleanedText = arrayMatch[0];
         }
 
-        const parsedRecommendations = JSON.parse(cleanedText);
+        const parsedRecommendations: Recommendation[] = JSON.parse(cleanedText);
 
-        if (!Array.isArray(recommendations)) {
+        if (!Array.isArray(parsedRecommendations)) {
           throw new Error("Response is not an array");
         }
 
         // Post-process: convert any plain homepage into a search URL for that skill
-        recommendations = recommendations.map((rec: any) => {
+        recommendations = parsedRecommendations.map((rec: any) => {
           const skill = rec.skill || jobRole;
           const encodedSkill = encodeURIComponent(skill);
 
@@ -198,11 +198,14 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
         console.log(`Generated ${recommendations.length} recommendations`);
       } catch (parseError) {
         console.error("Failed to parse AI response:", parseError);
-        recommendations = null;
       }
     }
 
-    if (!recommendations || !Array.isArray(recommendations)) {
+    if (
+      !recommendations ||
+      !Array.isArray(recommendations) ||
+      recommendations.length === 0
+    ) {
       recommendations = generateFallbackRecommendations(
         skillGaps,
         jobRole,
@@ -220,23 +223,23 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
   } catch (error) {
     console.error("Error generating recommendations:", error);
 
-    const fallback = [
+    const fallback: Recommendation[] = [
       {
         title: "Explore Coursera Courses",
         description: "Browse thousands of courses to enhance your skills",
-        link: "https://www.coursera.org/",
+        link: "https://www.coursera.org/search?query=general",
         skill: "General",
       },
       {
         title: "FreeCodeCamp Learning Paths",
         description: "Free, comprehensive programming tutorials and projects",
-        link: "https://www.freecodecamp.org/",
+        link: "https://www.freecodecamp.org/news/search/?query=programming",
         skill: "Programming",
       },
       {
         title: "Udemy Skill Development",
         description: "Affordable courses across various technical domains",
-        link: "https://www.udemy.com/",
+        link: "https://www.udemy.com/courses/search/?q=development",
         skill: "General",
       },
     ];
@@ -251,18 +254,14 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
   }
 }
 
-// unchanged fallback, but now already uses Coursera search for unknown skills
 function generateFallbackRecommendations(
   skillGaps: string[],
   jobRole: string,
   experienceLevel: string
-): any[] {
-  const recommendations: any[] = [];
+): Recommendation[] {
+  const recommendations: Recommendation[] = [];
 
-  const skillLinks: Record<
-    string,
-    { title: string; link: string; description: string }
-  > = {
+  const skillLinks: Record<string, CourseInfo> = {
     JavaScript: {
       title: "The Complete JavaScript Course 2024",
       link: "https://www.udemy.com/course/the-complete-javascript-course/",
