@@ -64,6 +64,7 @@ function getJobRolePattern(jobRole: string): {
       "web developer",
       "network engineer",
       "it consultant",
+      "backend developer",
     ].some((r) => role.includes(r))
   ) {
     return {
