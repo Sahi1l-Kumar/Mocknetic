@@ -8,12 +8,13 @@ import ClassroomAssessment from "@/database/classroom/classroom-assessment.model
 // GET /api/classroom-submission/:id - Get submission details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireAuth();
     if (error) return error;
 
+    const params = await props.params;
     await dbConnect();
 
     const submission = await ClassroomSubmission.findById(params.id)

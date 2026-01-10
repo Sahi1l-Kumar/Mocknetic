@@ -7,12 +7,13 @@ import ClassroomSubmission from "@/database/classroom/classroom-submission.model
 // GET /api/classroom-assessment/:id/results - Get all submission results
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     await dbConnect();
 
     const assessment = await ClassroomAssessment.findById(params.id);
@@ -35,8 +36,7 @@ export async function GET(
       assessmentId: params.id,
     })
       .populate("studentId", "name email image username")
-      .sort({ submittedAt: -1 })
-      .lean();
+      .sort({ submittedAt: -1 });
 
     // Calculate statistics
     const completedSubmissions = submissions.filter(
@@ -72,9 +72,9 @@ export async function GET(
           totalPoints: assessment.totalQuestions, // Adjust based on your points calculation
         },
         stats,
-        submissions: submissions.map((s: any) => ({
+        submissions: submissions.map((s) => ({
           id: s._id,
-          student: s.studentId,
+          student: typeof s.studentId === "object" ? s.studentId : null,
           score: s.score,
           totalPoints: s.totalPoints,
           percentage: s.percentage,

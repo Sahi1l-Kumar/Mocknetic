@@ -8,12 +8,13 @@ import ClassroomAssessment from "@/database/classroom/classroom-assessment.model
 // GET /api/classroom/:id - Get classroom details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     await dbConnect();
 
     const classroom = await Classroom.findById(params.id);
@@ -71,12 +72,13 @@ export async function GET(
 // PUT /api/classroom/:id - Update classroom
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     const body = await request.json();
     const { name, description, subject, isActive } = body;
 
@@ -126,12 +128,13 @@ export async function PUT(
 // DELETE /api/classroom/:id - Soft delete classroom
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     await dbConnect();
 
     const classroom = await Classroom.findById(params.id);

@@ -9,12 +9,13 @@ import ClassroomSubmission from "@/database/classroom/classroom-submission.model
 // GET /api/classroom/:id/assessment - List all assessments for classroom
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     await dbConnect();
 
     // Verify teacher owns this classroom
@@ -71,12 +72,13 @@ export async function GET(
 // POST /api/classroom/:id/assessment - Create new assessment
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     const body = await request.json();
     const {
       title,

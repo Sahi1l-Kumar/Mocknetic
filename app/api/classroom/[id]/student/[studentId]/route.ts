@@ -7,11 +7,15 @@ import ClassroomMembership from "@/database/classroom/classroom-membership.model
 // DELETE /api/classroom/:id/student/:studentId - Remove student from classroom
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; studentId: string } }
+  props: {
+    params: Promise<{ id: string; studentId: string }>;
+  }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
+
+    const params = await props.params;
 
     await dbConnect();
 

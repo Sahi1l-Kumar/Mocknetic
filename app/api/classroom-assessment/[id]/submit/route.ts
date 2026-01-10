@@ -9,12 +9,13 @@ import ClassroomMembership from "@/database/classroom/classroom-membership.model
 // POST /api/classroom-assessment/:id/submit - Submit student answers
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireStudent();
     if (error) return error;
 
+    const params = await props.params;
     const body = await request.json();
     const { answers, timeSpent } = body;
 

@@ -7,12 +7,13 @@ import ClassroomAssessment from "@/database/classroom/classroom-assessment.model
 // POST /api/classroom-submission/:id/grade - Grade specific answers
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     const body = await request.json();
     const { grades } = body;
 

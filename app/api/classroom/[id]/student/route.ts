@@ -9,12 +9,13 @@ import User from "@/database/user.model";
 // GET /api/classroom/:id/student - Get all students in classroom
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     await dbConnect();
 
     // Verify teacher owns this classroom
@@ -76,12 +77,13 @@ export async function GET(
 // POST /api/classroom/:id/student - Add student to classroom
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     const body = await request.json();
     const { studentEmail } = body;
 

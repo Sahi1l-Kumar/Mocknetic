@@ -7,12 +7,13 @@ import ClassroomQuestion from "@/database/classroom/classroom-question.model";
 // POST /api/classroom-assessment/:id/publish - Publish/Unpublish assessment
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const { error, user } = await requireTeacher();
     if (error) return error;
 
+    const params = await props.params;
     const body = await request.json();
     const { isPublished } = body;
 
