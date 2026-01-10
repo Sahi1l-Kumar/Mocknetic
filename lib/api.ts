@@ -158,4 +158,100 @@ export const api = {
         body: JSON.stringify(data),
       }),
   },
+  classroom: {
+    // Teacher routes
+    getAll: () => fetchHandler(`${API_BASE_URL}/classroom`),
+    getById: (id: string) => fetchHandler(`${API_BASE_URL}/classroom/${id}`),
+    create: (data: { name: string; description?: string; subject?: string }) =>
+      fetchHandler(`${API_BASE_URL}/classroom`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: any) =>
+      fetchHandler(`${API_BASE_URL}/classroom/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom/${id}`, {
+        method: "DELETE",
+      }),
+
+    // Student management
+    getStudents: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom/${id}/student`),
+    addStudent: (id: string, studentEmail: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom/${id}/student`, {
+        method: "POST",
+        body: JSON.stringify({ studentEmail }),
+      }),
+    removeStudent: (classroomId: string, studentId: string) =>
+      fetchHandler(
+        `${API_BASE_URL}/classroom/${classroomId}/student/${studentId}`,
+        {
+          method: "DELETE",
+        }
+      ),
+
+    // Assessment management
+    getAssessments: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom/${id}/assessment`),
+    createAssessment: (id: string, data: any) =>
+      fetchHandler(`${API_BASE_URL}/classroom/${id}/assessment`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  assessment: {
+    getById: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom-assessment/${id}`),
+    update: (id: string, data: any) =>
+      fetchHandler(`${API_BASE_URL}/classroom-assessment/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom-assessment/${id}`, {
+        method: "DELETE",
+      }),
+    publish: (id: string, isPublished: boolean) =>
+      fetchHandler(`${API_BASE_URL}/classroom-assessment/${id}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ isPublished }),
+      }),
+    submit: (id: string, answers: any, timeSpent: number) =>
+      fetchHandler(`${API_BASE_URL}/classroom-assessment/${id}/submit`, {
+        method: "POST",
+        body: JSON.stringify({ answers, timeSpent }),
+      }),
+    getResults: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom-assessment/${id}/results`),
+  },
+
+  submission: {
+    getById: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/classroom-submission/${id}`),
+    grade: (id: string, grades: any[]) =>
+      fetchHandler(`${API_BASE_URL}/classroom-submission/${id}/grade`, {
+        method: "POST",
+        body: JSON.stringify({ grades }),
+      }),
+  },
+
+  student: {
+    getClassrooms: () => fetchHandler(`${API_BASE_URL}/student/classrooms`),
+    joinClassroom: (code: string) =>
+      fetchHandler(`${API_BASE_URL}/student/classrooms/join`, {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      }),
+    getAssessments: (classroomId?: string) => {
+      const url = classroomId
+        ? `${API_BASE_URL}/student/assessments?classroomId=${classroomId}`
+        : `${API_BASE_URL}/student/assessments`;
+      return fetchHandler(url);
+    },
+    getSubmissions: () => fetchHandler(`${API_BASE_URL}/student/submissions`),
+  },
 };
