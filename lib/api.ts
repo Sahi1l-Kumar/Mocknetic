@@ -158,6 +158,7 @@ export const api = {
         body: JSON.stringify(data),
       }),
   },
+
   classroom: {
     getAll: () => fetchHandler(`${API_BASE_URL}/classroom`),
     getById: (id: string) => fetchHandler(`${API_BASE_URL}/classroom/${id}`),
@@ -242,6 +243,10 @@ export const api = {
       fetchHandler(`${API_BASE_URL}/student/classrooms/join`, {
         method: "POST",
         body: JSON.stringify({ code }),
+      }),
+    leaveClassroom: (classroomId: string) =>
+      fetchHandler(`${API_BASE_URL}/student/classrooms/${classroomId}/leave`, {
+        method: "POST",
       }),
     getAssessments: (classroomId?: string) => {
       const url = classroomId

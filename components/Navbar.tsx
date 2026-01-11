@@ -10,6 +10,8 @@ import {
   Target,
   MessageSquare,
   GraduationCap,
+  Menu,
+  X,
 } from "lucide-react";
 import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
@@ -19,11 +21,23 @@ import { useSession } from "next-auth/react";
 const Navbar = () => {
   const { data: session, status } = useSession();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isMobileMenuOpen]);
 
   const features = [
     {
@@ -66,19 +80,20 @@ const Navbar = () => {
     return colors[color] || colors.blue;
   };
 
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+    setIsDropdownOpen(false);
+  };
+
   if (!isMounted) {
     return (
       <nav className="fixed z-50 w-full bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <Link href={ROUTES.HOME} className="flex items-center gap-2">
-            <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-            <span className="text-xl sm:text-2xl font-bold text-slate-900">
-              Mocknetic
-            </span>
+            <Zap className="w-7 h-7 text-blue-600" />
+            <span className="text-xl font-bold text-slate-900">Mocknetic</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
-          </div>
+          <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
         </div>
       </nav>
     );
@@ -86,86 +101,85 @@ const Navbar = () => {
 
   return (
     <nav className="fixed z-50 w-full bg-white border-b border-slate-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-        <Link href={ROUTES.HOME} className="flex items-center gap-2">
-          <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-          <span className="text-xl sm:text-2xl font-bold text-slate-900">
-            Mocknetic
-          </span>
-        </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+        <div className="flex items-center justify-between">
+          <Link href={ROUTES.HOME} className="flex items-center gap-2">
+            <Zap className="w-7 h-7 text-blue-600" />
+            <span className="text-xl font-bold text-slate-900">Mocknetic</span>
+          </Link>
 
-        <div className="flex items-center gap-4 sm:gap-8">
-          {session?.user && (
-            <div className="flex items-center gap-4 sm:gap-6">
-              {/* Features Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-2 px-3 sm:px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-slate-50"
-                >
-                  <span className="hidden sm:inline">Features</span>
-                  <span className="sm:hidden">Menu</span>
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isDropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-6">
+            {session?.user && (
+              <>
+                {/* Features Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-slate-50"
+                  >
+                    Features
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        isDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-                {isDropdownOpen && (
-                  <>
-                    <div className="absolute top-full left-0 mt-2 w-64 sm:w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
-                      <div className="p-4">
-                        <div className="grid grid-cols-1 gap-3">
-                          {features.map((feature) => {
-                            const Icon = feature.icon;
-                            const colors = getColorClasses(feature.color);
-                            return (
-                              <Link
-                                key={feature.href}
-                                href={feature.href}
-                                onClick={() => setIsDropdownOpen(false)}
-                                className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
-                              >
-                                <div
-                                  className={`${colors.bg} p-2.5 rounded-lg group-hover:scale-110 transition-transform shrink-0`}
+                  {isDropdownOpen && (
+                    <>
+                      <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 gap-3">
+                            {features.map((feature) => {
+                              const Icon = feature.icon;
+                              const colors = getColorClasses(feature.color);
+                              return (
+                                <Link
+                                  key={feature.href}
+                                  href={feature.href}
+                                  onClick={() => setIsDropdownOpen(false)}
+                                  className="group flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
                                 >
-                                  <Icon className={`w-5 h-5 ${colors.text}`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-slate-900 text-sm">
-                                    {feature.name}
-                                  </p>
-                                  <p className="text-xs text-slate-600">
-                                    {feature.description}
-                                  </p>
-                                </div>
-                              </Link>
-                            );
-                          })}
+                                  <div
+                                    className={`${colors.bg} p-2.5 rounded-lg group-hover:scale-110 transition-transform shrink-0`}
+                                  >
+                                    <Icon
+                                      className={`w-5 h-5 ${colors.text}`}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-slate-900 text-sm">
+                                      {feature.name}
+                                    </p>
+                                    <p className="text-xs text-slate-600">
+                                      {feature.description}
+                                    </p>
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setIsDropdownOpen(false)}
-                    />
-                  </>
-                )}
-              </div>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsDropdownOpen(false)}
+                      />
+                    </>
+                  )}
+                </div>
 
-              {/* NEW: Classrooms Link */}
-              <Link
-                href={ROUTES.CLASSROOM}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-indigo-50"
-              >
-                <GraduationCap className="w-5 h-5" />
-                <span className="hidden sm:inline">Classroom</span>
-              </Link>
-            </div>
-          )}
+                <Link
+                  href={ROUTES.CLASSROOM}
+                  className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-indigo-50"
+                >
+                  <GraduationCap className="w-5 h-5" />
+                  Classroom
+                </Link>
+              </>
+            )}
 
-          <div className="flex items-center gap-3 sm:gap-4">
             {status === "loading" ? (
               <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
             ) : session?.user ? (
@@ -181,13 +195,119 @@ const Navbar = () => {
               <div className="flex items-center gap-3">
                 <Link
                   href={ROUTES.SIGN_IN}
-                  className="text-slate-600 hover:text-slate-900 font-medium transition-colors text-sm sm:text-base"
+                  className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
                 >
                   Sign In
                 </Link>
                 <Link
                   href={ROUTES.SIGN_UP}
-                  className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm text-sm sm:text-base"
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                >
+                  Get Started
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center gap-3">
+            {session?.user && (
+              <UserAvatar
+                id={session.user.id!}
+                name={session.user.name!}
+                imageUrl={session.user.image}
+              />
+            )}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 top-[73px] bg-white z-40 overflow-y-auto">
+          <div className="px-4 py-6 space-y-4">
+            {session?.user ? (
+              <>
+                {/* Classroom Link */}
+                <Link
+                  href={ROUTES.CLASSROOM}
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-3 p-4 rounded-lg hover:bg-indigo-50 transition-colors"
+                >
+                  <div className="bg-indigo-50 p-2.5 rounded-lg">
+                    <GraduationCap className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Classroom</p>
+                    <p className="text-xs text-slate-600">
+                      Your enrolled classes
+                    </p>
+                  </div>
+                </Link>
+
+                {/* Features Section */}
+                <div className="border-t pt-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-3">
+                    Features
+                  </p>
+                  <div className="space-y-2">
+                    {features.map((feature) => {
+                      const Icon = feature.icon;
+                      const colors = getColorClasses(feature.color);
+                      return (
+                        <Link
+                          key={feature.href}
+                          href={feature.href}
+                          onClick={closeMobileMenu}
+                          className="flex items-start gap-3 p-4 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                          <div
+                            className={`${colors.bg} p-2.5 rounded-lg shrink-0`}
+                          >
+                            <Icon className={`w-5 h-5 ${colors.text}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-900 text-sm">
+                              {feature.name}
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              {feature.description}
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Logout */}
+                <div className="border-t pt-4">
+                  <LogoutButton />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <Link
+                  href={ROUTES.SIGN_IN}
+                  onClick={closeMobileMenu}
+                  className="block w-full text-center px-6 py-3 text-slate-700 font-medium border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href={ROUTES.SIGN_UP}
+                  onClick={closeMobileMenu}
+                  className="block w-full text-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
                 >
                   Get Started
                 </Link>
@@ -195,7 +315,7 @@ const Navbar = () => {
             )}
           </div>
         </div>
-      </div>
+      )}
     </nav>
   );
 };

@@ -66,18 +66,16 @@ const JoinClassroomModal = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">
-            Join a Classroom
-          </DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl font-bold">Join a Class</DialogTitle>
+          <DialogDescription className="text-gray-600">
             Enter the 6-character code provided by your teacher
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="code" className="text-sm font-medium">
-              Classroom Code
+            <Label htmlFor="code" className="text-sm font-medium text-gray-700">
+              Class Code
             </Label>
             <Input
               id="code"
@@ -88,7 +86,7 @@ const JoinClassroomModal = ({
                 setCode(e.target.value.toUpperCase().slice(0, 6))
               }
               maxLength={6}
-              className="text-center text-2xl font-bold tracking-widest uppercase"
+              className="text-center text-2xl font-bold tracking-widest uppercase h-14 border-2 focus:border-blue-500"
               disabled={loading}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !loading) {
@@ -102,7 +100,7 @@ const JoinClassroomModal = ({
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
               onClick={handleClose}
@@ -113,7 +111,7 @@ const JoinClassroomModal = ({
             </Button>
             <Button
               onClick={handleJoin}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
               disabled={loading || code.length !== 6}
             >
               {loading ? (
@@ -122,7 +120,7 @@ const JoinClassroomModal = ({
                   Joining...
                 </>
               ) : (
-                "Join Classroom"
+                "Join Class"
               )}
             </Button>
           </div>

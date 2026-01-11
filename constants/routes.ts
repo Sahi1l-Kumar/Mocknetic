@@ -11,6 +11,7 @@ const ROUTES = {
   SKILL: "/skill-assessment",
   INTERVIEW: "/mock-interview",
   CLASSROOM: "/classroom",
+  CLASSROOMID: (id: string) => `/classroom/${id}`,
 };
 
 export default ROUTES;

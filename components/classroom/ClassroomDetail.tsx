@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  BookOpen,
   Calendar,
   CheckCircle,
   Clock,
@@ -16,17 +15,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
+import ROUTES from "@/constants/routes";
 
 interface ClassroomDetailProps {
   classroomId: string;
@@ -66,16 +60,26 @@ interface Assessment {
   skills?: string[];
 }
 
+const CARD_COLORS = [
+  { header: "from-blue-600 to-blue-700" },
+  { header: "from-emerald-600 to-emerald-700" },
+  { header: "from-purple-600 to-purple-700" },
+  { header: "from-rose-600 to-rose-700" },
+  { header: "from-amber-600 to-amber-700" },
+  { header: "from-indigo-600 to-indigo-700" },
+];
+
 const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
   const router = useRouter();
   const [classroom, setClassroom] = useState<Classroom | null>(null);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [colorScheme, setColorScheme] = useState(CARD_COLORS[0]);
 
   useEffect(() => {
     if (!classroomId || classroomId === "undefined") {
       toast.error("Invalid classroom ID");
-      router.push("/classroom");
+      router.push(ROUTES.CLASSROOM);
     }
   }, [classroomId, router]);
 
@@ -87,16 +91,26 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
     try {
       setLoading(true);
 
-      const [classroomRes, assessmentsRes] = await Promise.all([
-        api.student.getClassroom(classroomId),
-        api.student.getAssessments(classroomId),
-      ]);
+      const [classroomRes, assessmentsRes, allClassroomsRes] =
+        await Promise.all([
+          api.student.getClassroom(classroomId),
+          api.student.getAssessments(classroomId),
+          api.student.getClassrooms(),
+        ]);
 
       if (classroomRes.success) {
         setClassroom(classroomRes.data as Classroom);
+
+        if (allClassroomsRes.success) {
+          const allClassrooms = allClassroomsRes.data as Classroom[];
+          const index = allClassrooms.findIndex((c) => c._id === classroomId);
+          if (index !== -1) {
+            setColorScheme(CARD_COLORS[index % CARD_COLORS.length]);
+          }
+        }
       } else {
         toast.error("Classroom not found");
-        router.push("/classroom");
+        router.push(ROUTES.CLASSROOM);
         return;
       }
 
@@ -134,20 +148,20 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "easy":
-        return "bg-green-100 text-green-700 border-green-300";
+        return "bg-emerald-100 text-emerald-700 border-emerald-200";
       case "medium":
-        return "bg-yellow-100 text-yellow-700 border-yellow-300";
+        return "bg-amber-100 text-amber-700 border-amber-200";
       case "hard":
-        return "bg-red-100 text-red-700 border-red-300";
+        return "bg-rose-100 text-rose-700 border-rose-200";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-300";
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
   const getStatusBadge = (assessment: Assessment) => {
     if (assessment.status === "graded") {
       return (
-        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0">
           <CheckCircle className="w-3 h-3 mr-1" />
           Graded
         </Badge>
@@ -155,7 +169,7 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
     }
     if (assessment.status === "submitted") {
       return (
-        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">
           <Clock className="w-3 h-3 mr-1" />
           Pending Review
         </Badge>
@@ -163,14 +177,14 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
     }
     if (assessment.isPastDue) {
       return (
-        <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
+        <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 border-0">
           <AlertCircle className="w-3 h-3 mr-1" />
           Missed
         </Badge>
       );
     }
     return (
-      <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
+      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">
         <PlayCircle className="w-3 h-3 mr-1" />
         Available
       </Badge>
@@ -179,14 +193,14 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
-        <div className="container mx-auto px-4 py-8">
+      <div className="min-h-screen bg-white pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-slate-200 rounded w-1/4"></div>
-            <div className="h-48 bg-slate-200 rounded-2xl"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="h-48 bg-slate-200 rounded-lg"></div>
+            <div className="grid grid-cols-1 gap-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-64 bg-slate-200 rounded-xl"></div>
+                <div key={i} className="h-32 bg-slate-200 rounded-lg"></div>
               ))}
             </div>
           </div>
@@ -200,116 +214,98 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Back Button */}
-        <Link href="/classroom">
-          <Button variant="ghost" size="sm" className="mb-4 sm:mb-6">
+    <div className="min-h-screen bg-white pt-5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Link href={ROUTES.CLASSROOM}>
+          <Button variant="ghost" size="sm" className="mb-4 hover:bg-gray-100">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Classrooms
           </Button>
         </Link>
 
-        {/* Classroom Header */}
-        <Card className="mb-6 sm:mb-8 bg-linear-to-br from-indigo-500 to-indigo-600 text-white border-0 overflow-hidden">
+        <Card
+          className={`mb-6 bg-linear-to-br ${colorScheme.header} text-white border-0 overflow-hidden`}
+        >
           <CardContent className="p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-              <div className="flex items-start gap-4 flex-1 min-w-0">
-                <div className="bg-white/20 rounded-xl p-3 sm:p-4 backdrop-blur-sm shrink-0">
-                  <BookOpen className="w-6 h-6 sm:w-8 sm:h-8" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2 wrap-break-word">
-                    {classroom.name}
-                  </h1>
-                  <p className="text-indigo-100 text-sm sm:text-base mb-3">
-                    {classroom.teacher.name}
+              <div className="flex-1">
+                <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+                  {classroom.name}
+                </h1>
+                <p className="text-white/90 text-base mb-2">
+                  {classroom.teacher.name}
+                </p>
+                {classroom.subject && (
+                  <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                    {classroom.subject}
+                  </Badge>
+                )}
+                {classroom.description && (
+                  <p className="text-white/80 text-sm mt-3 max-w-2xl">
+                    {classroom.description}
                   </p>
-                  {classroom.subject && (
-                    <Badge className="bg-white/20 text-white border-white/30 mb-3 hover:bg-white/30">
-                      {classroom.subject}
-                    </Badge>
-                  )}
-                  {classroom.description && (
-                    <p className="text-indigo-100 text-sm max-w-2xl mt-3">
-                      {classroom.description}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
-              <div className="flex flex-col gap-2 shrink-0">
-                <Badge className="bg-white/20 text-white border-white/30 text-center text-sm font-mono hover:bg-white/30">
-                  Code: {classroom.code}
+              <div className="flex flex-col gap-2">
+                <Badge className="bg-white/20 text-white border-white/30 text-center font-mono hover:bg-white/30">
+                  {classroom.code}
                 </Badge>
-                <div className="flex items-center gap-2 text-indigo-100 text-sm">
+                <div className="flex items-center gap-2 text-white/90 text-sm">
                   <Users className="w-4 h-4" />
                   <span>{classroom.studentCount} students</span>
                 </div>
               </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
-                <div className="text-2xl sm:text-3xl font-bold mb-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-3xl font-bold mb-1">
                   {assessments.length}
                 </div>
-                <div className="text-indigo-100 text-xs sm:text-sm">
-                  Total Tests
-                </div>
+                <div className="text-white/90 text-sm">Total</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
-                <div className="text-2xl sm:text-3xl font-bold mb-1">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-3xl font-bold mb-1">
                   {pendingAssessments.length}
                 </div>
-                <div className="text-indigo-100 text-xs sm:text-sm">
-                  Pending
-                </div>
+                <div className="text-white/90 text-sm">Pending</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
-                <div className="text-2xl sm:text-3xl font-bold mb-1">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-3xl font-bold mb-1">
                   {completedAssessments.length}
                 </div>
-                <div className="text-indigo-100 text-xs sm:text-sm">
-                  Completed
-                </div>
+                <div className="text-white/90 text-sm">Done</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
-                <div className="text-2xl sm:text-3xl font-bold mb-1">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-3xl font-bold mb-1">
                   {averageScore.toFixed(0)}%
                 </div>
-                <div className="text-indigo-100 text-xs sm:text-sm">
-                  Avg Score
-                </div>
+                <div className="text-white/90 text-sm">Score</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Assessments Tabs */}
         <Tabs defaultValue="pending" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto">
-            <TabsTrigger value="pending" className="text-xs sm:text-sm">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto bg-gray-100">
+            <TabsTrigger value="pending">
               Pending ({pendingAssessments.length})
             </TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs sm:text-sm">
+            <TabsTrigger value="completed">
               Completed ({completedAssessments.length})
             </TabsTrigger>
-            <TabsTrigger value="all" className="text-xs sm:text-sm">
-              All ({assessments.length})
-            </TabsTrigger>
+            <TabsTrigger value="all">All ({assessments.length})</TabsTrigger>
           </TabsList>
 
-          {/* Pending Assessments */}
           <TabsContent value="pending" className="space-y-4">
             {pendingAssessments.length === 0 ? (
               <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
-                  <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mb-4" />
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <CheckCircle className="w-16 h-16 text-emerald-500 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     All Caught Up!
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 text-center">
+                  <p className="text-gray-600">
                     No pending assessments. Great job!
                   </p>
                 </CardContent>
@@ -326,16 +322,15 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
             )}
           </TabsContent>
 
-          {/* Completed Assessments */}
           <TabsContent value="completed" className="space-y-4">
             {completedAssessments.length === 0 ? (
               <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
-                  <Award className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mb-4" />
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <Award className="w-16 h-16 text-gray-400 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     No Submissions Yet
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 text-center">
+                  <p className="text-gray-600">
                     Complete your first assessment to see results here
                   </p>
                 </CardContent>
@@ -353,16 +348,15 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
             )}
           </TabsContent>
 
-          {/* All Assessments */}
           <TabsContent value="all" className="space-y-4">
             {assessments.length === 0 ? (
               <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
-                  <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mb-4" />
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <FileText className="w-16 h-16 text-gray-400 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     No Assessments Yet
                   </h3>
-                  <p className="text-sm sm:text-base text-gray-600 text-center">
+                  <p className="text-gray-600">
                     Your teacher hasn't published any assessments yet
                   </p>
                 </CardContent>
@@ -384,26 +378,27 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
           </TabsContent>
         </Tabs>
 
-        {/* Missed Assessments Warning */}
         {missedAssessments.length > 0 && (
-          <Card className="mt-6 border-red-300 bg-red-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2 text-red-900">
-                <AlertCircle className="w-5 h-5" />
-                Missed Assessments
-              </CardTitle>
-              <CardDescription className="text-red-700">
-                You missed {missedAssessments.length} assessment
-                {missedAssessments.length !== 1 ? "s" : ""}. Contact your
-                teacher if you need an extension.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <Card className="mt-6 border-rose-200 bg-rose-50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5" />
+                <div>
+                  <h3 className="text-lg font-semibold text-rose-900 mb-1">
+                    Missed Assessments
+                  </h3>
+                  <p className="text-sm text-rose-700">
+                    You missed {missedAssessments.length} assessment
+                    {missedAssessments.length !== 1 ? "s" : ""}. Contact your
+                    teacher if you need an extension.
+                  </p>
+                </div>
+              </div>
               <div className="space-y-2">
                 {missedAssessments.map((assessment) => (
                   <div
                     key={assessment._id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200"
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-rose-200"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 text-sm truncate">
@@ -415,7 +410,7 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
                           new Date(assessment.dueDate).toLocaleDateString()}
                       </p>
                     </div>
-                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 shrink-0 ml-2">
+                    <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 border-0 ml-2">
                       Missed
                     </Badge>
                   </div>
@@ -429,7 +424,6 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
   );
 };
 
-// Assessment Card Component
 interface AssessmentCardProps {
   assessment: Assessment;
   getDifficultyColor: (difficulty: string) => string;
@@ -449,8 +443,8 @@ const AssessmentCard = ({
 
   return (
     <Link href={href}>
-      <Card className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-indigo-500 hover:border-l-indigo-600">
-        <CardContent className="p-4 sm:p-6">
+      <Card className="hover:shadow-md transition-shadow border border-gray-200">
+        <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -463,7 +457,7 @@ const AssessmentCard = ({
                 </Badge>
               </div>
 
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
                 {assessment.title}
               </h3>
 
@@ -473,24 +467,22 @@ const AssessmentCard = ({
                 </p>
               )}
 
-              <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-gray-600">
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1">
                   <FileText className="w-4 h-4" />
                   <span>{assessment.totalQuestions} questions</span>
                 </div>
-                {assessment.curriculum && (
-                  <div className="flex items-center gap-1">
-                    <BookOpen className="w-4 h-4" />
-                    <span className="truncate max-w-[150px]">
-                      {assessment.curriculum}
-                    </span>
-                  </div>
-                )}
                 {assessment.dueDate && (
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
                     <span>
-                      Due: {new Date(assessment.dueDate).toLocaleDateString()}
+                      {new Date(assessment.dueDate).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                        }
+                      )}
                     </span>
                   </div>
                 )}
@@ -505,35 +497,38 @@ const AssessmentCard = ({
                   ))}
                   {assessment.skills.length > 3 && (
                     <Badge variant="secondary" className="text-xs">
-                      +{assessment.skills.length - 3} more
+                      +{assessment.skills.length - 3}
                     </Badge>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="flex sm:flex-col items-center sm:items-end gap-3">
+            <div className="flex items-center justify-between sm:flex-col sm:items-end gap-3">
               {isCompleted && assessment.score !== undefined ? (
-                <div className="text-center sm:text-right">
+                <div className="text-right">
                   <div
-                    className={`text-3xl sm:text-4xl font-bold ${
+                    className={`text-4xl font-bold ${
                       assessment.score >= 80
-                        ? "text-green-600"
+                        ? "text-emerald-600"
                         : assessment.score >= 60
-                          ? "text-yellow-600"
-                          : "text-red-600"
+                          ? "text-amber-600"
+                          : "text-rose-600"
                     }`}
                   >
                     {assessment.score.toFixed(0)}%
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 mt-1">
                     {assessment.submittedAt &&
-                      new Date(assessment.submittedAt).toLocaleDateString()}
+                      new Date(assessment.submittedAt).toLocaleDateString(
+                        "en-US",
+                        { month: "short", day: "numeric" }
+                      )}
                   </p>
                 </div>
               ) : (
-                <Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700">
-                  {assessment.isPastDue ? "View" : "Start Test"}
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  {assessment.isPastDue ? "View" : "Start"}
                 </Button>
               )}
             </div>
