@@ -12,15 +12,59 @@ import {
   GraduationCap,
   ArrowRight,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { JoinClassroomResponse } from "@/types/global";
 
 function App() {
-  const session = useSession();
+  const { status } = useSession();
+  const router = useRouter();
+  const [classCode, setClassCode] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
 
   const ctaLink =
-    session.status === "authenticated" ? ROUTES.DASHBOARD : ROUTES.SIGN_IN;
+    status === "authenticated" ? ROUTES.DASHBOARD : ROUTES.SIGN_IN;
+
+  const handleJoinClass = async () => {
+    if (status !== "authenticated") {
+      toast.error("Please sign in to join a classroom");
+      router.push(ROUTES.SIGN_IN);
+      return;
+    }
+
+    if (!classCode || classCode.trim().length !== 6) {
+      toast.error("Please enter a valid 6-character classroom code");
+      return;
+    }
+
+    try {
+      setIsJoining(true);
+      const result = await api.student.joinClassroom(
+        classCode.toUpperCase().trim()
+      );
+
+      if (result.success) {
+        const data = result.data as JoinClassroomResponse;
+        const classroomId = data.classroom._id;
+        toast.success(`Successfully joined ${data.classroom.name}!`);
+        setClassCode("");
+        router.push(`${ROUTES.CLASSROOM}/${classroomId}`);
+      } else {
+        toast.error(result.error?.message || "Failed to join classroom");
+      }
+    } catch (error) {
+      console.error("Error joining classroom:", error);
+      toast.error("Failed to join classroom");
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-slate-100">
@@ -52,18 +96,17 @@ function App() {
                   <ArrowRight className="w-5 h-5" />
                 </Link>
                 <Link
-                  href={ROUTES.SKILL}
+                  href={ROUTES.CLASSROOM}
                   className="bg-white text-slate-900 px-8 py-3 rounded-lg hover:bg-slate-50 transition-all font-semibold shadow-lg border-2 border-slate-200 inline-flex items-center justify-center space-x-2"
                 >
-                  <UserPlus className="w-5 h-5" />
-                  <span>Join a Class</span>
+                  <GraduationCap className="w-5 h-5" />
+                  <span>My Classrooms</span>
                 </Link>
               </div>
             </div>
 
-            {/* Right: Interactive Card */}
+            {/* Right: Interactive Join Class Card */}
             <div className="relative">
-              {/* Join Class Card */}
               <div className="bg-white rounded-2xl p-8 shadow-2xl border border-slate-200">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="bg-indigo-100 rounded-lg p-3">
@@ -82,32 +125,60 @@ function App() {
                 <input
                   type="text"
                   placeholder="ABC123"
+                  value={classCode}
+                  onChange={(e) =>
+                    setClassCode(e.target.value.toUpperCase().slice(0, 6))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isJoining) {
+                      handleJoinClass();
+                    }
+                  }}
                   className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-center text-xl font-bold tracking-widest uppercase focus:outline-none focus:border-indigo-500 text-slate-900 mb-4"
                   maxLength={6}
+                  disabled={isJoining}
                 />
-                <button className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-semibold mb-4">
-                  Join Class
+                <button
+                  onClick={handleJoinClass}
+                  disabled={isJoining || classCode.length !== 6}
+                  className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-semibold mb-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    "Join Class"
+                  )}
                 </button>
 
-                <div className="pt-4 border-t border-slate-200">
-                  <p className="text-xs text-slate-500 mb-2">
-                    Your Active Classes
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                      <span className="text-sm text-slate-700">
-                        Machine Learning
+                {status === "authenticated" ? (
+                  <div className="pt-4 border-t border-slate-200">
+                    <p className="text-xs text-slate-500 mb-3">Quick Access</p>
+                    <Link
+                      href={ROUTES.CLASSROOM}
+                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors group"
+                    >
+                      <span className="text-sm text-slate-700 font-medium">
+                        View All My Classes
                       </span>
-                      <span className="text-xs text-slate-500">2 pending</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                      <span className="text-sm text-slate-700">
-                        Deep Learning
-                      </span>
-                      <span className="text-xs text-slate-500">1 pending</span>
-                    </div>
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                    </Link>
                   </div>
-                </div>
+                ) : (
+                  <div className="pt-4 border-t border-slate-200">
+                    <p className="text-xs text-slate-500 mb-2 text-center">
+                      Sign in to join classrooms and track your progress
+                    </p>
+                    <Link
+                      href={ROUTES.SIGN_IN}
+                      className="block text-center text-sm text-indigo-600 hover:text-indigo-700 font-semibold"
+                    >
+                      Sign In Now
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -223,7 +294,7 @@ function App() {
                   </li>
                 </ul>
                 <Link
-                  href={ROUTES.SKILL}
+                  href={ROUTES.CLASSROOM}
                   className="bg-white text-indigo-600 px-8 py-3 rounded-lg hover:bg-indigo-50 transition-all font-semibold shadow-lg inline-flex items-center space-x-2 w-fit"
                 >
                   <UserPlus className="w-5 h-5" />

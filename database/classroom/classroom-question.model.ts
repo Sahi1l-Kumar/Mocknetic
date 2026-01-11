@@ -5,7 +5,7 @@ export interface IClassroomQuestion {
   questionNumber: number;
   questionText: string;
   questionType: "mcq" | "descriptive" | "numerical" | "coding";
-  options?: string[]; // For MCQ
+  options?: string[];
   correctAnswer?: string | string[] | number;
   points: number;
   difficulty: "easy" | "medium" | "hard";
@@ -47,9 +47,9 @@ ClassroomQuestionSchema.index(
   { assessmentId: 1, questionNumber: 1 },
   { unique: true }
 );
-ClassroomQuestionSchema.index({ assessmentId: 1 });
 
 const ClassroomQuestion =
   models?.ClassroomQuestion ||
   model<IClassroomQuestion>("ClassroomQuestion", ClassroomQuestionSchema);
+
 export default ClassroomQuestion;

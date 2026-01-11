@@ -23,7 +23,7 @@ export interface IClassroomSubmission {
   startedAt: Date;
   submittedAt?: Date;
   gradedAt?: Date;
-  timeSpent: number; // in seconds
+  timeSpent: number;
   ipAddress?: string;
   userAgent?: string;
 }

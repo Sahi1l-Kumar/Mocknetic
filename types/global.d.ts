@@ -272,3 +272,19 @@ interface Recommendation {
   link: string;
   skill: string;
 }
+
+interface JoinClassroomResponse {
+  classroom: {
+    _id: string;
+    name: string;
+    subject?: string;
+    code: string;
+  };
+  membership: {
+    _id: string;
+    classroomId: string;
+    studentId: string;
+    status: string;
+    enrolledAt: Date;
+  };
+}

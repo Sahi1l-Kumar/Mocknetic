@@ -21,6 +21,7 @@ const ClassroomSchema = new Schema<IClassroom>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
     subject: { type: String },
     isActive: { type: Boolean, default: true },
@@ -28,9 +29,6 @@ const ClassroomSchema = new Schema<IClassroom>(
   },
   { timestamps: true }
 );
-
-ClassroomSchema.index({ code: 1 });
-ClassroomSchema.index({ teacherId: 1 });
 
 const Classroom =
   models?.Classroom || model<IClassroom>("Classroom", ClassroomSchema);

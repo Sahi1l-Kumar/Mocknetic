@@ -10,6 +10,7 @@ const ROUTES = {
   CODE: "/code-editor",
   SKILL: "/skill-assessment",
   INTERVIEW: "/mock-interview",
+  CLASSROOM: "/classroom",
 };
 
 export default ROUTES;

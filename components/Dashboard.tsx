@@ -186,7 +186,7 @@ async function Dashboard() {
 
         {/* Progress Card */}
         <div className="mb-12">
-          <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-2xl p-8 text-white relative overflow-hidden shadow-xl">
+          <div className="bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 rounded-2xl p-8 text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24"></div>
             <div className="relative">
@@ -241,7 +241,7 @@ async function Dashboard() {
                 </div>
                 <div className="bg-white/20 rounded-full h-3 mb-4">
                   <div
-                    className="bg-gradient-to-r from-green-400 to-emerald-400 rounded-full h-3 shadow-lg transition-all"
+                    className="bg-linear-to-r from-green-400 to-emerald-400 rounded-full h-3 shadow-lg transition-all"
                     style={{ width: `${data.overallProgress}%` }}
                   ></div>
                 </div>
@@ -336,7 +336,7 @@ async function Dashboard() {
         {/* Pending Class Assessments Alert */}
         {data.pendingClassAssessments > 0 && (
           <div className="mb-12">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
+            <div className="bg-linear-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="bg-white/20 rounded-lg p-3">
@@ -427,8 +427,8 @@ async function Dashboard() {
 
         {/* Recent Assessments */}
         {data.recentAssessments.length > 0 && (
-          <div className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-10 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-rose-500/10"></div>
+          <div className="bg-linear-to-r from-slate-800 via-slate-900 to-slate-800 rounded-2xl p-10 relative overflow-hidden">
+            <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 via-purple-500/10 to-rose-500/10"></div>
             <div className="relative">
               <h3 className="text-2xl font-bold text-white mb-6">
                 Recent Assessments

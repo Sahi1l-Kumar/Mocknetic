@@ -1,107 +1,94 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import Classroom from "@/database/classroom/classroom.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 
-// POST /api/student/classrooms/join - Join classroom with code
-export async function POST(request: NextRequest) {
+// GET /api/student/assessments - Get all assessments for student
+export async function GET(request: NextRequest) {
   try {
     const { error, user } = await requireStudent();
     if (error) return error;
 
-    const body = await request.json();
-    const { code } = body;
-
-    if (!code || !code.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Classroom code is required" },
-        { status: 400 }
-      );
-    }
-
     await dbConnect();
 
-    const classroom = await Classroom.findOne({
-      code: code.toUpperCase().trim(),
-      isActive: true,
-    });
+    const { searchParams } = new URL(request.url);
+    const classroomId = searchParams.get("classroomId");
 
-    if (!classroom) {
-      return NextResponse.json(
-        { success: false, error: "Invalid classroom code" },
-        { status: 404 }
-      );
+    const query: any = {};
+
+    if (classroomId) {
+      // Get assessments for specific classroom
+      query.classroomId = classroomId;
+    } else {
+      // Get assessments for all enrolled classrooms
+      const memberships = await ClassroomMembership.find({
+        studentId: user.id,
+        status: "active",
+      }).select("classroomId");
+
+      const classroomIds = memberships.map((m) => m.classroomId);
+      query.classroomId = { $in: classroomIds };
     }
 
-    // Check if already enrolled
-    const existing = await ClassroomMembership.findOne({
-      classroomId: classroom._id,
+    // Only get published assessments
+    query.isPublished = true;
+
+    const assessments = await ClassroomAssessment.find(query)
+      .populate("classroomId", "name code")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Get student's submissions
+    const submissions = await ClassroomSubmission.find({
       studentId: user.id,
-    });
+    }).select("assessmentId score percentage status submittedAt");
 
-    if (existing) {
-      if (existing.status === "active") {
-        return NextResponse.json(
-          { success: false, error: "Already enrolled in this classroom" },
-          { status: 400 }
-        );
-      } else {
-        // Reactivate membership
-        existing.status = "active";
-        existing.enrolledAt = new Date();
-        await existing.save();
-
-        await Classroom.findByIdAndUpdate(classroom._id, {
-          $inc: { studentCount: 1 },
-        });
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            classroom: {
-              id: classroom._id,
-              name: classroom.name,
-              subject: classroom.subject,
-            },
-            membership: existing,
-          },
-          message: "Re-enrolled successfully",
-        });
-      }
-    }
-
-    const membership = await ClassroomMembership.create({
-      classroomId: classroom._id,
-      studentId: user.id,
-      status: "active",
-      enrolledAt: new Date(),
-    });
-
-    // Update student count
-    await Classroom.findByIdAndUpdate(classroom._id, {
-      $inc: { studentCount: 1 },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          classroom: {
-            id: classroom._id,
-            name: classroom.name,
-            subject: classroom.subject,
-          },
-          membership,
-        },
-        message: "Successfully joined classroom",
-      },
-      { status: 201 }
+    const submissionMap = new Map(
+      submissions.map((s) => [s.assessmentId.toString(), s])
     );
+
+    // Format assessments with submission status
+    const formattedAssessments = assessments.map((assessment: any) => {
+      const submission = submissionMap.get(assessment._id.toString());
+      const now = new Date();
+      const dueDate = assessment.dueDate ? new Date(assessment.dueDate) : null;
+      const isPastDue = dueDate ? now > dueDate : false;
+
+      return {
+        _id: assessment._id,
+        title: assessment.title,
+        description: assessment.description,
+        classroom: {
+          _id: assessment.classroomId._id,
+          name: assessment.classroomId.name,
+          code: assessment.classroomId.code,
+        },
+        totalQuestions: assessment.totalQuestions,
+        difficulty: assessment.difficulty,
+        curriculum: assessment.curriculum,
+        dueDate: assessment.dueDate,
+        isPastDue,
+        status: submission
+          ? submission.status
+          : isPastDue
+            ? "missed"
+            : "not_started",
+        score: submission?.percentage,
+        submittedAt: submission?.submittedAt,
+        publishedAt: assessment.createdAt,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: formattedAssessments,
+    });
   } catch (error) {
-    console.error("Error joining classroom:", error);
+    console.error("Error fetching assessments:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to join classroom" },
+      { success: false, error: "Failed to fetch assessments" },
       { status: 500 }
     );
   }

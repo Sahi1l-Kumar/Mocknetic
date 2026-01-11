@@ -159,7 +159,6 @@ export const api = {
       }),
   },
   classroom: {
-    // Teacher routes
     getAll: () => fetchHandler(`${API_BASE_URL}/classroom`),
     getById: (id: string) => fetchHandler(`${API_BASE_URL}/classroom/${id}`),
     create: (data: { name: string; description?: string; subject?: string }) =>
@@ -176,8 +175,6 @@ export const api = {
       fetchHandler(`${API_BASE_URL}/classroom/${id}`, {
         method: "DELETE",
       }),
-
-    // Student management
     getStudents: (id: string) =>
       fetchHandler(`${API_BASE_URL}/classroom/${id}/student`),
     addStudent: (id: string, studentEmail: string) =>
@@ -192,8 +189,6 @@ export const api = {
           method: "DELETE",
         }
       ),
-
-    // Assessment management
     getAssessments: (id: string) =>
       fetchHandler(`${API_BASE_URL}/classroom/${id}/assessment`),
     createAssessment: (id: string, data: any) =>
