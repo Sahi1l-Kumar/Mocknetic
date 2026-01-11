@@ -236,6 +236,8 @@ export const api = {
 
   student: {
     getClassrooms: () => fetchHandler(`${API_BASE_URL}/student/classrooms`),
+    getClassroom: (classroomId: string) =>
+      fetchHandler(`${API_BASE_URL}/student/classrooms/${classroomId}`),
     joinClassroom: (code: string) =>
       fetchHandler(`${API_BASE_URL}/student/classrooms/join`, {
         method: "POST",

@@ -72,12 +72,23 @@ const ClassroomDetail = ({ classroomId }: ClassroomDetailProps) => {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (!classroomId || classroomId === "undefined") {
+      toast.error("Invalid classroom ID");
+      router.push("/classroom");
+    }
+  }, [classroomId, router]);
+
   const fetchClassroomData = useCallback(async () => {
+    if (!classroomId || classroomId === "undefined") {
+      return;
+    }
+
     try {
       setLoading(true);
 
       const [classroomRes, assessmentsRes] = await Promise.all([
-        api.classroom.getById(classroomId),
+        api.student.getClassroom(classroomId),
         api.student.getAssessments(classroomId),
       ]);
 

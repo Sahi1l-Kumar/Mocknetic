@@ -20,14 +20,14 @@ export async function GET(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
 
     if (assessment.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -66,28 +66,40 @@ export async function GET(
       success: true,
       data: {
         assessment: {
-          id: assessment._id,
+          _id: assessment._id.toString(),
           title: assessment.title,
           totalQuestions: assessment.totalQuestions,
-          totalPoints: assessment.totalQuestions, // Adjust based on your points calculation
+          totalPoints: assessment.totalQuestions,
         },
         stats,
-        submissions: submissions.map((s) => ({
-          id: s._id,
-          student: typeof s.studentId === "object" ? s.studentId : null,
-          score: s.score,
-          totalPoints: s.totalPoints,
-          percentage: s.percentage,
-          status: s.status,
-          submittedAt: s.submittedAt,
-          timeSpent: s.timeSpent,
-        })),
+        submissions: submissions.map((s) => {
+          const submissionObj = s.toObject();
+          return {
+            _id: submissionObj._id.toString(),
+            student:
+              typeof s.studentId === "object"
+                ? {
+                    _id: (s.studentId as any)._id.toString(),
+                    name: (s.studentId as any).name,
+                    email: (s.studentId as any).email,
+                    image: (s.studentId as any).image,
+                    username: (s.studentId as any).username,
+                  }
+                : null,
+            score: submissionObj.score,
+            totalPoints: submissionObj.totalPoints,
+            percentage: submissionObj.percentage,
+            status: submissionObj.status,
+            submittedAt: submissionObj.submittedAt,
+            timeSpent: submissionObj.timeSpent,
+          };
+        }),
       },
     });
   } catch (error) {
     console.error("Error fetching results:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch results" },
+      { success: false, error: { message: "Failed to fetch results" } },
       { status: 500 }
     );
   }

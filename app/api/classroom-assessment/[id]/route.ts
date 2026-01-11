@@ -21,7 +21,7 @@ export async function GET(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
@@ -30,7 +30,10 @@ export async function GET(
     if (user.role === "teacher") {
       if (assessment.teacherId.toString() !== user.id) {
         return NextResponse.json(
-          { success: false, error: "Forbidden - Not your assessment" },
+          {
+            success: false,
+            error: { message: "Forbidden - Not your assessment" },
+          },
           { status: 403 }
         );
       }
@@ -38,7 +41,7 @@ export async function GET(
       // Student - check enrollment and published status
       if (!assessment.isPublished) {
         return NextResponse.json(
-          { success: false, error: "Assessment not published" },
+          { success: false, error: { message: "Assessment not published" } },
           { status: 404 }
         );
       }
@@ -51,7 +54,10 @@ export async function GET(
 
       if (!enrollment) {
         return NextResponse.json(
-          { success: false, error: "Not enrolled in this classroom" },
+          {
+            success: false,
+            error: { message: "Not enrolled in this classroom" },
+          },
           { status: 403 }
         );
       }
@@ -64,36 +70,48 @@ export async function GET(
     // Hide correct answers and explanations for students
     const sanitizedQuestions =
       user.role === "student"
-        ? questions.map((q) => ({
-            _id: q._id,
-            assessmentId: q.assessmentId,
-            questionNumber: q.questionNumber,
-            questionText: q.questionText,
-            questionType: q.questionType,
-            options: q.options,
-            points: q.points,
-            difficulty: q.difficulty,
-            topic: q.topic,
-          }))
-        : questions.map((q) => q.toObject());
+        ? questions.map((q) => {
+            const qObj = q.toObject();
+            return {
+              _id: qObj._id.toString(),
+              assessmentId: qObj.assessmentId.toString(),
+              questionNumber: qObj.questionNumber,
+              questionText: qObj.questionText,
+              questionType: qObj.questionType,
+              options: qObj.options,
+              points: qObj.points,
+              difficulty: qObj.difficulty,
+              topic: qObj.topic,
+            };
+          })
+        : questions.map((q) => {
+            const qObj = q.toObject();
+            return {
+              ...qObj,
+              _id: qObj._id.toString(),
+              assessmentId: qObj.assessmentId.toString(),
+            };
+          });
+
+    const assessmentObj = assessment.toObject();
 
     return NextResponse.json({
       success: true,
       data: {
-        _id: assessment._id,
-        classroomId: assessment.classroomId,
-        teacherId: assessment.teacherId,
-        title: assessment.title,
-        description: assessment.description,
-        curriculum: assessment.curriculum,
-        curriculumFile: assessment.curriculumFile,
-        dueDate: assessment.dueDate,
-        difficulty: assessment.difficulty,
-        totalQuestions: assessment.totalQuestions,
-        skills: assessment.skills,
-        isPublished: assessment.isPublished,
-        createdAt: assessment.createdAt,
-        updatedAt: assessment.updatedAt,
+        _id: assessmentObj._id.toString(),
+        classroomId: assessmentObj.classroomId.toString(),
+        teacherId: assessmentObj.teacherId.toString(),
+        title: assessmentObj.title,
+        description: assessmentObj.description,
+        curriculum: assessmentObj.curriculum,
+        curriculumFile: assessmentObj.curriculumFile,
+        dueDate: assessmentObj.dueDate,
+        difficulty: assessmentObj.difficulty,
+        totalQuestions: assessmentObj.totalQuestions,
+        skills: assessmentObj.skills,
+        isPublished: assessmentObj.isPublished,
+        createdAt: assessmentObj.createdAt,
+        updatedAt: assessmentObj.updatedAt,
         questions: sanitizedQuestions,
         questionCount: questions.length,
       },
@@ -101,7 +119,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching assessment:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch assessment" },
+      { success: false, error: { message: "Failed to fetch assessment" } },
       { status: 500 }
     );
   }
@@ -125,14 +143,14 @@ export async function PUT(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
 
     if (assessment.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -142,7 +160,9 @@ export async function PUT(
       return NextResponse.json(
         {
           success: false,
-          error: "Cannot update published assessment. Unpublish first.",
+          error: {
+            message: "Cannot update published assessment. Unpublish first.",
+          },
         },
         { status: 400 }
       );
@@ -154,14 +174,21 @@ export async function PUT(
       { new: true, runValidators: true }
     );
 
+    const updatedObj = updated!.toObject();
+
     return NextResponse.json({
       success: true,
-      data: updated,
+      data: {
+        ...updatedObj,
+        _id: updatedObj._id.toString(),
+        classroomId: updatedObj.classroomId.toString(),
+        teacherId: updatedObj.teacherId.toString(),
+      },
     });
   } catch (error) {
     console.error("Error updating assessment:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to update assessment" },
+      { success: false, error: { message: "Failed to update assessment" } },
       { status: 500 }
     );
   }
@@ -183,14 +210,14 @@ export async function DELETE(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
 
     if (assessment.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -206,7 +233,7 @@ export async function DELETE(
   } catch (error) {
     console.error("Error deleting assessment:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to delete assessment" },
+      { success: false, error: { message: "Failed to delete assessment" } },
       { status: 500 }
     );
   }

@@ -16,9 +16,7 @@ export async function GET() {
     const classrooms = await Classroom.find({
       teacherId: user.id,
       isActive: true,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    }).sort({ createdAt: -1 });
 
     // Get student count for each classroom
     const classroomsWithCounts = await Promise.all(
@@ -30,6 +28,8 @@ export async function GET() {
 
         return {
           ...classroom,
+          _id: classroom._id.toString(),
+          teacherId: classroom.teacherId.toString(),
           studentCount,
         };
       })
@@ -42,7 +42,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching classrooms:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch classrooms" },
+      { success: false, error: { message: "Failed to fetch classrooms" } },
       { status: 500 }
     );
   }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (!name || !name.trim()) {
       return NextResponse.json(
-        { success: false, error: "Classroom name is required" },
+        { success: false, error: { message: "Classroom name is required" } },
         { status: 400 }
       );
     }
@@ -86,14 +86,23 @@ export async function POST(request: NextRequest) {
       studentCount: 0,
     });
 
+    const classroomObj = classroom.toObject();
+
     return NextResponse.json(
-      { success: true, data: classroom },
+      {
+        success: true,
+        data: {
+          ...classroomObj,
+          _id: classroomObj._id.toString(),
+          teacherId: classroomObj.teacherId.toString(),
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error creating classroom:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create classroom" },
+      { success: false, error: { message: "Failed to create classroom" } },
       { status: 500 }
     );
   }

@@ -21,7 +21,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Grades array is required",
+          error: { message: "Grades array is required" },
         },
         { status: 400 }
       );
@@ -33,7 +33,7 @@ export async function POST(
 
     if (!submission) {
       return NextResponse.json(
-        { success: false, error: "Submission not found" },
+        { success: false, error: { message: "Submission not found" } },
         { status: 404 }
       );
     }
@@ -44,14 +44,14 @@ export async function POST(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
 
     if (assessment.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -100,7 +100,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        submissionId: submission._id,
+        submissionId: submission._id.toString(),
         score: submission.score,
         totalPoints: submission.totalPoints,
         percentage: submission.percentage,
@@ -111,7 +111,7 @@ export async function POST(
   } catch (error) {
     console.error("Error grading submission:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to grade submission" },
+      { success: false, error: { message: "Failed to grade submission" } },
       { status: 500 }
     );
   }

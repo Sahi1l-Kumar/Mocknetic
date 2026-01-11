@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     if (!code || !code.trim()) {
       return NextResponse.json(
-        { success: false, error: "Classroom code is required" },
+        { success: false, error: { message: "Classroom code is required" } },
         { status: 400 }
       );
     }
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     if (!classroom) {
       return NextResponse.json(
-        { success: false, error: "Invalid classroom code" },
+        { success: false, error: { message: "Invalid classroom code" } },
         { status: 404 }
       );
     }
@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
     if (existing) {
       if (existing.status === "active") {
         return NextResponse.json(
-          { success: false, error: "Already enrolled in this classroom" },
+          {
+            success: false,
+            error: { message: "Already enrolled in this classroom" },
+          },
           { status: 400 }
         );
       } else {
@@ -60,9 +63,10 @@ export async function POST(request: NextRequest) {
           success: true,
           data: {
             classroom: {
-              id: classroom._id,
+              _id: classroom._id.toString(),
               name: classroom.name,
               subject: classroom.subject,
+              code: classroom.code,
             },
             membership: existing,
           },
@@ -88,9 +92,10 @@ export async function POST(request: NextRequest) {
         success: true,
         data: {
           classroom: {
-            id: classroom._id,
+            _id: classroom._id.toString(),
             name: classroom.name,
             subject: classroom.subject,
+            code: classroom.code,
           },
           membership,
         },
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error joining classroom:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to join classroom" },
+      { success: false, error: { message: "Failed to join classroom" } },
       { status: 500 }
     );
   }

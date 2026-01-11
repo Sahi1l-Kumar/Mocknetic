@@ -21,7 +21,7 @@ export async function POST(
 
     if (!answers || typeof answers !== "object") {
       return NextResponse.json(
-        { success: false, error: "Answers are required" },
+        { success: false, error: { message: "Answers are required" } },
         { status: 400 }
       );
     }
@@ -32,14 +32,14 @@ export async function POST(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
 
     if (!assessment.isPublished) {
       return NextResponse.json(
-        { success: false, error: "Assessment not published yet" },
+        { success: false, error: { message: "Assessment not published yet" } },
         { status: 400 }
       );
     }
@@ -47,7 +47,10 @@ export async function POST(
     // Check if due date has passed
     if (assessment.dueDate && new Date() > new Date(assessment.dueDate)) {
       return NextResponse.json(
-        { success: false, error: "Assessment deadline has passed" },
+        {
+          success: false,
+          error: { message: "Assessment deadline has passed" },
+        },
         { status: 400 }
       );
     }
@@ -61,7 +64,10 @@ export async function POST(
 
     if (!enrollment) {
       return NextResponse.json(
-        { success: false, error: "Not enrolled in this classroom" },
+        {
+          success: false,
+          error: { message: "Not enrolled in this classroom" },
+        },
         { status: 403 }
       );
     }
@@ -74,7 +80,7 @@ export async function POST(
 
     if (existing && existing.status !== "in_progress") {
       return NextResponse.json(
-        { success: false, error: "Assessment already submitted" },
+        { success: false, error: { message: "Assessment already submitted" } },
         { status: 400 }
       );
     }
@@ -85,7 +91,10 @@ export async function POST(
 
     if (questions.length === 0) {
       return NextResponse.json(
-        { success: false, error: "No questions found for this assessment" },
+        {
+          success: false,
+          error: { message: "No questions found for this assessment" },
+        },
         { status: 400 }
       );
     }
@@ -184,15 +193,17 @@ export async function POST(
       submission = await ClassroomSubmission.create(submissionData);
     }
 
+    const submissionObj = submission!.toObject();
+
     return NextResponse.json(
       {
         success: true,
         data: {
-          submissionId: submission._id,
+          submissionId: submissionObj._id.toString(),
           score,
           totalPoints,
-          percentage: submission.percentage,
-          status: submission.status,
+          percentage: submissionObj.percentage,
+          status: submissionObj.status,
           needsReview,
         },
         message: "Assessment submitted successfully",
@@ -202,7 +213,7 @@ export async function POST(
   } catch (error) {
     console.error("Error submitting assessment:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to submit assessment" },
+      { success: false, error: { message: "Failed to submit assessment" } },
       { status: 500 }
     );
   }

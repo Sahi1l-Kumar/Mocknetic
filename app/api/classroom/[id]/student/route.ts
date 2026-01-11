@@ -22,7 +22,7 @@ export async function GET(
     const classroom = await Classroom.findById(params.id);
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -32,9 +32,7 @@ export async function GET(
       status: "active",
     })
       .populate("studentId", "name email image username")
-      .sort({ enrolledAt: -1 })
-      .lean();
-
+      .sort({ enrolledAt: -1 });
     // Get performance data for each student
     const studentsWithPerformance = await Promise.all(
       memberships.map(async (membership: any) => {
@@ -52,8 +50,14 @@ export async function GET(
             : 0;
 
         return {
-          id: membership._id,
-          student: membership.studentId,
+          _id: membership._id.toString(),
+          student: {
+            _id: membership.studentId._id.toString(),
+            name: membership.studentId.name,
+            email: membership.studentId.email,
+            image: membership.studentId.image,
+            username: membership.studentId.username,
+          },
           enrolledAt: membership.enrolledAt,
           averageScore: Math.round(averageScore * 10) / 10,
           completedAssessments: completedCount,
@@ -68,7 +72,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching students:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch students" },
+      { success: false, error: { message: "Failed to fetch students" } },
       { status: 500 }
     );
   }
@@ -89,7 +93,7 @@ export async function POST(
 
     if (!studentEmail) {
       return NextResponse.json(
-        { success: false, error: "Student email is required" },
+        { success: false, error: { message: "Student email is required" } },
         { status: 400 }
       );
     }
@@ -100,7 +104,7 @@ export async function POST(
     const classroom = await Classroom.findById(params.id);
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -112,7 +116,10 @@ export async function POST(
 
     if (!student) {
       return NextResponse.json(
-        { success: false, error: "Student not found or invalid role" },
+        {
+          success: false,
+          error: { message: "Student not found or invalid role" },
+        },
         { status: 404 }
       );
     }
@@ -126,7 +133,10 @@ export async function POST(
     if (existing) {
       if (existing.status === "active") {
         return NextResponse.json(
-          { success: false, error: "Student already enrolled" },
+          {
+            success: false,
+            error: { message: "Student already enrolled" },
+          },
           { status: 400 }
         );
       } else {
@@ -139,9 +149,16 @@ export async function POST(
           $inc: { studentCount: 1 },
         });
 
+        const existingObj = existing.toObject();
+
         return NextResponse.json({
           success: true,
-          data: existing,
+          data: {
+            ...existingObj,
+            _id: existingObj._id.toString(),
+            classroomId: existingObj.classroomId.toString(),
+            studentId: existingObj.studentId.toString(),
+          },
           message: "Student re-enrolled successfully",
         });
       }
@@ -159,14 +176,24 @@ export async function POST(
       $inc: { studentCount: 1 },
     });
 
+    const membershipObj = membership.toObject();
+
     return NextResponse.json(
-      { success: true, data: membership },
+      {
+        success: true,
+        data: {
+          ...membershipObj,
+          _id: membershipObj._id.toString(),
+          classroomId: membershipObj.classroomId.toString(),
+          studentId: membershipObj.studentId.toString(),
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error adding student:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to add student" },
+      { success: false, error: { message: "Failed to add student" } },
       { status: 500 }
     );
   }

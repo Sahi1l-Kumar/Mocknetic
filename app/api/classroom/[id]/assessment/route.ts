@@ -22,7 +22,7 @@ export async function GET(
     const classroom = await Classroom.findById(params.id);
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -35,11 +35,11 @@ export async function GET(
 
     // Get submission stats for each assessment
     const assessmentsWithStats = await Promise.all(
-      assessments.map(async (assessment) => {
+      assessments.map(async (assessment: any) => {
         const submissions = await ClassroomSubmission.find({
           assessmentId: assessment._id,
           status: { $in: ["graded", "submitted"] },
-        }).lean();
+        });
 
         const completedCount = submissions.length;
         const averageScore =
@@ -50,6 +50,9 @@ export async function GET(
 
         return {
           ...assessment,
+          _id: assessment._id.toString(),
+          classroomId: assessment.classroomId.toString(),
+          teacherId: assessment.teacherId.toString(),
           completedCount,
           averageScore: Math.round(averageScore * 10) / 10,
         };
@@ -63,7 +66,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching assessments:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch assessments" },
+      { success: false, error: { message: "Failed to fetch assessments" } },
       { status: 500 }
     );
   }
@@ -96,7 +99,10 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Missing required fields: title, curriculum, totalQuestions",
+          error: {
+            message:
+              "Missing required fields: title, curriculum, totalQuestions",
+          },
         },
         { status: 400 }
       );
@@ -108,7 +114,7 @@ export async function POST(
     const classroom = await Classroom.findById(params.id);
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -145,14 +151,24 @@ export async function POST(
       await ClassroomQuestion.insertMany(questionDocs);
     }
 
+    const assessmentObj = assessment.toObject();
+
     return NextResponse.json(
-      { success: true, data: assessment },
+      {
+        success: true,
+        data: {
+          ...assessmentObj,
+          _id: assessmentObj._id.toString(),
+          classroomId: assessmentObj.classroomId.toString(),
+          teacherId: assessmentObj.teacherId.toString(),
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error creating assessment:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create assessment" },
+      { success: false, error: { message: "Failed to create assessment" } },
       { status: 500 }
     );
   }

@@ -23,7 +23,7 @@ export async function DELETE(
     const classroom = await Classroom.findById(params.id);
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -40,7 +40,10 @@ export async function DELETE(
 
     if (!membership) {
       return NextResponse.json(
-        { success: false, error: "Student membership not found" },
+        {
+          success: false,
+          error: { message: "Student membership not found" },
+        },
         { status: 404 }
       );
     }
@@ -57,7 +60,7 @@ export async function DELETE(
   } catch (error) {
     console.error("Error removing student:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to remove student" },
+      { success: false, error: { message: "Failed to remove student" } },
       { status: 500 }
     );
   }

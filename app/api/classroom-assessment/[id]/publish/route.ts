@@ -19,7 +19,7 @@ export async function POST(
 
     if (typeof isPublished !== "boolean") {
       return NextResponse.json(
-        { success: false, error: "isPublished must be a boolean" },
+        { success: false, error: { message: "isPublished must be a boolean" } },
         { status: 400 }
       );
     }
@@ -30,14 +30,14 @@ export async function POST(
 
     if (!assessment) {
       return NextResponse.json(
-        { success: false, error: "Assessment not found" },
+        { success: false, error: { message: "Assessment not found" } },
         { status: 404 }
       );
     }
 
     if (assessment.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden" },
+        { success: false, error: { message: "Forbidden" } },
         { status: 403 }
       );
     }
@@ -52,7 +52,7 @@ export async function POST(
         return NextResponse.json(
           {
             success: false,
-            error: "Cannot publish assessment without questions",
+            error: { message: "Cannot publish assessment without questions" },
           },
           { status: 400 }
         );
@@ -62,7 +62,9 @@ export async function POST(
         return NextResponse.json(
           {
             success: false,
-            error: `Assessment requires ${assessment.totalQuestions} questions but has ${questionCount}`,
+            error: {
+              message: `Assessment requires ${assessment.totalQuestions} questions but has ${questionCount}`,
+            },
           },
           { status: 400 }
         );
@@ -72,9 +74,16 @@ export async function POST(
     assessment.isPublished = isPublished;
     await assessment.save();
 
+    const assessmentObj = assessment.toObject();
+
     return NextResponse.json({
       success: true,
-      data: assessment,
+      data: {
+        ...assessmentObj,
+        _id: assessmentObj._id.toString(),
+        classroomId: assessmentObj.classroomId.toString(),
+        teacherId: assessmentObj.teacherId.toString(),
+      },
       message: isPublished
         ? "Assessment published successfully"
         : "Assessment unpublished successfully",
@@ -82,7 +91,10 @@ export async function POST(
   } catch (error) {
     console.error("Error publishing assessment:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to update assessment status" },
+      {
+        success: false,
+        error: { message: "Failed to update assessment status" },
+      },
       { status: 500 }
     );
   }

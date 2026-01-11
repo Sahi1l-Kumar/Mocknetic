@@ -21,14 +21,17 @@ export async function GET(
 
     if (!classroom) {
       return NextResponse.json(
-        { success: false, error: "Classroom not found" },
+        { success: false, error: { message: "Classroom not found" } },
         { status: 404 }
       );
     }
 
     if (classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden - Not your classroom" },
+        {
+          success: false,
+          error: { message: "Forbidden - Not your classroom" },
+        },
         { status: 403 }
       );
     }
@@ -47,11 +50,11 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        _id: classroom._id,
+        _id: classroom._id.toString(),
         name: classroom.name,
         description: classroom.description,
         code: classroom.code,
-        teacherId: classroom.teacherId,
+        teacherId: classroom.teacherId.toString(),
         subject: classroom.subject,
         isActive: classroom.isActive,
         createdAt: classroom.createdAt,
@@ -63,7 +66,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching classroom:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch classroom" },
+      { success: false, error: { message: "Failed to fetch classroom" } },
       { status: 500 }
     );
   }
@@ -88,14 +91,17 @@ export async function PUT(
 
     if (!classroom) {
       return NextResponse.json(
-        { success: false, error: "Classroom not found" },
+        { success: false, error: { message: "Classroom not found" } },
         { status: 404 }
       );
     }
 
     if (classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden - Not your classroom" },
+        {
+          success: false,
+          error: { message: "Forbidden - Not your classroom" },
+        },
         { status: 403 }
       );
     }
@@ -114,12 +120,16 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      data: updated,
+      data: {
+        ...updated,
+        _id: updated?._id.toString(),
+        teacherId: updated?.teacherId.toString(),
+      },
     });
   } catch (error) {
     console.error("Error updating classroom:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to update classroom" },
+      { success: false, error: { message: "Failed to update classroom" } },
       { status: 500 }
     );
   }
@@ -141,14 +151,17 @@ export async function DELETE(
 
     if (!classroom) {
       return NextResponse.json(
-        { success: false, error: "Classroom not found" },
+        { success: false, error: { message: "Classroom not found" } },
         { status: 404 }
       );
     }
 
     if (classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
-        { success: false, error: "Forbidden - Not your classroom" },
+        {
+          success: false,
+          error: { message: "Forbidden - Not your classroom" },
+        },
         { status: 403 }
       );
     }
@@ -165,7 +178,7 @@ export async function DELETE(
   } catch (error) {
     console.error("Error deleting classroom:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to delete classroom" },
+      { success: false, error: { message: "Failed to delete classroom" } },
       { status: 500 }
     );
   }

@@ -28,42 +28,50 @@ export async function GET() {
       .lean();
 
     const classroomsWithStats = await Promise.all(
-      memberships.map(async (membership: any) => {
-        const classroom = membership.classroomId;
+      memberships
+        .filter((membership: any) => membership.classroomId)
+        .map(async (membership: any) => {
+          const classroom = membership.classroomId;
 
-        // Get total assessments
-        const totalAssessments = await ClassroomAssessment.countDocuments({
-          classroomId: classroom._id,
-          isPublished: true,
-        });
+          // Get total assessments
+          const totalAssessments = await ClassroomAssessment.countDocuments({
+            classroomId: classroom._id,
+            isPublished: true,
+          });
 
-        // Get student's submissions
-        const submissions = await ClassroomSubmission.find({
-          classroomId: classroom._id,
-          studentId: user.id,
-          status: { $in: ["graded", "submitted"] },
-        }).lean();
+          // Get student's submissions
+          const submissions = await ClassroomSubmission.find({
+            classroomId: classroom._id,
+            studentId: user.id,
+            status: { $in: ["graded", "submitted"] },
+          }).lean();
 
-        const completedCount = submissions.length;
-        const averageScore =
-          completedCount > 0
-            ? submissions.reduce((sum, s) => sum + s.percentage, 0) /
-              completedCount
-            : 0;
+          const completedCount = submissions.length;
+          const averageScore =
+            completedCount > 0
+              ? submissions.reduce((sum, s) => sum + s.percentage, 0) /
+                completedCount
+              : 0;
 
-        return {
-          id: classroom._id,
-          name: classroom.name,
-          description: classroom.description,
-          subject: classroom.subject,
-          code: classroom.code,
-          teacher: classroom.teacherId,
-          enrolledAt: membership.enrolledAt,
-          totalAssessments,
-          completedAssessments: completedCount,
-          averageScore: Math.round(averageScore * 10) / 10,
-        };
-      })
+          return {
+            _id: classroom._id.toString(),
+            name: classroom.name,
+            description: classroom.description,
+            subject: classroom.subject,
+            code: classroom.code,
+            teacher: {
+              name: classroom.teacherId.name,
+              email: classroom.teacherId.email,
+              image: classroom.teacherId.image,
+            },
+            enrolledAt: membership.enrolledAt,
+            studentCount: classroom.studentCount || 0,
+            totalAssessments,
+            completedAssessments: completedCount,
+            pendingAssessments: Math.max(0, totalAssessments - completedCount),
+            averageScore: Math.round(averageScore * 10) / 10,
+          };
+        })
     );
 
     return NextResponse.json({
@@ -73,7 +81,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching student classrooms:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch classrooms" },
+      { success: false, error: { message: "Failed to fetch classrooms" } },
       { status: 500 }
     );
   }
