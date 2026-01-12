@@ -1,51 +1,31 @@
 import { Schema, models, model, Document, Types } from "mongoose";
 
-export interface IClassroomAnswer {
+export interface IAnswer {
   questionId: Types.ObjectId;
-  studentAnswer: string | string[] | number;
-  isCorrect: boolean | null;
-  pointsAwarded: number;
-  pointsPossible: number;
-  feedback?: string;
-  gradedBy?: "ai" | "manual";
-  gradedAt?: Date;
+  answer: string | number | string[];
+  isCorrect?: boolean;
+  pointsEarned?: number;
 }
 
 export interface IClassroomSubmission {
   assessmentId: Types.ObjectId;
   studentId: Types.ObjectId;
   classroomId: Types.ObjectId;
-  answers: IClassroomAnswer[];
+  answers: IAnswer[];
   score: number;
   totalPoints: number;
   percentage: number;
-  status: "in_progress" | "submitted" | "graded" | "pending_review";
-  startedAt: Date;
+  status: "in_progress" | "submitted" | "graded";
+  startedAt?: Date;
   submittedAt?: Date;
   gradedAt?: Date;
-  timeSpent: number;
-  ipAddress?: string;
-  userAgent?: string;
+  timeSpent?: number;
+  feedback?: string;
 }
 
 export interface IClassroomSubmissionDoc
   extends IClassroomSubmission,
     Document {}
-
-const AnswerSchema = new Schema<IClassroomAnswer>({
-  questionId: {
-    type: Schema.Types.ObjectId,
-    ref: "ClassroomQuestion",
-    required: true,
-  },
-  studentAnswer: { type: Schema.Types.Mixed, required: true },
-  isCorrect: { type: Boolean, default: null },
-  pointsAwarded: { type: Number, default: 0, min: 0 },
-  pointsPossible: { type: Number, required: true, min: 0 },
-  feedback: { type: String },
-  gradedBy: { type: String, enum: ["ai", "manual"] },
-  gradedAt: { type: Date },
-});
 
 const ClassroomSubmissionSchema = new Schema<IClassroomSubmission>(
   {
@@ -64,21 +44,31 @@ const ClassroomSubmissionSchema = new Schema<IClassroomSubmission>(
       ref: "Classroom",
       required: true,
     },
-    answers: [AnswerSchema],
-    score: { type: Number, default: 0, min: 0 },
-    totalPoints: { type: Number, required: true, min: 0 },
-    percentage: { type: Number, default: 0, min: 0, max: 100 },
+    answers: [
+      {
+        questionId: {
+          type: Schema.Types.ObjectId,
+          ref: "ClassroomQuestion",
+          required: true,
+        },
+        answer: { type: Schema.Types.Mixed, required: true },
+        isCorrect: { type: Boolean },
+        pointsEarned: { type: Number, default: 0 },
+      },
+    ],
+    score: { type: Number, default: 0 },
+    totalPoints: { type: Number, required: true, default: 0 },
+    percentage: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["in_progress", "submitted", "graded", "pending_review"],
+      enum: ["in_progress", "submitted", "graded"],
       default: "in_progress",
     },
-    startedAt: { type: Date, default: Date.now },
+    startedAt: { type: Date },
     submittedAt: { type: Date },
     gradedAt: { type: Date },
-    timeSpent: { type: Number, default: 0, min: 0 },
-    ipAddress: { type: String },
-    userAgent: { type: String },
+    timeSpent: { type: Number },
+    feedback: { type: String },
   },
   { timestamps: true }
 );
@@ -87,9 +77,6 @@ ClassroomSubmissionSchema.index(
   { assessmentId: 1, studentId: 1 },
   { unique: true }
 );
-ClassroomSubmissionSchema.index({ studentId: 1 });
-ClassroomSubmissionSchema.index({ classroomId: 1 });
-ClassroomSubmissionSchema.index({ status: 1 });
 
 const ClassroomSubmission =
   models?.ClassroomSubmission ||

@@ -10,6 +10,7 @@ import {
   Send,
   BookOpen,
   Clock,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -40,7 +41,7 @@ interface Question {
   _id: string;
   questionNumber: number;
   questionText: string;
-  questionType: "mcq" | "descriptive" | "numerical" | "coding";
+  questionType: "mcq" | "descriptive" | "numerical";
   options?: string[];
   points: number;
   difficulty: string;
@@ -60,7 +61,11 @@ interface Assessment {
   difficulty: string;
   curriculum?: string;
   dueDate?: string;
-  questions?: Question[];
+  questionConfig?: {
+    mcq: number;
+    descriptive: number;
+    numerical: number;
+  };
 }
 
 const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
@@ -70,41 +75,85 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [startTime] = useState(Date.now());
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
 
-  const fetchAssessment = useCallback(async () => {
+  const fetchAssessmentAndGenerateQuestions = useCallback(async () => {
     try {
       setLoading(true);
 
       const assessmentRes = await api.assessment.getById(assessmentId);
 
-      if (assessmentRes.success) {
-        const assessmentData = assessmentRes.data as Assessment;
-        setAssessment(assessmentData);
-
-        if (assessmentData.questions && assessmentData.questions.length > 0) {
-          setQuestions(assessmentData.questions);
-        } else {
-          toast.error("No questions found for this assessment");
-        }
-      } else {
+      if (!assessmentRes.success) {
         toast.error("Assessment not found");
         router.push(ROUTES.CLASSROOM);
+        return;
       }
-    } catch (error) {
-      console.error("Error fetching assessment:", error);
-      toast.error("Failed to load assessment");
+
+      const assessmentData = assessmentRes.data as Assessment;
+      setAssessment(assessmentData);
+
+      // Check if questions already exist for this student
+      try {
+        const questionsRes =
+          await api.student.getAssessmentQuestions(assessmentId);
+
+        if (
+          questionsRes.success &&
+          Array.isArray(questionsRes.data) &&
+          questionsRes.data.length > 0
+        ) {
+          // Questions already generated
+          setQuestions(questionsRes.data as Question[]);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Questions don't exist, need to generate
+        console.log("No existing questions, will generate...");
+      }
+
+      // Generate questions
+      setGenerating(true);
+      toast.info("Generating your unique questions...", {
+        description: "This may take 10-15 seconds",
+        duration: 5000,
+      });
+
+      const generateRes =
+        await api.student.generateAssessmentQuestions(assessmentId);
+
+      // ✅ Add type assertion
+      if (generateRes.success && Array.isArray(generateRes.data)) {
+        setQuestions(generateRes.data as Question[]);
+        toast.success("Questions generated successfully!", {
+          description: "You can now start your assessment",
+        });
+      } else {
+        throw new Error(
+          generateRes.error?.message || "Failed to generate questions"
+        );
+      }
+    } catch (error: any) {
+      console.error("Error:", error);
+      toast.error(
+        error?.response?.data?.error?.message ||
+          error.message ||
+          "Failed to load assessment"
+      );
+      router.push(ROUTES.CLASSROOM);
     } finally {
       setLoading(false);
+      setGenerating(false);
     }
   }, [assessmentId, router]);
 
   useEffect(() => {
-    fetchAssessment();
-  }, [fetchAssessment]);
+    fetchAssessmentAndGenerateQuestions();
+  }, [fetchAssessmentAndGenerateQuestions]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -159,11 +208,26 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
   const progress =
     questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
-  if (loading) {
+  if (loading || generating) {
     return (
       <div className="min-h-screen bg-white pt-20">
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="relative">
+            <Loader2 className="w-16 h-16 animate-spin text-blue-600" />
+            {generating && (
+              <Sparkles className="w-6 h-6 text-amber-500 animate-pulse absolute -top-2 -right-2" />
+            )}
+          </div>
+          <p className="text-xl font-semibold text-gray-900 mt-6">
+            {generating
+              ? "Generating Your Questions..."
+              : "Loading Assessment..."}
+          </p>
+          <p className="text-sm text-gray-600 mt-2">
+            {generating
+              ? "Creating unique questions just for you"
+              : "Please wait"}
+          </p>
         </div>
       </div>
     );
@@ -180,7 +244,8 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                 Assessment Not Available
               </h3>
               <p className="text-gray-600 mb-6">
-                This assessment is not available or has no questions.
+                This assessment is not available or questions could not be
+                generated.
               </p>
               <Link href={ROUTES.CLASSROOM}>
                 <Button className="bg-blue-600 hover:bg-blue-700">
@@ -337,18 +402,6 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                     )
                   }
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:border-blue-500"
-                />
-              )}
-
-              {currentQuestion.questionType === "coding" && (
-                <Textarea
-                  placeholder="Write your code here..."
-                  value={answers[currentQuestion._id]?.toString() || ""}
-                  onChange={(e) =>
-                    handleAnswerChange(currentQuestion._id, e.target.value)
-                  }
-                  rows={12}
-                  className="font-mono text-sm resize-none"
                 />
               )}
             </div>

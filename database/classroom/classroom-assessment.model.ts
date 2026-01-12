@@ -1,5 +1,11 @@
 import { Schema, models, model, Document, Types } from "mongoose";
 
+export interface IQuestionConfig {
+  mcq: number;
+  descriptive: number;
+  numerical: number;
+}
+
 export interface IClassroomAssessment {
   classroomId: Types.ObjectId;
   teacherId: Types.ObjectId;
@@ -8,8 +14,9 @@ export interface IClassroomAssessment {
   curriculum: string;
   curriculumFile?: string;
   dueDate?: Date;
-  difficulty: string;
+  difficulty: "easy" | "medium" | "hard";
   totalQuestions: number;
+  questionConfig: IQuestionConfig;
   skills: string[];
   isPublished: boolean;
 }
@@ -41,6 +48,11 @@ const ClassroomAssessmentSchema = new Schema<IClassroomAssessment>(
       default: "medium",
     },
     totalQuestions: { type: Number, required: true },
+    questionConfig: {
+      mcq: { type: Number, required: true, min: 0 },
+      descriptive: { type: Number, required: true, min: 0 },
+      numerical: { type: Number, required: true, min: 0 },
+    },
     skills: [{ type: String }],
     isPublished: { type: Boolean, default: false },
   },

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
 
 // POST /api/classroom-assessment/:id/publish - Publish/Unpublish assessment
 export async function POST(
@@ -42,28 +41,54 @@ export async function POST(
       );
     }
 
-    // Validate assessment has questions before publishing
     if (isPublished) {
-      const questionCount = await ClassroomQuestion.countDocuments({
-        assessmentId: params.id,
-      });
-
-      if (questionCount === 0) {
+      // Check if curriculum exists
+      if (!assessment.curriculum || assessment.curriculum.trim() === "") {
         return NextResponse.json(
           {
             success: false,
-            error: { message: "Cannot publish assessment without questions" },
+            error: { message: "Cannot publish assessment without curriculum" },
           },
           { status: 400 }
         );
       }
 
-      if (questionCount !== assessment.totalQuestions) {
+      // Check if total questions is greater than 0
+      if (assessment.totalQuestions <= 0) {
         return NextResponse.json(
           {
             success: false,
             error: {
-              message: `Assessment requires ${assessment.totalQuestions} questions but has ${questionCount}`,
+              message:
+                "Cannot publish assessment without question configuration",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!assessment.questionConfig) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              message:
+                "Cannot publish assessment without question configuration",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      const { mcq, descriptive, numerical } = assessment.questionConfig;
+
+      // Verify questionConfig matches totalQuestions
+      if (mcq + descriptive + numerical !== assessment.totalQuestions) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              message: "Question configuration doesn't match total questions",
             },
           },
           { status: 400 }
@@ -85,7 +110,7 @@ export async function POST(
         teacherId: assessmentObj.teacherId.toString(),
       },
       message: isPublished
-        ? "Assessment published successfully"
+        ? "Assessment published successfully! Students can now join."
         : "Assessment unpublished successfully",
     });
   } catch (error) {

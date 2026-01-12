@@ -255,5 +255,17 @@ export const api = {
       return fetchHandler(url);
     },
     getSubmissions: () => fetchHandler(`${API_BASE_URL}/student/submissions`),
+    getAssessmentQuestions: (assessmentId: string) =>
+      fetchHandler(
+        `${API_BASE_URL}/student/assessment/${assessmentId}/questions`
+      ),
+
+    generateAssessmentQuestions: (assessmentId: string) =>
+      fetchHandler(
+        `${API_BASE_URL}/student/assessment/${assessmentId}/generate`,
+        {
+          method: "POST",
+        }
+      ),
   },
 };

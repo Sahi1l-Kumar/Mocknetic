@@ -3,7 +3,6 @@ import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import Classroom from "@/database/classroom/classroom.model";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 
 // GET /api/classroom/:id/assessment - List all assessments for classroom
@@ -72,7 +71,7 @@ export async function GET(
   }
 }
 
-// POST /api/classroom/:id/assessment - Create new assessment
+// POST /api/classroom/:id/assessment - Create assessment
 export async function POST(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -91,17 +90,69 @@ export async function POST(
       dueDate,
       difficulty,
       totalQuestions,
+      questionConfig,
       skills,
-      questions,
     } = body;
 
-    if (!title || !curriculum || !totalQuestions) {
+    if (!title?.trim()) {
+      return NextResponse.json(
+        { success: false, error: { message: "Title is required" } },
+        { status: 400 }
+      );
+    }
+
+    if (!curriculum?.trim()) {
+      return NextResponse.json(
+        { success: false, error: { message: "Curriculum is required" } },
+        { status: 400 }
+      );
+    }
+
+    if (!totalQuestions || totalQuestions <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { message: "Total questions must be greater than 0" },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!questionConfig || typeof questionConfig !== "object") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { message: "Question configuration is required" },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { mcq, descriptive, numerical } = questionConfig;
+
+    if (
+      typeof mcq !== "number" ||
+      typeof descriptive !== "number" ||
+      typeof numerical !== "number" ||
+      mcq < 0 ||
+      descriptive < 0 ||
+      numerical < 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { message: "Invalid question configuration" },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (mcq + descriptive + numerical !== totalQuestions) {
       return NextResponse.json(
         {
           success: false,
           error: {
-            message:
-              "Missing required fields: title, curriculum, totalQuestions",
+            message: "Question configuration doesn't match total questions",
           },
         },
         { status: 400 }
@@ -110,11 +161,21 @@ export async function POST(
 
     await dbConnect();
 
-    // Verify teacher owns this classroom
     const classroom = await Classroom.findById(params.id);
-    if (!classroom || classroom.teacherId.toString() !== user.id) {
+
+    if (!classroom) {
       return NextResponse.json(
-        { success: false, error: { message: "Forbidden" } },
+        { success: false, error: { message: "Classroom not found" } },
+        { status: 404 }
+      );
+    }
+
+    if (classroom.teacherId.toString() !== user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { message: "Forbidden - Not your classroom" },
+        },
         { status: 403 }
       );
     }
@@ -124,47 +185,32 @@ export async function POST(
       teacherId: user.id,
       title: title.trim(),
       description: description?.trim(),
-      curriculum,
-      curriculumFile,
+      curriculum: curriculum.trim(),
+      curriculumFile: curriculumFile,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       difficulty: difficulty || "medium",
       totalQuestions,
+      questionConfig: {
+        mcq,
+        descriptive,
+        numerical,
+      },
       skills: skills || [],
       isPublished: false,
     });
 
-    // Create questions if provided
-    if (questions && Array.isArray(questions) && questions.length > 0) {
-      const questionDocs = questions.map((q: any, index: number) => ({
-        assessmentId: assessment._id,
-        questionNumber: index + 1,
-        questionText: q.questionText,
-        questionType: q.questionType,
-        options: q.options,
-        correctAnswer: q.correctAnswer,
-        points: q.points || 1,
-        difficulty: q.difficulty || difficulty || "medium",
-        topic: q.topic,
-        explanation: q.explanation,
-      }));
-
-      await ClassroomQuestion.insertMany(questionDocs);
-    }
-
     const assessmentObj = assessment.toObject();
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          ...assessmentObj,
-          _id: assessmentObj._id.toString(),
-          classroomId: assessmentObj.classroomId.toString(),
-          teacherId: assessmentObj.teacherId.toString(),
-        },
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...assessmentObj,
+        _id: assessmentObj._id.toString(),
+        classroomId: assessmentObj.classroomId.toString(),
+        teacherId: assessmentObj.teacherId.toString(),
       },
-      { status: 201 }
-    );
+      message: "Assessment created successfully",
+    });
   } catch (error) {
     console.error("Error creating assessment:", error);
     return NextResponse.json(
