@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
 
-// POST /api/classroom-assessment/:id/submit - Submit student answers
+interface SubmitAnswerInput {
+  questionNumber: number;
+  answer: string | number;
+}
+
 export async function POST(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -17,9 +20,12 @@ export async function POST(
 
     const params = await props.params;
     const body = await request.json();
-    const { answers, timeSpent } = body;
+    const { answers, timeSpent } = body as {
+      answers: SubmitAnswerInput[];
+      timeSpent: number;
+    };
 
-    if (!answers || typeof answers !== "object") {
+    if (!answers || !Array.isArray(answers)) {
       return NextResponse.json(
         { success: false, error: { message: "Answers are required" } },
         { status: 400 }
@@ -72,143 +78,137 @@ export async function POST(
       );
     }
 
-    // Check if already submitted
-    const existing = await ClassroomSubmission.findOne({
+    const submission = (await ClassroomSubmission.findOne({
       assessmentId: params.id,
       studentId: user.id,
-    });
+    }).lean()) as any;
 
-    if (existing && existing.status !== "in_progress") {
+    if (!submission) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            message: "No questions found. Please start the assessment first.",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (submission.status === "submitted" || submission.status === "graded") {
       return NextResponse.json(
         { success: false, error: { message: "Assessment already submitted" } },
         { status: 400 }
       );
     }
 
-    const questions = await ClassroomQuestion.find({
-      assessmentId: params.id,
-    }).sort({ questionNumber: 1 });
-
-    if (questions.length === 0) {
+    if (!submission.questions || submission.questions.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: { message: "No questions found for this assessment" },
+          error: {
+            message: "No questions found. Please regenerate questions.",
+          },
         },
         { status: 400 }
       );
     }
 
-    // Grade answers
+    const questions = submission.questions;
     let score = 0;
     let totalPoints = 0;
     const gradedAnswers = [];
 
     for (const question of questions) {
-      totalPoints += question.points;
-      const questionId = question._id.toString();
-      const studentAnswer = answers[questionId];
+      totalPoints += question.points || 1;
+
+      // Find student's answer for this question number
+      const studentAnswerObj = answers.find(
+        (a) => a.questionNumber === question.questionNumber
+      );
+
+      const studentAnswer = studentAnswerObj?.answer;
 
       let isCorrect: boolean | null = null;
-      let pointsAwarded = 0;
-      let gradedBy: "ai" | "manual" | undefined = undefined;
+      let pointsEarned = 0;
 
       if (!studentAnswer || studentAnswer === "") {
         // No answer provided
         gradedAnswers.push({
-          questionId: question._id,
-          studentAnswer: "",
+          questionNumber: question.questionNumber,
+          answer: "",
           isCorrect: false,
-          pointsAwarded: 0,
-          pointsPossible: question.points,
-          gradedBy: "ai",
+          pointsEarned: 0,
         });
         continue;
       }
 
-      // Auto-grade MCQ and Numerical
+      // Auto-grade MCQ
       if (question.questionType === "mcq") {
-        isCorrect = studentAnswer === question.correctAnswer;
-        pointsAwarded = isCorrect ? question.points : 0;
-        score += pointsAwarded;
-        gradedBy = "ai";
-      } else if (question.questionType === "numerical") {
-        const studentNum = parseFloat(studentAnswer);
+        const correctOption = question.options[question.correctAnswer - 1];
+        isCorrect = studentAnswer === correctOption;
+        pointsEarned = isCorrect ? question.points : 0;
+        score += pointsEarned;
+      }
+      // Auto-grade Numerical
+      else if (question.questionType === "numerical") {
+        const studentNum = parseFloat(studentAnswer as string);
         const correctNum = parseFloat(question.correctAnswer as string);
         isCorrect =
           !isNaN(studentNum) &&
           !isNaN(correctNum) &&
           Math.abs(studentNum - correctNum) < 0.01;
-        pointsAwarded = isCorrect ? question.points : 0;
-        score += pointsAwarded;
-        gradedBy = "ai";
+        pointsEarned = isCorrect ? question.points : 0;
+        score += pointsEarned;
       }
-      // Descriptive and Coding need manual grading (isCorrect stays null)
+      // Descriptive needs manual grading
+      else if (question.questionType === "descriptive") {
+        isCorrect = null;
+        pointsEarned = 0;
+      }
 
       gradedAnswers.push({
-        questionId: question._id,
-        studentAnswer,
+        questionNumber: question.questionNumber,
+        answer: studentAnswer,
         isCorrect,
-        pointsAwarded,
-        pointsPossible: question.points,
-        gradedBy,
+        pointsEarned,
       });
     }
 
     const percentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
     const needsReview = gradedAnswers.some((a) => a.isCorrect === null);
 
-    // Get client info
-    const ipAddress =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-    const userAgent = request.headers.get("user-agent") || "unknown";
-
-    const submissionData = {
-      assessmentId: params.id,
-      studentId: user.id,
-      classroomId: assessment.classroomId,
-      answers: gradedAnswers,
-      score,
-      totalPoints,
-      percentage: Math.round(percentage * 100) / 100,
-      status: needsReview ? "pending_review" : "graded",
-      startedAt: existing?.startedAt || new Date(),
-      submittedAt: new Date(),
-      gradedAt: needsReview ? undefined : new Date(),
-      timeSpent: timeSpent || 0,
-      ipAddress,
-      userAgent,
-    };
-
-    let submission;
-    if (existing) {
-      submission = await ClassroomSubmission.findByIdAndUpdate(
-        existing._id,
-        submissionData,
-        { new: true }
-      );
-    } else {
-      submission = await ClassroomSubmission.create(submissionData);
-    }
-
-    const submissionObj = submission!.toObject();
+    const updated = await ClassroomSubmission.findByIdAndUpdate(
+      submission._id,
+      {
+        $set: {
+          answers: gradedAnswers,
+          score,
+          totalPoints,
+          percentage: Math.round(percentage * 100) / 100,
+          status: needsReview ? "pending_review" : "graded",
+          submittedAt: new Date(),
+          gradedAt: needsReview ? undefined : new Date(),
+          timeSpent: timeSpent || 0,
+        },
+      },
+      { new: true }
+    );
 
     return NextResponse.json(
       {
         success: true,
         data: {
-          submissionId: submissionObj._id.toString(),
+          submissionId: updated!._id.toString(),
           score,
           totalPoints,
-          percentage: submissionObj.percentage,
-          status: submissionObj.status,
+          percentage: updated!.percentage,
+          status: updated!.status,
           needsReview,
         },
         message: "Assessment submitted successfully",
       },
-      { status: 201 }
+      { status: 200 }
     );
   } catch (error) {
     console.error("Error submitting assessment:", error);

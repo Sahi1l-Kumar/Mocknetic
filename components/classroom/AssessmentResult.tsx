@@ -40,7 +40,7 @@ interface Question {
   _id: string;
   questionNumber: number;
   questionText: string;
-  questionType: "mcq" | "descriptive" | "numerical" | "coding";
+  questionType: "mcq" | "descriptive" | "numerical";
   options?: string[];
   correctAnswer?: string | string[] | number;
   points: number;
@@ -50,7 +50,7 @@ interface Question {
 }
 
 interface Answer {
-  questionId: string;
+  questionNumber: number;
   studentAnswer: string | string[] | number;
   isCorrect: boolean | null;
   pointsAwarded: number;
@@ -81,8 +81,6 @@ interface Assessment {
   };
   totalQuestions: number;
   difficulty: string;
-  curriculum?: string;
-  questions?: Question[];
 }
 
 const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
@@ -96,22 +94,14 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
     try {
       setLoading(true);
 
-      const [assessmentRes, resultsRes] = await Promise.all([
-        api.assessment.getById(assessmentId),
-        api.assessment.getResults(assessmentId),
-      ]);
+      const resultRes = await api.student.getAssessmentResult(assessmentId);
 
-      if (assessmentRes.success) {
-        const assessmentData = assessmentRes.data as Assessment;
-        setAssessment(assessmentData);
+      if (resultRes.success) {
+        const data = resultRes.data as any;
 
-        if (assessmentData.questions && assessmentData.questions.length > 0) {
-          setQuestions(assessmentData.questions);
-        }
-      }
-
-      if (resultsRes.success) {
-        setSubmission(resultsRes.data as Submission);
+        setAssessment(data.assessment);
+        setSubmission(data.submission);
+        setQuestions(data.questions || []);
       } else {
         toast.error("No submission found");
         router.push(ROUTES.CLASSROOM);
@@ -120,6 +110,7 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
     } catch (error) {
       console.error("Error fetching results:", error);
       toast.error("Failed to load results");
+      router.push(ROUTES.CLASSROOM);
     } finally {
       setLoading(false);
     }
@@ -402,7 +393,7 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
               <Accordion type="single" collapsible className="w-full">
                 {questions.map((question, idx) => {
                   const answer = submission.answers.find(
-                    (a) => a.questionId.toString() === question._id.toString()
+                    (a) => a.questionNumber === question.questionNumber
                   );
 
                   return (
@@ -453,6 +444,27 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                             </p>
                           </div>
 
+                          {question.options && question.options.length > 0 && (
+                            <>
+                              <Separator />
+                              <div>
+                                <h4 className="font-semibold text-gray-900 mb-2">
+                                  Options:
+                                </h4>
+                                <div className="space-y-2">
+                                  {question.options.map((option, optIdx) => (
+                                    <div
+                                      key={optIdx}
+                                      className="p-2 bg-gray-50 rounded border border-gray-200"
+                                    >
+                                      {option}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+
                           <Separator />
 
                           <div>
@@ -476,8 +488,7 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                           </div>
 
                           {question.correctAnswer &&
-                            question.questionType !== "descriptive" &&
-                            question.questionType !== "coding" && (
+                            question.questionType !== "descriptive" && (
                               <>
                                 <Separator />
                                 <div>
@@ -486,7 +497,9 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                                   </h4>
                                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
                                     <p className="text-gray-900">
-                                      {question.correctAnswer.toString()}
+                                      {Array.isArray(question.correctAnswer)
+                                        ? question.correctAnswer.join(", ")
+                                        : question.correctAnswer.toString()}
                                     </p>
                                   </div>
                                 </div>

@@ -1,8 +1,20 @@
 import { Schema, models, model, Document, Types } from "mongoose";
 
+export interface IQuestion {
+  questionNumber: number;
+  questionText: string;
+  questionType: "mcq" | "descriptive" | "numerical";
+  options?: string[];
+  correctAnswer?: string | number | string[];
+  points: number;
+  difficulty: string;
+  topic?: string;
+  explanation?: string;
+}
+
 export interface IAnswer {
-  questionId: Types.ObjectId;
-  answer: string | number | string[];
+  questionNumber: number;
+  answer: string | number;
   isCorrect?: boolean;
   pointsEarned?: number;
 }
@@ -11,6 +23,7 @@ export interface IClassroomSubmission {
   assessmentId: Types.ObjectId;
   studentId: Types.ObjectId;
   classroomId: Types.ObjectId;
+  questions: IQuestion[];
   answers: IAnswer[];
   score: number;
   totalPoints: number;
@@ -44,13 +57,26 @@ const ClassroomSubmissionSchema = new Schema<IClassroomSubmission>(
       ref: "Classroom",
       required: true,
     },
-    answers: [
+    questions: [
       {
-        questionId: {
-          type: Schema.Types.ObjectId,
-          ref: "ClassroomQuestion",
+        questionNumber: { type: Number, required: true },
+        questionText: { type: String, required: true },
+        questionType: {
+          type: String,
+          enum: ["mcq", "descriptive", "numerical"],
           required: true,
         },
+        options: [{ type: String }],
+        correctAnswer: { type: Schema.Types.Mixed },
+        points: { type: Number, required: true, default: 1 },
+        difficulty: { type: String, required: true },
+        topic: { type: String },
+        explanation: { type: String },
+      },
+    ],
+    answers: [
+      {
+        questionNumber: { type: Number, required: true },
         answer: { type: Schema.Types.Mixed, required: true },
         isCorrect: { type: Boolean },
         pointsEarned: { type: Number, default: 0 },

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
@@ -12,7 +11,7 @@ interface GeneratedQuestion {
   questionType: "mcq" | "descriptive" | "numerical";
   questionText: string;
   options?: string[];
-  correctAnswer?: string | number;
+  correctAnswer?: string | number | string[];
   points: number;
   topic?: string;
   explanation?: string;
@@ -21,7 +20,6 @@ interface GeneratedQuestion {
   expectedKeywords?: string[];
 }
 
-// POST /api/student/assessment/:id/generate - Generate unique questions for student
 export async function POST(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -31,8 +29,8 @@ export async function POST(
     if (error) return error;
 
     const params = await props.params;
-    const assessmentId = params.id; // ✅ Store assessmentId
-    const studentId = user.id; // ✅ Store studentId
+    const assessmentId = params.id;
+    const studentId = user.id;
 
     await dbConnect();
 
@@ -52,23 +50,81 @@ export async function POST(
       );
     }
 
-    // Check if questions already generated
-    const existingQuestions = await ClassroomQuestion.countDocuments({
+    // ✅ Try to find existing submission again to handle race condition
+    const existingSubmission = (await ClassroomSubmission.findOne({
       assessmentId: assessmentId,
       studentId: studentId,
-    });
+    }).lean()) as any;
 
-    if (existingQuestions > 0) {
-      // Questions exist, just fetch and return them
-      const questions = await ClassroomQuestion.find({
-        assessmentId: assessmentId,
-        studentId: studentId,
-      })
-        .sort({ questionNumber: 1 })
-        .lean();
+    if (existingSubmission) {
+      // ✅ If questions already generated, return them
+      if (
+        existingSubmission.questions &&
+        existingSubmission.questions.length > 0
+      ) {
+        const formattedQuestions = existingSubmission.questions.map(
+          (q: any) => ({
+            _id: `${existingSubmission._id}_q${q.questionNumber}`,
+            questionNumber: q.questionNumber,
+            questionText: q.questionText,
+            questionType: q.questionType,
+            options: q.options || [],
+            points: q.points,
+            difficulty: q.difficulty,
+            topic: q.topic,
+          })
+        );
 
+        return NextResponse.json({
+          success: true,
+          data: formattedQuestions,
+          message: "Questions already generated",
+        });
+      }
+
+      await ClassroomSubmission.findByIdAndDelete(existingSubmission._id);
+    }
+
+    // Generate questions using Groq AI
+    const questions = await generateClassroomQuestions(assessment);
+
+    // Calculate total points
+    const totalPoints = questions.reduce(
+      (sum: number, q: any) => sum + (q.points || 1),
+      0
+    );
+
+    // ✅ Use findOneAndUpdate with upsert to prevent race condition
+    try {
+      const submission = await ClassroomSubmission.findOneAndUpdate(
+        {
+          assessmentId: assessmentId,
+          studentId: studentId,
+        },
+        {
+          $setOnInsert: {
+            assessmentId: assessmentId,
+            studentId: studentId,
+            classroomId: assessment.classroomId,
+            questions: questions,
+            answers: [],
+            score: 0,
+            totalPoints,
+            percentage: 0,
+            status: "in_progress",
+            startedAt: new Date(),
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+        }
+      );
+
+      // Format for frontend (hide correct answers)
       const formattedQuestions = questions.map((q: any) => ({
-        _id: q._id.toString(),
+        _id: `${submission._id}_q${q.questionNumber}`,
         questionNumber: q.questionNumber,
         questionText: q.questionText,
         questionType: q.questionType,
@@ -81,115 +137,39 @@ export async function POST(
       return NextResponse.json({
         success: true,
         data: formattedQuestions,
-        message: "Questions already generated",
+        message: "Questions generated successfully",
       });
+    } catch (duplicateError: any) {
+      if (duplicateError.code === 11000) {
+        const existing = (await ClassroomSubmission.findOne({
+          assessmentId: assessmentId,
+          studentId: studentId,
+        }).lean()) as any;
+
+        if (existing && existing.questions && existing.questions.length > 0) {
+          const formattedQuestions = existing.questions.map((q: any) => ({
+            _id: `${existing._id}_q${q.questionNumber}`,
+            questionNumber: q.questionNumber,
+            questionText: q.questionText,
+            questionType: q.questionType,
+            options: q.options || [],
+            points: q.points,
+            difficulty: q.difficulty,
+            topic: q.topic,
+          }));
+
+          return NextResponse.json({
+            success: true,
+            data: formattedQuestions,
+            message: "Questions already generated",
+          });
+        }
+      }
+
+      throw duplicateError;
     }
-
-    // Check if student already has a submission
-    const existingSubmission = await ClassroomSubmission.findOne({
-      assessmentId: assessmentId,
-      studentId: studentId,
-    });
-
-    if (existingSubmission) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: { message: "You have already attempted this assessment" },
-        },
-        { status: 400 }
-      );
-    }
-
-    // Generate questions using Groq AI
-    const questions = await generateClassroomQuestions(
-      assessment,
-      studentId.toString()
-    );
-
-    // Save questions to database
-    const savedQuestions = await ClassroomQuestion.insertMany(questions);
-
-    // Calculate total points
-    const totalPoints = savedQuestions.reduce(
-      (sum: number, q: any) => sum + (q.points || 1),
-      0
-    );
-
-    // Create submission record
-    await ClassroomSubmission.create({
-      assessmentId: assessmentId,
-      studentId: studentId,
-      classroomId: assessment.classroomId,
-      status: "in_progress",
-      answers: [],
-      score: 0,
-      totalPoints,
-      percentage: 0,
-      startedAt: new Date(),
-    });
-
-    // Format for frontend (hide correct answers)
-    const formattedQuestions = savedQuestions.map((q: any) => ({
-      _id: q._id.toString(),
-      questionNumber: q.questionNumber,
-      questionText: q.questionText,
-      questionType: q.questionType,
-      options: q.options || [],
-      points: q.points,
-      difficulty: q.difficulty,
-      topic: q.topic,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: formattedQuestions,
-      message: "Questions generated successfully",
-    });
   } catch (error: any) {
     console.error("Error generating questions:", error);
-
-    // ✅ Handle duplicate key error gracefully - use stored variables
-    if (error.code === 11000) {
-      try {
-        // Get params again in catch block
-        const params = await props.params;
-        const { error: authError, user } = await requireStudent();
-
-        if (authError || !user) {
-          return NextResponse.json(
-            { success: false, error: { message: "Unauthorized" } },
-            { status: 401 }
-          );
-        }
-
-        const questions = await ClassroomQuestion.find({
-          assessmentId: params.id,
-          studentId: user.id,
-        })
-          .sort({ questionNumber: 1 })
-          .lean();
-
-        const formattedQuestions = questions.map((q: any) => ({
-          _id: q._id.toString(),
-          questionNumber: q.questionNumber,
-          questionText: q.questionText,
-          questionType: q.questionType,
-          options: q.options || [],
-          points: q.points,
-          difficulty: q.difficulty,
-          topic: q.topic,
-        }));
-
-        return NextResponse.json({
-          success: true,
-          data: formattedQuestions,
-          message: "Questions already generated",
-        });
-      } catch (fetchError) {
-        console.error("Error fetching existing questions:", fetchError);
-      }
-    }
 
     const errorMessage =
       error instanceof Error ? error.message : "Failed to generate questions";
@@ -202,10 +182,7 @@ export async function POST(
 }
 
 // Generate questions using Groq AI
-async function generateClassroomQuestions(
-  assessment: any,
-  studentId: string
-): Promise<any[]> {
+async function generateClassroomQuestions(assessment: any): Promise<any[]> {
   const { questionConfig, curriculum, difficulty, totalQuestions, title } =
     assessment;
 
@@ -224,16 +201,17 @@ Difficulty Level: ${difficulty}
 
 STRICT RULES:
 1. MCQ questions MUST have exactly 4 options
-2. For MCQ: correctAnswer must be 1, 2, 3, or 4 (option number, NOT the text)
+2. For MCQ: correctAnswer must be 1, 2, 3, or 4 (option number)
 3. For descriptive: provide expectedAnswer, evaluationCriteria, and expectedKeywords (12-20 keywords)
 4. For numerical: provide the numeric correctAnswer and explanation
 5. Questions must be clear, unambiguous, and test understanding
 6. Vary difficulty within the "${difficulty}" level
 7. Cover different topics from the curriculum
 8. Use real-world scenarios where applicable
-9. Each question worth 1 point by default (you can adjust for harder questions)
+9. Each question worth 1 point by default
+10. IMPORTANT: Use simple text only. Avoid special characters like quotes, apostrophes, or backslashes in questions and options. Use simple punctuation.
 
-Return ONLY valid JSON (no markdown, no extra text):
+Return ONLY valid JSON (no markdown, no code blocks, no extra text):
 
 {
   "questions": [
@@ -246,25 +224,6 @@ Return ONLY valid JSON (no markdown, no extra text):
       "points": 1,
       "topic": "Topic name",
       "explanation": "Why this answer is correct"
-    },
-    {
-      "questionNumber": 2,
-      "questionType": "descriptive",
-      "questionText": "Explain...",
-      "points": 2,
-      "topic": "Topic name",
-      "expectedAnswer": "2-3 line ideal answer",
-      "evaluationCriteria": "How to grade: point 1, point 2, etc.",
-      "expectedKeywords": ["keyword1", "keyword2", "keyword15"]
-    },
-    {
-      "questionNumber": 3,
-      "questionType": "numerical",
-      "questionText": "Calculate...",
-      "correctAnswer": 42,
-      "points": 1,
-      "topic": "Topic name",
-      "explanation": "How to arrive at this answer"
     }
   ]
 }`;
@@ -273,102 +232,138 @@ Return ONLY valid JSON (no markdown, no extra text):
     const { text: response } = await generateText({
       model: groq("llama-3.3-70b-versatile"),
       prompt,
-      temperature: 0.8,
+      temperature: 0.7,
     });
+
+    let cleanedResponse = response.trim();
+
+    cleanedResponse = cleanedResponse.replace(/```json\s*/g, "");
+    cleanedResponse = cleanedResponse.replace(/```\s*/g, "");
+
+    let jsonText = cleanedResponse;
+    const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[0];
+    }
+
+    try {
+      // Replace smart quotes with regular quotes
+      jsonText = jsonText.replace(/[""]/g, '"');
+      jsonText = jsonText.replace(/['']/g, "'");
+
+      // Fix escaped newlines
+      jsonText = jsonText.replace(/\n/g, " ");
+      jsonText = jsonText.replace(/\r/g, " ");
+
+      // Remove any trailing commas before closing brackets
+      jsonText = jsonText.replace(/,(\s*[}\]])/g, "$1");
+    } catch (cleanError) {
+      console.error("Error cleaning JSON:", cleanError);
+    }
 
     let parsed: { questions: GeneratedQuestion[] } | null = null;
 
     try {
-      parsed = JSON.parse(response);
-    } catch {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No valid JSON found in response");
+      parsed = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error("❌ JSON Parse Error:", parseError);
+      console.error(
+        "📄 Failed JSON (first 500 chars):",
+        jsonText.substring(0, 500)
+      );
+
+      try {
+        // Remove any control characters
+        jsonText = jsonText.replace(/[\x00-\x1F\x7F]/g, " ");
+        parsed = JSON.parse(jsonText);
+      } catch (secondError) {
+        throw new Error(
+          `Failed to parse AI response as JSON. Original error: ${parseError}. Response preview: ${response.substring(0, 200)}`
+        );
       }
     }
 
-    if (!parsed || !parsed.questions || !Array.isArray(parsed.questions)) {
-      throw new Error("Invalid questions structure");
+    if (!parsed?.questions || !Array.isArray(parsed.questions)) {
+      throw new Error("Invalid questions structure in AI response");
     }
 
     if (parsed.questions.length === 0) {
-      throw new Error("No questions generated");
+      throw new Error("No questions generated by AI");
     }
 
-    const formattedQuestions = parsed.questions.map((q, idx) => {
+    return parsed.questions.map((q, idx) => {
       const questionNumber = q.questionNumber || idx + 1;
 
+      // Validate question type
       if (!["mcq", "descriptive", "numerical"].includes(q.questionType)) {
-        throw new Error(
-          `Invalid questionType "${q.questionType}" at question ${questionNumber}`
+        console.warn(
+          `⚠️ Invalid question type "${q.questionType}" at question ${questionNumber}, defaulting to "descriptive"`
         );
+        q.questionType = "descriptive";
       }
 
-      const baseQuestion = {
-        assessmentId: assessment._id,
-        studentId: studentId,
+      const base = {
         questionNumber,
-        questionText: q.questionText,
+        questionText: q.questionText || `Question ${questionNumber}`,
         questionType: q.questionType,
         points: q.points || 1,
         difficulty: difficulty,
-        topic: q.topic,
+        topic: q.topic || "General",
       };
 
       if (q.questionType === "mcq") {
+        // Validate MCQ has 4 options
         if (!Array.isArray(q.options) || q.options.length !== 4) {
-          throw new Error(`MCQ question ${questionNumber} must have 4 options`);
+          console.warn(
+            `⚠️ MCQ question ${questionNumber} has ${q.options?.length || 0} options, expected 4`
+          );
+          // Pad with generic options if needed
+          const options = q.options || [];
+          while (options.length < 4) {
+            options.push(`Option ${options.length + 1}`);
+          }
+          q.options = options.slice(0, 4);
         }
 
-        if (
-          typeof q.correctAnswer !== "number" ||
-          q.correctAnswer < 1 ||
-          q.correctAnswer > 4
-        ) {
-          throw new Error(
-            `MCQ question ${questionNumber} correctAnswer must be 1-4`
+        // Validate correctAnswer is 1-4
+        const correctAnswer =
+          typeof q.correctAnswer === "number" ? q.correctAnswer : 1;
+        if (correctAnswer < 1 || correctAnswer > 4) {
+          console.warn(
+            `⚠️ MCQ question ${questionNumber} has invalid correctAnswer ${correctAnswer}, defaulting to 1`
           );
+          q.correctAnswer = 1;
         }
 
         return {
-          ...baseQuestion,
+          ...base,
           options: q.options,
           correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
+          explanation: q.explanation || "",
         };
       }
 
       if (q.questionType === "descriptive") {
         return {
-          ...baseQuestion,
-          expectedAnswer: q.expectedAnswer,
-          explanation: q.evaluationCriteria,
-          correctAnswer: q.expectedKeywords || [],
+          ...base,
+          correctAnswer: Array.isArray(q.expectedKeywords)
+            ? q.expectedKeywords
+            : [],
+          explanation: q.evaluationCriteria || q.explanation || "",
         };
       }
 
-      if (q.questionType === "numerical") {
-        return {
-          ...baseQuestion,
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
-        };
-      }
-
-      return baseQuestion;
+      // numerical
+      return {
+        ...base,
+        correctAnswer: q.correctAnswer || 0,
+        explanation: q.explanation || "",
+      };
     });
-
-    if (formattedQuestions.length !== totalQuestions) {
-      console.warn(
-        `Expected ${totalQuestions} questions but got ${formattedQuestions.length}`
-      );
-    }
-
-    return formattedQuestions;
   } catch (error) {
-    console.error("Question generation error:", error);
-    throw error;
+    console.error("❌ Question generation error:", error);
+    throw new Error(
+      `Failed to generate questions: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   }
 }

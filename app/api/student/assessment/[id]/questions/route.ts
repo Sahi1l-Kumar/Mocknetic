@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 
-// GET /api/student/assessment/:id/questions - Get generated questions for student
 export async function GET(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -16,39 +14,37 @@ export async function GET(
     const params = await props.params;
     await dbConnect();
 
-    // Verify assessment exists
-    const assessment = await ClassroomAssessment.findById(params.id);
+    const submission = (await ClassroomSubmission.findOne({
+      assessmentId: params.id,
+      studentId: user.id,
+    })
+      .lean()
+      .exec()) as any;
 
-    if (!assessment) {
+    if (!submission) {
       return NextResponse.json(
-        { success: false, error: { message: "Assessment not found" } },
+        {
+          success: false,
+          error: { message: "No submission found. Start assessment first." },
+        },
         { status: 404 }
       );
     }
 
-    // Get questions for this student
-    const questions = await ClassroomQuestion.find({
-      assessmentId: params.id,
-      studentId: user.id,
-    })
-      .sort({ questionNumber: 1 })
-      .lean();
-
-    if (questions.length === 0) {
+    if (!submission.questions || submission.questions.length === 0) {
       return NextResponse.json(
         {
           success: false,
           error: {
-            message: "No questions found. Please generate questions first.",
+            message: "No questions generated yet. Please generate questions.",
           },
         },
         { status: 404 }
       );
     }
 
-    // Format questions for frontend (hide correct answers)
-    const formattedQuestions = questions.map((q: any) => ({
-      _id: q._id.toString(),
+    const questions = submission.questions.map((q: any) => ({
+      _id: q._id?.toString() || `${submission._id}_q${q.questionNumber}`,
       questionNumber: q.questionNumber,
       questionText: q.questionText,
       questionType: q.questionType,
@@ -60,7 +56,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: formattedQuestions,
+      data: questions,
     });
   } catch (error) {
     console.error("Error fetching questions:", error);

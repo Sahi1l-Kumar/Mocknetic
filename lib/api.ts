@@ -267,5 +267,19 @@ export const api = {
           method: "POST",
         }
       ),
+    submitAssessment: (
+      assessmentId: string,
+      answers: { questionNumber: number; answer: string | number }[],
+      timeSpent: number
+    ) =>
+      fetchHandler(
+        `${API_BASE_URL}/student/assessment/${assessmentId}/submit`,
+        {
+          method: "POST",
+          body: JSON.stringify({ answers, timeSpent }),
+        }
+      ),
+    getAssessmentResult: (assessmentId: string) =>
+      fetchHandler(`${API_BASE_URL}/student/assessment/${assessmentId}/result`),
   },
 };

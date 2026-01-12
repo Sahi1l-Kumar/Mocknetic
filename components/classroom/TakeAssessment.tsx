@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -72,7 +72,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
   const router = useRouter();
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string | number>>({});
+  const [answers, setAnswers] = useState<Record<number, string | number>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -81,7 +81,16 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
 
+  const isGeneratingRef = useRef(false);
+  const hasFetchedRef = useRef(false);
+
   const fetchAssessmentAndGenerateQuestions = useCallback(async () => {
+    if (hasFetchedRef.current) {
+      return;
+    }
+
+    hasFetchedRef.current = true;
+
     try {
       setLoading(true);
 
@@ -111,10 +120,19 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
           setLoading(false);
           return;
         }
-      } catch {
-        // Questions don't exist, need to generate
-        console.log("No existing questions, will generate...");
+      } catch (err: any) {
+        console.error(
+          "No existing questions found:",
+          err?.response?.data?.error?.message
+        );
       }
+
+      // Prevent duplicate generation requests
+      if (isGeneratingRef.current) {
+        return;
+      }
+
+      isGeneratingRef.current = true;
 
       // Generate questions
       setGenerating(true);
@@ -126,7 +144,6 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
       const generateRes =
         await api.student.generateAssessmentQuestions(assessmentId);
 
-      // ✅ Add type assertion
       if (generateRes.success && Array.isArray(generateRes.data)) {
         setQuestions(generateRes.data as Question[]);
         toast.success("Questions generated successfully!", {
@@ -139,12 +156,19 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
       }
     } catch (error: any) {
       console.error("Error:", error);
-      toast.error(
+
+      const errorMessage =
         error?.response?.data?.error?.message ||
-          error.message ||
-          "Failed to load assessment"
-      );
-      router.push(ROUTES.CLASSROOM);
+        error.message ||
+        "Failed to load assessment";
+
+      if (!isGeneratingRef.current || !hasFetchedRef.current) {
+        toast.error(errorMessage);
+        setTimeout(() => {
+          router.push(ROUTES.CLASSROOM);
+        }, 2000);
+      } else {
+      }
     } finally {
       setLoading(false);
       setGenerating(false);
@@ -153,6 +177,8 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
 
   useEffect(() => {
     fetchAssessmentAndGenerateQuestions();
+
+    return () => {};
   }, [fetchAssessmentAndGenerateQuestions]);
 
   useEffect(() => {
@@ -163,10 +189,13 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
     return () => clearInterval(timer);
   }, [startTime]);
 
-  const handleAnswerChange = (questionId: string, answer: string | number) => {
+  const handleAnswerChange = (
+    questionNumber: number,
+    answer: string | number
+  ) => {
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: answer,
+      [questionNumber]: answer,
     }));
   };
 
@@ -176,9 +205,16 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
 
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
-      const result = await api.assessment.submit(
+      const formattedAnswers = Object.entries(answers).map(
+        ([questionNumber, answer]) => ({
+          questionNumber: parseInt(questionNumber),
+          answer,
+        })
+      );
+
+      const result = await api.student.submitAssessment(
         assessmentId,
-        answers,
+        formattedAnswers,
         timeSpent
       );
 
@@ -347,9 +383,11 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
               {currentQuestion.questionType === "mcq" &&
                 currentQuestion.options && (
                   <RadioGroup
-                    value={answers[currentQuestion._id]?.toString() || ""}
+                    value={
+                      answers[currentQuestion.questionNumber]?.toString() || ""
+                    }
                     onValueChange={(value) =>
-                      handleAnswerChange(currentQuestion._id, value)
+                      handleAnswerChange(currentQuestion.questionNumber, value)
                     }
                   >
                     <div className="space-y-3">
@@ -357,12 +395,15 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                         <div
                           key={idx}
                           className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                            answers[currentQuestion._id] === option
+                            answers[currentQuestion.questionNumber] === option
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                           }`}
                           onClick={() =>
-                            handleAnswerChange(currentQuestion._id, option)
+                            handleAnswerChange(
+                              currentQuestion.questionNumber,
+                              option
+                            )
                           }
                         >
                           <RadioGroupItem value={option} id={`option-${idx}`} />
@@ -381,9 +422,14 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
               {currentQuestion.questionType === "descriptive" && (
                 <Textarea
                   placeholder="Type your answer here..."
-                  value={answers[currentQuestion._id]?.toString() || ""}
+                  value={
+                    answers[currentQuestion.questionNumber]?.toString() || ""
+                  }
                   onChange={(e) =>
-                    handleAnswerChange(currentQuestion._id, e.target.value)
+                    handleAnswerChange(
+                      currentQuestion.questionNumber,
+                      e.target.value
+                    )
                   }
                   rows={8}
                   className="resize-none"
@@ -394,10 +440,12 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                 <input
                   type="number"
                   placeholder="Enter your answer"
-                  value={answers[currentQuestion._id]?.toString() || ""}
+                  value={
+                    answers[currentQuestion.questionNumber]?.toString() || ""
+                  }
                   onChange={(e) =>
                     handleAnswerChange(
-                      currentQuestion._id,
+                      currentQuestion.questionNumber,
                       parseFloat(e.target.value) || 0
                     )
                   }
@@ -465,7 +513,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                   className={`aspect-square rounded-lg font-semibold text-sm transition-all ${
                     idx === currentQuestionIndex
                       ? "bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2"
-                      : answers[q._id]
+                      : answers[q.questionNumber] !== undefined
                         ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
                   }`}

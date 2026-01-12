@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
+import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
 
 // GET /api/classroom-assessment/:id - Get assessment details
@@ -17,7 +17,10 @@ export async function GET(
     const params = await props.params;
     await dbConnect();
 
-    const assessment = await ClassroomAssessment.findById(params.id);
+    const assessment = await ClassroomAssessment.findById(params.id).populate(
+      "classroomId",
+      "name"
+    );
 
     if (!assessment) {
       return NextResponse.json(
@@ -63,43 +66,21 @@ export async function GET(
       }
     }
 
-    const questions = await ClassroomQuestion.find({
-      assessmentId: params.id,
-    }).sort({ questionNumber: 1 });
-
-    // Hide correct answers and explanations for students
-    const sanitizedQuestions =
-      user.role === "student"
-        ? questions.map((q) => {
-            const qObj = q.toObject();
-            return {
-              _id: qObj._id.toString(),
-              assessmentId: qObj.assessmentId.toString(),
-              questionNumber: qObj.questionNumber,
-              questionText: qObj.questionText,
-              questionType: qObj.questionType,
-              options: qObj.options,
-              points: qObj.points,
-              difficulty: qObj.difficulty,
-              topic: qObj.topic,
-            };
-          })
-        : questions.map((q) => {
-            const qObj = q.toObject();
-            return {
-              ...qObj,
-              _id: qObj._id.toString(),
-              assessmentId: qObj.assessmentId.toString(),
-            };
-          });
-
     const assessmentObj = assessment.toObject();
 
     return NextResponse.json({
       success: true,
       data: {
         _id: assessmentObj._id.toString(),
-        classroomId: assessmentObj.classroomId.toString(),
+        classroomId: assessmentObj.classroomId._id
+          ? assessmentObj.classroomId._id.toString()
+          : assessmentObj.classroomId.toString(),
+        classroom: assessmentObj.classroomId.name
+          ? {
+              _id: assessmentObj.classroomId._id.toString(),
+              name: assessmentObj.classroomId.name,
+            }
+          : undefined,
         teacherId: assessmentObj.teacherId.toString(),
         title: assessmentObj.title,
         description: assessmentObj.description,
@@ -108,12 +89,11 @@ export async function GET(
         dueDate: assessmentObj.dueDate,
         difficulty: assessmentObj.difficulty,
         totalQuestions: assessmentObj.totalQuestions,
+        questionConfig: assessmentObj.questionConfig,
         skills: assessmentObj.skills,
         isPublished: assessmentObj.isPublished,
         createdAt: assessmentObj.createdAt,
         updatedAt: assessmentObj.updatedAt,
-        questions: sanitizedQuestions,
-        questionCount: questions.length,
       },
     });
   } catch (error) {
@@ -222,9 +202,9 @@ export async function DELETE(
       );
     }
 
-    // Delete assessment and all related questions
+    // Delete assessment and all related submissions
     await ClassroomAssessment.findByIdAndDelete(params.id);
-    await ClassroomQuestion.deleteMany({ assessmentId: params.id });
+    await ClassroomSubmission.deleteMany({ assessmentId: params.id });
 
     return NextResponse.json({
       success: true,

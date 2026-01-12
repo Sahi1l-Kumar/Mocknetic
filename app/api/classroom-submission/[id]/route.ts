@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
-import ClassroomQuestion from "@/database/classroom/classroom-question.model";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
 
 // GET /api/classroom-submission/:id - Get submission details
@@ -17,9 +16,11 @@ export async function GET(
     const params = await props.params;
     await dbConnect();
 
-    const submission = await ClassroomSubmission.findById(params.id)
+    const submission = (await ClassroomSubmission.findById(params.id)
       .populate("studentId", "name email image username")
-      .populate("assessmentId", "title totalQuestions");
+      .populate("assessmentId", "title totalQuestions")
+      .lean()
+      .exec()) as any;
 
     if (!submission) {
       return NextResponse.json(
@@ -29,7 +30,7 @@ export async function GET(
     }
 
     const assessment = await ClassroomAssessment.findById(
-      submission.assessmentId
+      submission.assessmentId._id || submission.assessmentId
     );
 
     if (!assessment) {
@@ -48,12 +49,8 @@ export async function GET(
         );
       }
     } else if (user.role === "student") {
-      // Access studentId properly from populated field
       const studentId =
-        typeof submission.studentId === "object" &&
-        submission.studentId !== null
-          ? (submission.studentId as any)._id.toString()
-          : submission.studentId.toString();
+        submission.studentId._id?.toString() || submission.studentId.toString();
 
       if (studentId !== user.id) {
         return NextResponse.json(
@@ -66,74 +63,63 @@ export async function GET(
       }
     }
 
-    // Get questions with answers
-    const questions = await ClassroomQuestion.find({
-      assessmentId: submission.assessmentId,
-    }).sort({ questionNumber: 1 });
+    // Questions are embedded in submission
+    const questionsWithAnswers = (submission.questions || []).map(
+      (question: any) => {
+        const answer = (submission.answers || []).find(
+          (a: any) => a.questionNumber === question.questionNumber
+        );
 
-    const questionsWithAnswers = questions.map((question) => {
-      const questionObj = question.toObject();
-      const answer = submission.answers.find(
-        (a: any) => a.questionId.toString() === question._id.toString()
-      );
+        return {
+          _id: question._id?.toString() || `q${question.questionNumber}`,
+          questionNumber: question.questionNumber,
+          questionText: question.questionText,
+          questionType: question.questionType,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          points: question.points,
+          difficulty: question.difficulty,
+          topic: question.topic,
+          explanation: question.explanation,
+          studentAnswer: answer?.answer,
+          isCorrect: answer?.isCorrect,
+          pointsAwarded: answer?.pointsEarned || 0,
+          feedback: answer?.feedback,
+        };
+      }
+    );
 
-      return {
-        _id: questionObj._id.toString(),
-        assessmentId: questionObj.assessmentId.toString(),
-        questionNumber: questionObj.questionNumber,
-        questionText: questionObj.questionText,
-        questionType: questionObj.questionType,
-        options: questionObj.options,
-        correctAnswer: questionObj.correctAnswer,
-        points: questionObj.points,
-        difficulty: questionObj.difficulty,
-        topic: questionObj.topic,
-        explanation: questionObj.explanation,
-        studentAnswer: answer?.studentAnswer,
-        isCorrect: answer?.isCorrect,
-        pointsAwarded: answer?.pointsAwarded,
-        feedback: answer?.feedback,
-        gradedBy: answer?.gradedBy,
-      };
-    });
-
-    const submissionObj = submission.toObject();
-
-    // Format the response data
     const submissionData = {
-      _id: submissionObj._id.toString(),
+      _id: submission._id.toString(),
       assessmentId:
-        typeof submissionObj.assessmentId === "object"
+        typeof submission.assessmentId === "object"
           ? {
-              _id: (submissionObj.assessmentId as any)._id.toString(),
-              title: (submissionObj.assessmentId as any).title,
-              totalQuestions: (submissionObj.assessmentId as any)
-                .totalQuestions,
+              _id: submission.assessmentId._id.toString(),
+              title: submission.assessmentId.title,
+              totalQuestions: submission.assessmentId.totalQuestions,
             }
-          : submissionObj.assessmentId.toString(),
+          : submission.assessmentId.toString(),
       studentId:
-        typeof submissionObj.studentId === "object"
+        typeof submission.studentId === "object"
           ? {
-              _id: (submissionObj.studentId as any)._id.toString(),
-              name: (submissionObj.studentId as any).name,
-              email: (submissionObj.studentId as any).email,
-              image: (submissionObj.studentId as any).image,
-              username: (submissionObj.studentId as any).username,
+              _id: submission.studentId._id.toString(),
+              name: submission.studentId.name,
+              email: submission.studentId.email,
+              image: submission.studentId.image,
+              username: submission.studentId.username,
             }
-          : submissionObj.studentId.toString(),
-      classroomId: submissionObj.classroomId.toString(),
-      score: submissionObj.score,
-      totalPoints: submissionObj.totalPoints,
-      percentage: submissionObj.percentage,
-      status: submissionObj.status,
-      startedAt: submissionObj.startedAt,
-      submittedAt: submissionObj.submittedAt,
-      gradedAt: submissionObj.gradedAt,
-      timeSpent: submissionObj.timeSpent,
-      ipAddress: submissionObj.ipAddress,
-      userAgent: submissionObj.userAgent,
-      createdAt: submissionObj.createdAt,
-      updatedAt: submissionObj.updatedAt,
+          : submission.studentId.toString(),
+      classroomId: submission.classroomId.toString(),
+      score: submission.score,
+      totalPoints: submission.totalPoints,
+      percentage: submission.percentage,
+      status: submission.status,
+      startedAt: submission.startedAt,
+      submittedAt: submission.submittedAt,
+      gradedAt: submission.gradedAt,
+      timeSpent: submission.timeSpent,
+      createdAt: submission.createdAt,
+      updatedAt: submission.updatedAt,
       questions: questionsWithAnswers,
     };
 
