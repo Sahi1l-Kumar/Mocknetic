@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import Classroom from "@/database/classroom/classroom.model";
+import Classroom, {
+  type IClassroom,
+} from "@/database/classroom/classroom.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
 import { generateClassCode } from "@/lib/utils";
 
@@ -16,21 +18,29 @@ export async function GET() {
     const classrooms = await Classroom.find({
       teacherId: user.id,
       isActive: true,
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .lean<IClassroom[]>();
 
     // Get student count for each classroom
     const classroomsWithCounts = await Promise.all(
-      classrooms.map(async (classroom) => {
+      classrooms.map(async (classroom: any) => {
         const studentCount = await ClassroomMembership.countDocuments({
           classroomId: classroom._id,
           status: "active",
         });
 
         return {
-          ...classroom,
           _id: classroom._id.toString(),
+          name: classroom.name,
+          description: classroom.description,
+          subject: classroom.subject,
+          code: classroom.code,
           teacherId: classroom.teacherId.toString(),
+          isActive: classroom.isActive,
           studentCount,
+          createdAt: classroom.createdAt,
+          updatedAt: classroom.updatedAt,
         };
       })
     );
@@ -66,11 +76,9 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
-    // Generate unique classroom code (like Google Classroom)
     let code = generateClassCode();
     let exists = await Classroom.findOne({ code });
 
-    // Keep generating until we get a unique code
     while (exists) {
       code = generateClassCode();
       exists = await Classroom.findOne({ code });
@@ -86,15 +94,20 @@ export async function POST(request: NextRequest) {
       studentCount: 0,
     });
 
-    const classroomObj = classroom.toObject();
-
     return NextResponse.json(
       {
         success: true,
         data: {
-          ...classroomObj,
-          _id: classroomObj._id.toString(),
-          teacherId: classroomObj.teacherId.toString(),
+          _id: classroom._id.toString(),
+          name: classroom.name,
+          description: classroom.description,
+          subject: classroom.subject,
+          code: classroom.code,
+          teacherId: classroom.teacherId.toString(),
+          isActive: classroom.isActive,
+          studentCount: 0,
+          createdAt: classroom.createdAt,
+          updatedAt: classroom.updatedAt,
         },
       },
       { status: 201 }

@@ -194,8 +194,6 @@ Return ONLY a JSON array with no markdown formatting or code blocks. Example str
             skill,
           };
         });
-
-        console.log(`Generated ${recommendations.length} recommendations`);
       } catch (parseError) {
         console.error("Failed to parse AI response:", parseError);
       }

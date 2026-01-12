@@ -8,6 +8,7 @@ import {
   MoreVertical,
   Loader2,
   LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -18,6 +19,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
 import JoinClassroomModal from "@/components/classroom/JoinClassroomModal";
 import ROUTES from "@/constants/routes";
@@ -74,6 +85,11 @@ const StudentClassroomsHub = () => {
   const [loading, setLoading] = useState(true);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [selectedTab, setSelectedTab] = useState("all");
+  const [unenrollDialog, setUnenrollDialog] = useState<{
+    open: boolean;
+    classroom: { id: string; name: string } | null;
+  }>({ open: false, classroom: null });
+  const [isUnenrolling, setIsUnenrolling] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -103,34 +119,41 @@ const StudentClassroomsHub = () => {
     }
   };
 
-  const handleUnenroll = async (
+  const handleUnenrollClick = (
     classroomId: string,
     classroomName: string,
     e: React.MouseEvent
   ) => {
     e.preventDefault();
     e.stopPropagation();
+    setUnenrollDialog({
+      open: true,
+      classroom: { id: classroomId, name: classroomName },
+    });
+  };
 
-    if (
-      !confirm(
-        `Are you sure you want to unenroll from "${classroomName}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  const confirmUnenroll = async () => {
+    if (!unenrollDialog.classroom) return;
+
+    setIsUnenrolling(true);
 
     try {
-      const response = await api.student.leaveClassroom(classroomId);
+      const response = await api.student.leaveClassroom(
+        unenrollDialog.classroom.id
+      );
 
       if (response.success) {
-        toast.success("Successfully unenrolled from classroom");
+        toast.success(`Left ${unenrollDialog.classroom.name}`);
+        setUnenrollDialog({ open: false, classroom: null });
         fetchData();
       } else {
-        toast.error(response.error?.message || "Failed to unenroll");
+        toast.error(response.error?.message || "Failed to leave classroom");
       }
     } catch (error) {
       console.error("Error unenrolling:", error);
-      toast.error("Failed to unenroll from classroom");
+      toast.error("Failed to leave classroom");
+    } finally {
+      setIsUnenrolling(false);
     }
   };
 
@@ -149,7 +172,7 @@ const StudentClassroomsHub = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-5">
+    <div className="min-h-screen bg-white pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Classrooms</h1>
@@ -217,7 +240,7 @@ const StudentClassroomsHub = () => {
                       key={classroom._id}
                       classroom={classroom}
                       colorScheme={colorScheme}
-                      onUnenroll={handleUnenroll}
+                      onUnenroll={handleUnenrollClick}
                     />
                   );
                 })}
@@ -288,6 +311,69 @@ const StudentClassroomsHub = () => {
         onClose={() => setShowJoinModal(false)}
         onSuccess={fetchData}
       />
+
+      <AlertDialog
+        open={unenrollDialog.open}
+        onOpenChange={(open) =>
+          !isUnenrolling && setUnenrollDialog({ open, classroom: null })
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-red-100 p-2 rounded-full">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <AlertDialogTitle className="text-xl">
+                Leave Classroom?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="text-base space-y-3">
+                <p className="text-gray-600">
+                  Are you sure you want to leave{" "}
+                  <span className="font-semibold text-gray-900">
+                    {unenrollDialog.classroom?.name}
+                  </span>
+                  ?
+                </p>
+                <div className="space-y-2 text-sm">
+                  <p className="text-gray-700 font-medium">
+                    You will lose access to:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600 ml-2">
+                    <li>All class assignments and materials</li>
+                    <li>Your submission history and grades</li>
+                    <li>Class announcements and updates</li>
+                  </ul>
+                  <p className="text-red-600 font-medium pt-1">
+                    You'll need a new invite code to rejoin.
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUnenrolling}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmUnenroll}
+              disabled={isUnenrolling}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isUnenrolling ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Leaving...
+                </>
+              ) : (
+                "Yes, Leave Classroom"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -367,7 +453,7 @@ const ClassroomCard = ({
             className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Unenroll
+            Leave Classroom
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import Classroom from "@/database/classroom/classroom.model";
+import Classroom, {
+  type IClassroom,
+} from "@/database/classroom/classroom.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
 import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
 
@@ -17,7 +19,9 @@ export async function GET(
     const params = await props.params;
     await dbConnect();
 
-    const classroom = await Classroom.findById(params.id);
+    const classroom = await Classroom.findById(params.id).lean<
+      IClassroom & { _id: any; createdAt: Date; updatedAt: Date }
+    >();
 
     if (!classroom) {
       return NextResponse.json(
@@ -36,13 +40,11 @@ export async function GET(
       );
     }
 
-    // Get actual student count
     const studentCount = await ClassroomMembership.countDocuments({
       classroomId: params.id,
       status: "active",
     });
 
-    // Get assessment count
     const assessmentCount = await ClassroomAssessment.countDocuments({
       classroomId: params.id,
     });
@@ -106,7 +108,7 @@ export async function PUT(
       );
     }
 
-    const updateData: Record<string, any> = {};
+    const updateData: Partial<IClassroom> = {};
     if (name) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description?.trim();
     if (subject !== undefined) updateData.subject = subject?.trim();
@@ -116,14 +118,27 @@ export async function PUT(
       params.id,
       { $set: updateData },
       { new: true, runValidators: true }
-    );
+    ).lean<IClassroom & { _id: any; createdAt: Date; updatedAt: Date }>();
+
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: { message: "Update failed" } },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        ...updated,
-        _id: updated?._id.toString(),
-        teacherId: updated?.teacherId.toString(),
+        _id: updated._id.toString(),
+        name: updated.name,
+        description: updated.description,
+        subject: updated.subject,
+        code: updated.code,
+        teacherId: updated.teacherId.toString(),
+        isActive: updated.isActive,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
       },
     });
   } catch (error) {

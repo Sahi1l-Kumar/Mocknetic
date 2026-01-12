@@ -21,6 +21,9 @@ declare module "next-auth" {
   }
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith("https://");
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google,
@@ -62,6 +65,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
+
+  cookies: {
+    sessionToken: {
+      name: isProduction
+        ? `__Secure-next-auth.session-token`
+        : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        domain: isProduction ? ".mocknetic.com" : undefined,
+      },
+    },
+    callbackUrl: {
+      name: isProduction
+        ? `__Secure-next-auth.callback-url`
+        : `next-auth.callback-url`,
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        domain: isProduction ? ".mocknetic.com" : undefined,
+      },
+    },
+    csrfToken: {
+      name: isProduction
+        ? `__Host-next-auth.csrf-token`
+        : `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        domain: undefined,
+      },
+    },
+  },
+
   callbacks: {
     async session({ session, token }) {
       session.user.id = token.sub as string;

@@ -9,22 +9,16 @@ import {
   Loader2,
   Send,
   BookOpen,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api";
+import ROUTES from "@/constants/routes";
 
 interface TakeAssessmentProps {
   assessmentId: string;
@@ -65,7 +60,7 @@ interface Assessment {
   difficulty: string;
   curriculum?: string;
   dueDate?: string;
-  questions?: Question[]; // Questions might be included in assessment
+  questions?: Question[];
 }
 
 const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
@@ -84,14 +79,12 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
     try {
       setLoading(true);
 
-      // Fetch assessment details (questions should be included)
       const assessmentRes = await api.assessment.getById(assessmentId);
 
       if (assessmentRes.success) {
         const assessmentData = assessmentRes.data as Assessment;
         setAssessment(assessmentData);
 
-        // Check if questions are included in assessment response
         if (assessmentData.questions && assessmentData.questions.length > 0) {
           setQuestions(assessmentData.questions);
         } else {
@@ -99,7 +92,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
         }
       } else {
         toast.error("Assessment not found");
-        router.push("/classroom");
+        router.push(ROUTES.CLASSROOM);
       }
     } catch (error) {
       console.error("Error fetching assessment:", error);
@@ -113,7 +106,6 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
     fetchAssessment();
   }, [fetchAssessment]);
 
-  // Timer
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
@@ -169,11 +161,9 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
-          </div>
+      <div className="min-h-screen bg-white pt-20">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
         </div>
       </div>
     );
@@ -181,19 +171,21 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
 
   if (!assessment || questions.length === 0) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
-        <div className="container mx-auto px-4 py-8">
+      <div className="min-h-screen bg-white pt-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
+              <AlertTriangle className="w-16 h-16 text-amber-500 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 Assessment Not Available
               </h3>
               <p className="text-gray-600 mb-6">
                 This assessment is not available or has no questions.
               </p>
-              <Link href="/classroom">
-                <Button>Back to Classrooms</Button>
+              <Link href={ROUTES.CLASSROOM}>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  Back to Classrooms
+                </Button>
               </Link>
             </CardContent>
           </Card>
@@ -206,83 +198,86 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
   const classroomId = assessment.classroom?._id || assessment.classroomId;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-4xl">
-        {/* Header */}
-        <div className="mb-6">
-          <Link href={`/classroom/${classroomId}`}>
-            <Button variant="ghost" size="sm" className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Classroom
-            </Button>
-          </Link>
+    <div className="min-h-screen bg-white pt-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <Link href={ROUTES.CLASSROOMID(classroomId)}>
+          <Button variant="ghost" size="sm" className="mb-4 hover:bg-gray-100">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Classroom
+          </Button>
+        </Link>
 
-          <Card className="bg-linear-to-br from-indigo-500 to-indigo-600 text-white border-0">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-bold mb-2">
-                    {assessment.title}
-                  </h1>
-                  <p className="text-indigo-100 text-sm">
-                    {assessment.classroom?.name || "Classroom"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl sm:text-3xl font-bold">
-                      {formatTime(timeElapsed)}
-                    </div>
-                    <div className="text-xs text-indigo-100">Time Elapsed</div>
-                  </div>
-                </div>
+        <Card className="mb-6 bg-linear-to-br from-blue-600 to-blue-700 text-white border-0">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold mb-1">{assessment.title}</h1>
+                <p className="text-blue-100 text-sm">
+                  {assessment.classroom?.name || "Classroom"}
+                </p>
               </div>
-
-              {/* Progress */}
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>
-                    Question {currentQuestionIndex + 1} of {questions.length}
-                  </span>
-                  <span>
-                    {answeredCount} / {questions.length} answered
-                  </span>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="flex items-center gap-2 text-white/90 mb-1">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-xs">Time Elapsed</span>
                 </div>
-                <Progress value={progress} className="h-2 bg-white/20" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Question Card */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <CardTitle className="text-lg sm:text-xl">
-                Question {currentQuestion.questionNumber}
-              </CardTitle>
-              <div className="flex gap-2 shrink-0">
-                <Badge variant="outline" className="capitalize">
-                  {currentQuestion.questionType}
-                </Badge>
-                <Badge variant="secondary">{currentQuestion.points} pts</Badge>
+                <div className="text-3xl font-bold tabular-nums">
+                  {formatTime(timeElapsed)}
+                </div>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-white/90">
+                <span>
+                  Question {currentQuestionIndex + 1} of {questions.length}
+                </span>
+                <span>
+                  {answeredCount} / {questions.length} answered
+                </span>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-2">
+                <div
+                  className="bg-white h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                Question {currentQuestion.questionNumber}
+              </h2>
+              <div className="flex gap-2 shrink-0">
+                <Badge
+                  variant="outline"
+                  className="capitalize bg-blue-50 text-blue-700 border-blue-200"
+                >
+                  {currentQuestion.questionType}
+                </Badge>
+                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0">
+                  {currentQuestion.points} pts
+                </Badge>
+              </div>
+            </div>
+
             {currentQuestion.topic && (
-              <CardDescription className="flex items-center gap-1">
+              <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
                 <BookOpen className="w-4 h-4" />
-                {currentQuestion.topic}
-              </CardDescription>
+                <span>{currentQuestion.topic}</span>
+              </div>
             )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="prose prose-sm sm:prose max-w-none">
-              <p className="text-base sm:text-lg text-gray-900 whitespace-pre-wrap">
+
+            <div className="mb-6">
+              <p className="text-lg text-gray-900 whitespace-pre-wrap leading-relaxed">
                 {currentQuestion.questionText}
               </p>
             </div>
 
-            {/* Answer Input */}
             <div className="space-y-4">
               {currentQuestion.questionType === "mcq" &&
                 currentQuestion.options && (
@@ -296,7 +291,11 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                       {currentQuestion.options.map((option, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center space-x-3 p-3 sm:p-4 border-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                          className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                            answers[currentQuestion._id] === option
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                          }`}
                           onClick={() =>
                             handleAnswerChange(currentQuestion._id, option)
                           }
@@ -304,7 +303,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                           <RadioGroupItem value={option} id={`option-${idx}`} />
                           <Label
                             htmlFor={`option-${idx}`}
-                            className="flex-1 cursor-pointer text-sm sm:text-base"
+                            className="flex-1 cursor-pointer"
                           >
                             {option}
                           </Label>
@@ -322,7 +321,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                     handleAnswerChange(currentQuestion._id, e.target.value)
                   }
                   rows={8}
-                  className="text-sm sm:text-base"
+                  className="resize-none"
                 />
               )}
 
@@ -337,7 +336,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                       parseFloat(e.target.value) || 0
                     )
                   }
-                  className="w-full px-4 py-3 border-2 rounded-lg text-base sm:text-lg font-semibold focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:border-blue-500"
                 />
               )}
 
@@ -349,15 +348,14 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                     handleAnswerChange(currentQuestion._id, e.target.value)
                   }
                   rows={12}
-                  className="font-mono text-xs sm:text-sm"
+                  className="font-mono text-sm resize-none"
                 />
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Navigation */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <Button
             variant="outline"
             onClick={() =>
@@ -376,7 +374,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                   Math.min(questions.length - 1, prev + 1)
                 )
               }
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
             >
               Next
             </Button>
@@ -384,7 +382,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
             <Button
               onClick={() => setShowSubmitDialog(true)}
               disabled={submitting}
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
             >
               {submitting ? (
                 <>
@@ -401,42 +399,39 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
           )}
         </div>
 
-        {/* Question Navigator */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg">
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Question Navigator
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
+            </h3>
+            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
               {questions.map((q, idx) => (
                 <button
                   key={q._id}
                   onClick={() => setCurrentQuestionIndex(idx)}
                   className={`aspect-square rounded-lg font-semibold text-sm transition-all ${
                     idx === currentQuestionIndex
-                      ? "bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-2"
+                      ? "bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2"
                       : answers[q._id]
-                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
                   }`}
                 >
                   {q.questionNumber}
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-4 mt-4 text-xs sm:text-sm text-gray-600">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-indigo-600 rounded"></div>
+                <div className="w-4 h-4 bg-blue-600 rounded"></div>
                 <span>Current</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                <div className="w-4 h-4 bg-emerald-100 border border-emerald-300 rounded"></div>
                 <span>Answered</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-slate-100 border border-slate-300 rounded"></div>
+                <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
                 <span>Not Answered</span>
               </div>
             </div>
@@ -444,33 +439,52 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
         </Card>
       </div>
 
-      {/* Submit Confirmation Dialog */}
       <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-600" />
-              Submit Assessment?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                You have answered <strong>{answeredCount}</strong> out of{" "}
-                <strong>{questions.length}</strong> questions.
-              </p>
-              {answeredCount < questions.length && (
-                <p className="text-yellow-700 font-medium">
-                  ⚠️ You have {questions.length - answeredCount} unanswered
-                  question
-                  {questions.length - answeredCount !== 1 ? "s" : ""}.
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-emerald-100 p-2 rounded-full">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              </div>
+              <AlertDialogTitle className="text-xl">
+                Submit Assessment?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-base">
+                <p className="text-gray-600">
+                  You have answered{" "}
+                  <span className="font-semibold text-gray-900">
+                    {answeredCount}
+                  </span>{" "}
+                  out of{" "}
+                  <span className="font-semibold text-gray-900">
+                    {questions.length}
+                  </span>{" "}
+                  questions.
                 </p>
-              )}
-              <p>
-                Time spent: <strong>{formatTime(timeElapsed)}</strong>
-              </p>
-              <p className="font-medium">
-                Once submitted, you cannot change your answers. Are you sure you
-                want to submit?
-              </p>
+                {answeredCount < questions.length && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-amber-800 text-sm font-medium flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <span>
+                        You have {questions.length - answeredCount} unanswered
+                        question
+                        {questions.length - answeredCount !== 1 ? "s" : ""}.
+                      </span>
+                    </p>
+                  </div>
+                )}
+                <p className="text-gray-600">
+                  Time spent:{" "}
+                  <span className="font-semibold text-gray-900">
+                    {formatTime(timeElapsed)}
+                  </span>
+                </p>
+                <p className="text-gray-900 font-medium">
+                  Once submitted, you cannot change your answers.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -480,7 +494,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
             <AlertDialogAction
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-emerald-600 hover:bg-emerald-700"
             >
               {submitting ? (
                 <>
