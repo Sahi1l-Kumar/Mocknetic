@@ -97,6 +97,38 @@ export const api = {
           body: JSON.stringify(data),
         }
       ),
+    saveResult: (data: {
+      assessmentId: string;
+      jobRole: string;
+      difficulty: string;
+      overallScore: number;
+      correctAnswers: number;
+      totalQuestions: number;
+      skillGaps: any[];
+      recommendations: any[];
+      questions: any[];
+    }) =>
+      fetchHandler(`${API_BASE_URL}/skill-assessment/result`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getResults: (params?: {
+      limit?: number;
+      skip?: number;
+      jobRole?: string;
+    }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.limit) searchParams.append("limit", params.limit.toString());
+      if (params?.skip) searchParams.append("skip", params.skip.toString());
+      if (params?.jobRole) searchParams.append("jobRole", params.jobRole);
+
+      return fetchHandler(
+        `${API_BASE_URL}/skill-assessment/result?${searchParams.toString()}`
+      );
+    },
+    getResultById: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/skill-assessment/result/${id}`),
+    getStats: () => fetchHandler(`${API_BASE_URL}/skill-assessment/stats`),
   },
 
   resume: {
@@ -140,23 +172,50 @@ export const api = {
   },
 
   judge0: {
-    execute: (data: ExecuteCodeRequest) =>
+    execute: (
+      data: ExecuteCodeRequest & {
+        testCases?: Array<{ input: string; expectedOutput: string }>;
+      }
+    ) =>
       fetchHandler(`${API_BASE_URL}/judge0/execute`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
 
-    submit: (data: SubmitCodeRequest) =>
+    submit: (
+      data: SubmitCodeRequest & { problemId: number; problemTitle: string }
+    ) =>
       fetchHandler(`${API_BASE_URL}/judge0/submit`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
 
-    checkStatus: (data: CheckStatusRequest) =>
+    checkStatus: (data: CheckStatusRequest & { submissionDbId?: string }) =>
       fetchHandler(`${API_BASE_URL}/judge0/status`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
+
+    getSubmissions: (params?: {
+      problemNumber?: string;
+      status?: string;
+      limit?: number;
+      skip?: number;
+    }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.problemNumber)
+        searchParams.append("problemNumber", params.problemNumber);
+      if (params?.status) searchParams.append("status", params.status);
+      if (params?.limit) searchParams.append("limit", params.limit.toString());
+      if (params?.skip) searchParams.append("skip", params.skip.toString());
+
+      return fetchHandler(
+        `${API_BASE_URL}/judge0/submissions?${searchParams.toString()}`
+      );
+    },
+
+    getSubmissionById: (id: string) =>
+      fetchHandler(`${API_BASE_URL}/judge0/submissions/${id}`),
   },
 
   classroom: {

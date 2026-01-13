@@ -213,6 +213,7 @@ export default function SkillGapAssessment() {
           );
         }
 
+        // Step 1: Submit answers to assessment
         const submitData = (await api.skillassessment.submitAnswers(
           assessmentId,
           finalAnswers
@@ -229,6 +230,13 @@ export default function SkillGapAssessment() {
           questions: dbQuestions,
         } = submitData.data!;
 
+        console.log("[RESULTS] Submission successful:", {
+          score,
+          correctAnswers,
+          totalQuestions,
+        });
+
+        // Step 2: Calculate skill performance
         const skillPerformance: Record<string, SkillPerformance> = {};
 
         dbQuestions.forEach((q: AssessmentQuestion) => {
@@ -262,6 +270,7 @@ export default function SkillGapAssessment() {
 
         const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
 
+        // Step 3: Generate recommendations
         let recommendations: Recommendation[] = [];
         try {
           const weakSkills = skillGapsSorted
@@ -300,21 +309,47 @@ export default function SkillGapAssessment() {
           ];
         }
 
-        const results: AssessmentResults = {
-          skillGaps: skillGapsSorted,
-          overallScore: score,
-          totalQuestions,
-          correctAnswers,
-          questions: dbQuestions,
-          recommendations,
-          completedAt: new Date().toISOString(),
-        };
+        // Step 4: Save result to SkillResult collection
+        try {
+          console.log("[RESULTS] Saving to SkillResult collection...");
 
-        localStorage.setItem("assessmentResults", JSON.stringify(results));
-        localStorage.setItem("assessmentJobRole", jobRole || "");
-        localStorage.removeItem("currentAssessmentId");
+          const saveResultResponse = await api.skillassessment.saveResult({
+            assessmentId,
+            jobRole: jobRole || "Unknown",
+            difficulty,
+            overallScore: score,
+            correctAnswers,
+            totalQuestions,
+            skillGaps: skillGapsSorted,
+            recommendations,
+            questions: dbQuestions,
+          });
 
-        router.push("/skill-assessment/result");
+          if (saveResultResponse.success && saveResultResponse.data) {
+            console.log("[RESULTS] Result saved successfully!");
+
+            // Get the result ID from response
+            const resultData = saveResultResponse.data as { resultId: string };
+            const resultId = resultData.resultId;
+
+            // Clean up localStorage
+            localStorage.removeItem("currentAssessmentId");
+
+            console.log(
+              "[RESULTS] Redirecting to results page with ID:",
+              resultId
+            );
+            // Redirect with result ID
+            router.push(`/skill-assessment/result?id=${resultId}`);
+          } else {
+            throw new Error("Failed to save result to database");
+          }
+        } catch (saveError) {
+          console.error("[RESULTS] Error saving result:", saveError);
+          alert(
+            "Failed to save assessment results. Please try again or contact support."
+          );
+        }
       } catch (error) {
         console.error("Error calculating results:", error);
         alert(
@@ -325,7 +360,7 @@ export default function SkillGapAssessment() {
         setLoading(false);
       }
     },
-    [answers, questions, jobRole, experienceLevel, router]
+    [answers, questions, jobRole, experienceLevel, difficulty, router]
   );
 
   const handleFinish = useCallback((): void => {

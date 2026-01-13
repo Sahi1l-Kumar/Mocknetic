@@ -13,32 +13,135 @@ import {
   ChevronDown,
   ChevronUp,
   Target,
+  Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { api } from "@/lib/api";
 
-export default function AssessmentResult() {
+interface SkillGap {
+  skill: string;
+  gap: number;
+  accuracy: number;
+  questionsAnswered: number;
+  correctAnswers: number;
+}
+
+interface Recommendation {
+  title: string;
+  description: string;
+  link: string;
+  skill: string;
+}
+
+interface AssessmentQuestion {
+  questionId: string;
+  question: string;
+  skill: string;
+  questionType: string;
+  options?: string[];
+  userAnswer: number | string | null;
+  correctAnswer?: number;
+  expectedAnswer?: string;
+  evaluationCriteria?: string;
+  expectedKeywords?: string[];
+  isCorrect: boolean;
+}
+
+interface AssessmentResults {
+  _id: string;
+  jobRole: string;
+  difficulty: string;
+  overallScore: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  skillGaps: SkillGap[];
+  recommendations: Recommendation[];
+  questions: AssessmentQuestion[];
+  completedAt: string;
+}
+
+function AssessmentResultContent() {
   const router = useRouter();
-  const [results, setResults] = useState<any>(null);
-  const [jobRole, setJobRole] = useState("");
+  const searchParams = useSearchParams();
+  const resultId = searchParams.get("id");
+
+  const [results, setResults] = useState<AssessmentResults | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set()
   );
   const [showAllQuestions, setShowAllQuestions] = useState(false);
 
   useEffect(() => {
-    const storedResults = localStorage.getItem("assessmentResults");
-    const storedJobRole = localStorage.getItem("assessmentJobRole");
+    const fetchResults = async () => {
+      try {
+        setLoading(true);
 
-    if (storedResults && storedJobRole) {
-      setResults(JSON.parse(storedResults));
-      setJobRole(storedJobRole);
-      setLoading(false);
-    } else {
-      router.push(ROUTES.SKILL);
-    }
-  }, [router]);
+        // Try to get resultId from URL first
+        const id = resultId;
+
+        if (!id) {
+          // Fallback: check if we just completed an assessment
+          const assessmentId = localStorage.getItem("currentAssessmentId");
+          if (assessmentId) {
+            // Fetch the latest result for this user
+            const response = await api.skillassessment.getResults({ limit: 1 });
+
+            // Fix TypeScript error with proper type assertion
+            if (response.success && response.data) {
+              const resultsData = response.data as {
+                results: AssessmentResults[];
+                total: number;
+                limit: number;
+                skip: number;
+                hasMore: boolean;
+              };
+
+              if (resultsData.results && resultsData.results.length > 0) {
+                setResults(resultsData.results[0]);
+                // Clean up localStorage
+                localStorage.removeItem("currentAssessmentId");
+              } else {
+                throw new Error("No results found");
+              }
+            } else {
+              throw new Error("Failed to fetch results");
+            }
+            return;
+          } else {
+            // No ID and no recent assessment - redirect
+            router.push(ROUTES.SKILL);
+            return;
+          }
+        }
+
+        // Fetch specific result by ID
+        const response = await api.skillassessment.getResultById(id);
+
+        if (response.success && response.data) {
+          setResults(response.data as AssessmentResults);
+          // Clean up localStorage
+          localStorage.removeItem("currentAssessmentId");
+        } else {
+          throw new Error("Failed to load results");
+        }
+      } catch (err) {
+        console.error("Error fetching results:", err);
+        setError(err instanceof Error ? err.message : "Failed to load results");
+
+        // No localStorage fallback - just show error
+        setTimeout(() => {
+          router.push(ROUTES.SKILL);
+        }, 3000);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, [resultId, router]);
 
   const toggleQuestion = (index: number) => {
     const newExpanded = new Set(expandedQuestions);
@@ -54,7 +157,8 @@ export default function AssessmentResult() {
     if (showAllQuestions) {
       setExpandedQuestions(new Set());
     } else {
-      const allIndices = results.questions.map((_: any, idx: number) => idx);
+      const allIndices =
+        results?.questions.map((_: any, idx: number) => idx) || [];
       setExpandedQuestions(new Set(allIndices));
     }
     setShowAllQuestions(!showAllQuestions);
@@ -63,22 +167,46 @@ export default function AssessmentResult() {
   const handleRetake = () => {
     localStorage.removeItem("assessmentResults");
     localStorage.removeItem("assessmentJobRole");
-    router.push(ROUTES.SKILL);
-  };
-
-  const handleReset = () => {
-    localStorage.removeItem("assessmentResults");
-    localStorage.removeItem("assessmentJobRole");
     localStorage.removeItem("currentAssessmentId");
     router.push(ROUTES.SKILL);
   };
 
-  if (loading || !results) {
+  const handleBackHome = () => {
+    localStorage.removeItem("assessmentResults");
+    localStorage.removeItem("assessmentJobRole");
+    localStorage.removeItem("currentAssessmentId");
+    router.push(ROUTES.HOME);
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="text-slate-600">Loading results...</div>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <div className="text-slate-600 text-lg">Loading your results...</div>
       </div>
     );
+  }
+
+  if (error && !results) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <XCircle className="w-12 h-12 text-red-600 mb-4" />
+        <div className="text-slate-900 text-xl font-semibold mb-2">
+          Error Loading Results
+        </div>
+        <div className="text-slate-600 mb-6">{error}</div>
+        <button
+          onClick={() => router.push(ROUTES.SKILL)}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+        >
+          Back to Assessments
+        </button>
+      </div>
+    );
+  }
+
+  if (!results) {
+    return null;
   }
 
   const hasGaps = results.skillGaps.some((gap: any) => gap.gap > 0);
@@ -102,6 +230,11 @@ export default function AssessmentResult() {
             </span>{" "}
             questions correctly
           </p>
+          {results._id !== "local" && (
+            <p className="text-sm text-slate-500 mt-2">
+              Completed on {new Date(results.completedAt).toLocaleDateString()}
+            </p>
+          )}
         </div>
 
         {/* Score Card */}
@@ -110,7 +243,10 @@ export default function AssessmentResult() {
             <div>
               <h2 className="text-2xl font-bold mb-2">Overall Score</h2>
               <p className="text-blue-100 text-lg">
-                For <span className="font-semibold">{jobRole}</span>
+                For <span className="font-semibold">{results.jobRole}</span>
+              </p>
+              <p className="text-blue-200 text-sm mt-1 capitalize">
+                Difficulty: {results.difficulty}
               </p>
             </div>
             <div className="text-center">
@@ -223,8 +359,8 @@ export default function AssessmentResult() {
                   Perfect Score!
                 </h4>
                 <p className="text-slate-600 text-sm mb-4">
-                  You have mastered all assessed skills for {jobRole}. Keep
-                  learning advanced topics!
+                  You have mastered all assessed skills for {results.jobRole}.
+                  Keep learning advanced topics!
                 </p>
                 <a
                   href="https://www.coursera.org/"
@@ -428,7 +564,7 @@ export default function AssessmentResult() {
           </button>
 
           <button
-            onClick={handleReset}
+            onClick={handleBackHome}
             className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg"
           >
             <Home className="w-5 h-5" />
@@ -437,5 +573,20 @@ export default function AssessmentResult() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function AssessmentResult() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+          <div className="text-slate-600 text-lg">Loading...</div>
+        </div>
+      }
+    >
+      <AssessmentResultContent />
+    </Suspense>
   );
 }

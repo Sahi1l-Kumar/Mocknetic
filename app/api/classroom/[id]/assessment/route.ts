@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import Classroom from "@/database/classroom/classroom.model";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 
 // GET /api/classroom/:id/assessment - List all assessments for classroom

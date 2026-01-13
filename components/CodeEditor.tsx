@@ -16,6 +16,7 @@ import {
   Settings,
   AlertCircle,
   CheckCircle,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,10 +26,10 @@ import {
   TestCase,
   TestResult,
   StatusResult,
-  ExecutionResult,
   SubmitCodeResponse,
   CheckStatusResponse,
 } from "@/types/global";
+import { toast } from "sonner";
 
 const FONT_SIZES = [12, 14, 16, 18, 20, 24] as const;
 
@@ -41,14 +42,14 @@ interface LanguageOption {
 
 interface Props {
   testCases: TestCase[];
-  problemId?: number;
+  problemId: number;
   onFullscreenToggle?: (isFullscreen: boolean) => void;
   isFullscreen?: boolean;
 }
 
 export default function CodeEditor({
   testCases,
-  problemId = 1,
+  problemId,
   onFullscreenToggle,
   isFullscreen,
 }: Props) {
@@ -63,11 +64,18 @@ export default function CodeEditor({
   const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>("testcase");
   const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(
+    null
+  );
 
   const editorRef = useRef<any>(null);
   const testContentRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const currentProblem = PROBLEM_DATA[problemId as keyof typeof PROBLEM_DATA];
+  const problemIdNum =
+    typeof problemId === "string" ? parseInt(problemId) : problemId;
+  const currentProblem =
+    PROBLEM_DATA[problemIdNum as keyof typeof PROBLEM_DATA];
 
   const LANGUAGES = React.useMemo<LanguageOption[]>(
     () =>
@@ -102,7 +110,7 @@ export default function CodeEditor({
       setLanguage(firstLang.value);
       setCode(firstLang.template);
     }
-  }, [problemId, LANGUAGES]);
+  }, [problemIdNum, LANGUAGES]);
 
   useEffect(() => {
     const selectedLang = LANGUAGES.find((lang) => lang.value === language);
@@ -117,6 +125,14 @@ export default function CodeEditor({
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const wrapCodeForExecution = (
     userCode: string,
     testCase: TestCase
@@ -125,13 +141,13 @@ export default function CodeEditor({
 
     switch (language) {
       case "javascript":
-        return wrapJavaScript(userCode, input, problemId);
+        return wrapJavaScript(userCode, input, problemIdNum);
       case "python":
-        return wrapPython(userCode, input, problemId);
+        return wrapPython(userCode, input, problemIdNum);
       case "java":
-        return wrapJava(userCode, input, problemId);
+        return wrapJava(userCode, input, problemIdNum);
       case "cpp":
-        return wrapCpp(userCode, input, problemId);
+        return wrapCpp(userCode, input, problemIdNum);
       default:
         return userCode;
     }
@@ -717,21 +733,27 @@ int main() {
   const runCode = async (): Promise<void> => {
     setIsRunning(true);
     setActiveTab("result");
+    setTestResults([]);
     const startTime = Date.now();
 
     try {
-      const firstTestCase = testCases[0];
-      if (!firstTestCase) {
+      const visibleTestCases = testCases.filter((tc) => !tc.isHidden);
+
+      if (visibleTestCases.length === 0) {
         setOutput("No test cases available");
+        toast.error("No test cases available");
         return;
       }
 
-      const wrappedCode = wrapCodeForExecution(code, firstTestCase);
+      const wrappedCodes = visibleTestCases.map((tc) =>
+        wrapCodeForExecution(code, tc)
+      );
 
+      // Execute all test cases (without saving to DB)
       const response = await api.judge0.execute({
-        code: wrappedCode,
+        code: wrappedCodes[0], // Send first wrapped code
         language,
-        input: firstTestCase.input,
+        testCases: visibleTestCases, // Send all test cases
       });
 
       const endTime = Date.now();
@@ -739,38 +761,103 @@ int main() {
 
       if (!response.success) {
         setOutput(`Error: ${response.error?.message}`);
+        toast.error("Execution failed");
         return;
       }
 
-      const result = response.data! as ExecutionResult;
+      const results = Array.isArray(response.data)
+        ? response.data
+        : [response.data];
 
-      if (result.statusId === 3) {
+      // Process results
+      const testResultsData: TestResult[] = results.map((result, index) => {
+        const testCase = visibleTestCases[index];
+        const actualOutput = result.stdout?.trim() || "";
+        const expectedOutput = testCase.expectedOutput.trim();
+        const passed = result.statusId === 3 && actualOutput === expectedOutput;
+
+        return {
+          input: testCase.input,
+          expectedOutput: testCase.expectedOutput,
+          actualOutput: result.stdout || null,
+          passed,
+          status: result.status,
+          time: result.time,
+          memory: result.memory,
+          error: result.stderr || result.compile_output || null,
+        };
+      });
+
+      setTestResults(testResultsData);
+
+      // Calculate summary
+      const passedCount = testResultsData.filter((r) => r.passed).length;
+      const totalCount = testResultsData.length;
+      const hasCompileError = results.some((r) => r.statusId === 6);
+      const hasRuntimeError = results.some(
+        (r) => r.statusId !== 3 && r.statusId !== 6
+      );
+
+      if (hasCompileError) {
+        const compileError = results.find((r) => r.statusId === 6);
         setOutput(
-          `Code executed successfully!\n\nOutput: ${result.stdout || "No output"}\nExpected: ${firstTestCase.expectedOutput}\nTime: ${result.time || "N/A"}ms\nMemory: ${result.memory || "N/A"}KB`
+          `Compilation Error\n\n${compileError?.compile_output || compileError?.stderr || "Unknown error"}`
         );
-      } else if (result.statusId === 6) {
+        toast.error("Compilation error");
+      } else if (hasRuntimeError) {
+        const runtimeError = results.find((r) => r.statusId !== 3);
         setOutput(
-          `Compilation Error\n\n${result.compile_output || result.stderr || "Unknown error"}`
+          `${runtimeError?.status}\n\n${runtimeError?.stderr || runtimeError?.compile_output || "Runtime error"}`
         );
+        toast.error("Runtime error");
+      } else if (passedCount === totalCount) {
+        const avgTime =
+          results.reduce(
+            (sum, r) => sum + (parseFloat(r.time || "0") || 0),
+            0
+          ) / totalCount;
+
+        setOutput(
+          `✅ All Tests Passed!\n\n` +
+            `Passed: ${passedCount}/${totalCount}\n` +
+            `Avg Runtime: ${avgTime.toFixed(2)}ms\n` +
+            `Total Time: ${endTime - startTime}ms`
+        );
+        toast.success(`All ${totalCount} tests passed!`);
       } else {
+        const failedIndex = testResultsData.findIndex((r) => !r.passed);
+        const failedTest = testResultsData[failedIndex];
+
         setOutput(
-          `${result.status}\n\n${result.stderr || result.compile_output || "Runtime error"}`
+          `❌ Test Failed\n\n` +
+            `Passed: ${passedCount}/${totalCount}\n\n` +
+            `Test Case #${failedIndex + 1} Failed:\n` +
+            `Input: ${failedTest.input.replace(/\n/g, " ")}\n` +
+            `Expected: ${failedTest.expectedOutput}\n` +
+            `Got: ${failedTest.actualOutput?.trim() || "No output"}\n` +
+            `Time: ${failedTest.time}ms\n` +
+            `Memory: ${failedTest.memory}KB`
         );
+        toast.error(`Failed ${totalCount - passedCount} test(s)`);
       }
     } catch (error) {
       console.error("Run error:", error);
       setOutput(
         `Error: ${error instanceof Error ? error.message : "Unknown error"}`
       );
+      toast.error("Execution failed");
     } finally {
       setIsRunning(false);
     }
   };
 
   const submitCode = async (): Promise<void> => {
+    abortControllerRef.current = new AbortController();
+
     setIsRunning(true);
     setActiveTab("result");
     setTestResults([]);
+    setCurrentSubmissionId(null);
     const startTime = Date.now();
 
     try {
@@ -782,17 +869,27 @@ int main() {
         codes: wrappedCodes,
         language,
         testCases,
+        problemId: problemIdNum,
+        problemTitle: currentProblem?.title || "Unknown Problem",
       });
 
       if (!submitResponse.success) {
         setOutput(`Error: ${submitResponse.error?.message}`);
+        toast.error("Submission failed");
         setIsRunning(false);
         return;
       }
 
-      const submissionIds = (submitResponse.data! as SubmitCodeResponse)
-        .submissionIds;
+      const responseData = submitResponse.data! as SubmitCodeResponse;
+      const submissionIds = responseData.submissionIds;
+      const submissionDbId = responseData.submissionDbId;
+
+      setCurrentSubmissionId(submissionDbId || null);
+
       console.log(`Submitted ${submissionIds.length} test cases`);
+      console.log(`Database submission ID: ${submissionDbId}`);
+
+      toast.success("Code submitted! Running tests...");
 
       let allDone = false;
       let attempts = 0;
@@ -800,11 +897,17 @@ int main() {
       let finalResults: StatusResult[] = [];
 
       while (!allDone && attempts < maxAttempts) {
+        if (abortControllerRef.current?.signal.aborted) {
+          toast.info("Submission cancelled");
+          return;
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         const statusResponse = await api.judge0.checkStatus({
           tokens: submissionIds,
           expectedOutputs: testCases.map((tc) => tc.expectedOutput),
+          submissionDbId,
         });
 
         if (statusResponse.success) {
@@ -841,24 +944,30 @@ int main() {
           ) / totalTests;
 
         setOutput(
-          `Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nTotal Time: ${executionTime}ms`
+          `✅ Accepted!\n\nAll ${totalTests} test cases passed!\nAvg Runtime: ${avgTime.toFixed(2)}ms\nTotal Time: ${executionTime}ms\n\n✨ Submission saved to database!`
         );
+        toast.success(`All ${totalTests} tests passed!`, {
+          icon: "🎉",
+        });
       } else {
         const failedTestIndex = finalResults.findIndex((r) => !r.passed);
         const failedTest = finalResults[failedTestIndex];
         const failedTestCase = testCases[failedTestIndex];
 
         setOutput(
-          `Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\nTest Case #${failedTestIndex + 1} Failed\n\nInput: ${failedTestCase?.input.replace(/\n/g, " ")}\nExpected Output: ${failedTest?.expectedOutput}\nYour Output: ${failedTest?.actualOutput?.trim() || "No output"}\n\nStatus: ${failedTest?.status}\nTime: ${failedTest?.time}ms\nMemory: ${failedTest?.memory}KB\n${failedTest?.error ? `Error: ${failedTest.error}` : ""}`
+          `❌ Wrong Answer\n\nPassed: ${passedTests}/${totalTests} test cases\n\nTest Case #${failedTestIndex + 1} Failed\n\nInput: ${failedTestCase?.input.replace(/\n/g, " ")}\nExpected Output: ${failedTest?.expectedOutput}\nYour Output: ${failedTest?.actualOutput?.trim() || "No output"}\n\nStatus: ${failedTest?.status}\nTime: ${failedTest?.time}ms\nMemory: ${failedTest?.memory}KB\n${failedTest?.error ? `Error: ${failedTest.error}` : ""}\n\n💾 Submission saved to database!`
         );
+        toast.error(`Failed ${totalTests - passedTests} test(s)`);
       }
     } catch (error) {
       console.error("Submit error:", error);
       setOutput(
         `Error: ${error instanceof Error ? error.message : "Unknown error"}`
       );
+      toast.error("Submission failed");
     } finally {
       setIsRunning(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -866,9 +975,11 @@ int main() {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
+      toast.success("Code copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
+      toast.error("Failed to copy code");
     }
   };
 
@@ -922,6 +1033,18 @@ int main() {
         </div>
 
         <div className="flex items-center gap-2">
+          {currentSubmissionId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+              title="Saved in database"
+            >
+              <Database size={14} className="mr-1" />
+              Saved
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"

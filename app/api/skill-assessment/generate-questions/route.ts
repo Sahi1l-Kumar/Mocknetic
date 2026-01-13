@@ -3,9 +3,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import User from "@/database/user.model";
-import Assessment from "@/database/assessment.model";
+import Assessment from "@/database/skill-evaluation/skill-evaluation.model";
 import dbConnect from "@/lib/mongoose";
 import { QuestionPlan, GeneratedQuestion, QuestionType } from "@/types/global";
+
+function cleanJsonString(jsonString: string): string {
+  let cleaned = jsonString.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+
+  const firstBrace = cleaned.indexOf("{");
+  if (firstBrace > 0) {
+    cleaned = cleaned.substring(firstBrace);
+  }
+
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (lastBrace !== -1 && lastBrace < cleaned.length - 1) {
+    cleaned = cleaned.substring(0, lastBrace + 1);
+  }
+
+  cleaned = cleaned.replace(/"([^"]*)":\s*"([^"]*)"/g, (match, key, value) => {
+    const escapedValue = value
+      .replace(/\\"/g, "___ESCAPED___")
+      .replace(/"/g, '\\"')
+      .replace(/___ESCAPED___/g, '\\"');
+    return `"${key}": "${escapedValue}"`;
+  });
+
+  return cleaned.trim();
+}
 
 function getJobRolePattern(jobRole: string): {
   degree: string;
@@ -268,7 +292,8 @@ Return ONLY valid JSON (no markdown):
     ];
 
     try {
-      const parsed = JSON.parse(skillsResponse);
+      const cleanedSkills = cleanJsonString(skillsResponse);
+      const parsed = JSON.parse(cleanedSkills);
       if (parsed.skills && Array.isArray(parsed.skills)) {
         targetSkills = parsed.skills.slice(0, 5);
       }
@@ -286,6 +311,13 @@ Generate questions for the TARGET role only.
 Return ONLY valid JSON. No markdown. No extra text before or after JSON.
 Never output "coding" as questionType.
 
+CRITICAL JSON RULES:
+- All string values MUST be wrapped in double quotes
+- Use "O(n)" notation should be written as "O(n)" (keep the quotes)
+- Escape all special characters properly
+- No trailing commas
+- Numbers should NOT be in quotes unless they are IDs
+
 You are a technical interviewer designing an online assessment for the job role "${jobRole}" at "${experienceLevel}" level.
 
 Generate EXACTLY ${totalQuestions} questions according to the following QUESTION PLAN:
@@ -298,7 +330,7 @@ QuestionType meanings:
 - "aptitude": Multiple-choice general aptitude (numerical, verbal, word problems) with 4 options.
 - "reasoning": Multiple-choice logical / analytical reasoning with 4 options.
 - "descriptive": Candidate must write a text explanation, design, or reasoning (no options).
-- "circuit_math": Numerical or circuit / physics / math based question (no options); answer is a value.
+- "circuit_math": Numerical or circuit / physics / math based question (no options); answer is a value or formula.
 
 Important:
 - DO NOT generate any pure coding questions where the candidate must write full code.
@@ -309,17 +341,17 @@ Important:
 
 For MCQ-like types ("mcq", "pseudo_mcq", "aptitude", "reasoning"):
   - Provide exactly 4 options.
-  - Provide "correctAnswer" as 1, 2, 3 or 4.
+  - Provide "correctAnswer" as 1, 2, 3 or 4 (number, not string).
   - Provide a brief "explanation".
+  - For algorithm complexity questions, write answers as strings: "O(n)", "O(1)", etc.
 
 For non-MCQ types ("descriptive", "circuit_math"):
   - Do NOT provide options.
   - Do NOT provide correctAnswer.
   - Provide:
-    - "expectedAnswer": short ideal answer (2–4 lines).
-    - "evaluationCriteria": bullet-style text explaining how to grade the answer.
-    - "expectedKeywords": an array of 12–20 important words/phrases that MUST appear in a good answer
-       (for later keyword-overlap based auto-grading).
+    - "expectedAnswer": short ideal answer (2–4 lines) as a STRING.
+    - "evaluationCriteria": bullet-style text explaining how to grade the answer as a STRING.
+    - "expectedKeywords": an array of 12–20 important words/phrases that MUST appear in a good answer.
 
 Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact structure:
 {
@@ -345,13 +377,27 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
     let parsed: { questions: GeneratedQuestion[] } | null = null;
 
     try {
-      parsed = JSON.parse(response);
-    } catch {
-      const bracketMatch = response.match(/\[[\s\S]*\]/);
-      if (bracketMatch) {
-        parsed = { questions: JSON.parse(bracketMatch[0]) };
-      } else {
-        throw new Error("No valid JSON found");
+      // Clean the response before parsing
+      const cleanedResponse = cleanJsonString(response);
+      console.log(
+        "[DEBUG] Cleaned response (first 500 chars):",
+        cleanedResponse.substring(0, 500)
+      );
+      parsed = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error(parseError);
+      try {
+        const cleanedResponse = cleanJsonString(response);
+        const bracketMatch = cleanedResponse.match(/\[[\s\S]*\]/);
+        if (bracketMatch) {
+          parsed = { questions: JSON.parse(bracketMatch[0]) };
+        } else {
+          console.error("[DEBUG] Raw response:", response.substring(0, 1000));
+          throw new Error("No valid JSON found in response");
+        }
+      } catch (innerError) {
+        console.error("[DEBUG] Failed to extract JSON:", innerError);
+        throw new Error("Failed to parse AI response as valid JSON");
       }
     }
 

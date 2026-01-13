@@ -54,11 +54,6 @@ interface AssessmentResult {
 export type Language = keyof typeof LANGUAGE_IDS;
 export type StatusId = keyof typeof STATUS_IDS;
 
-export interface TestCase {
-  input: string;
-  expectedOutput: string;
-}
-
 export interface ExecutionResult {
   status: string;
   statusId: number;
@@ -197,22 +192,33 @@ interface ExecuteCodeRequest {
   code: string;
   language: string;
   input?: string;
+  testCases?: Array<{ input: string; expectedOutput: string }>;
 }
 
 interface SubmitCodeRequest {
   codes: string[];
   language: string;
   testCases: TestCase[];
+  problemId: number;
+  problemTitle: string;
 }
 
 interface CheckStatusRequest {
   tokens: string[];
   expectedOutputs?: string[];
+  submissionDbId?: string;
 }
 
 interface SubmitCodeResponse {
   submissionIds: string[];
   totalTestCases: number;
+  submissionDbId: string;
+}
+
+interface TestCase {
+  input: string;
+  expectedOutput: string;
+  isHidden?: boolean;
 }
 
 interface StatusResult {
@@ -287,4 +293,34 @@ interface JoinClassroomResponse {
     status: string;
     enrolledAt: Date;
   };
+}
+
+interface SkillResultsResponse {
+  results: Array<{
+    _id: string;
+    jobRole: string;
+    difficulty: string;
+    overallScore: number;
+    correctAnswers: number;
+    totalQuestions: number;
+    skillGaps: Array<{
+      skill: string;
+      gap: number;
+      accuracy: number;
+      questionsAnswered: number;
+      correctAnswers: number;
+    }>;
+    recommendations: Array<{
+      title: string;
+      description: string;
+      link: string;
+      skill: string;
+    }>;
+    questions: Array<AssessmentQuestion>;
+    completedAt: string;
+  }>;
+  total: number;
+  limit: number;
+  skip: number;
+  hasMore: boolean;
 }

@@ -7,7 +7,8 @@
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ai:context": "node scripts/update-ai-context.mjs"
   },
   "dependencies": {
     "@ai-sdk/groq": "^2.0.27",

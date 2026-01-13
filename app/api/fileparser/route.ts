@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import { v4 as uuidv4 } from "uuid";
 import PDFParser from "pdf2json";
-import Resume from "@/database/resume.model";
 import Profile from "@/database/profile.model";
 import User from "@/database/user.model";
 import dbConnect from "@/lib/mongoose";
@@ -182,16 +181,6 @@ export async function POST(req: NextRequest) {
 
     const parsedData = await parseResumeWithGroq(parsedText);
 
-    const resume = await Resume.create({
-      userId: session.user.id,
-      filename: uploadedFile.name,
-      fileUrl: tempFilePath,
-      fileSize: uploadedFile.size,
-      mimeType: uploadedFile.type,
-      parsedData: parsedData,
-      status: "completed",
-    });
-
     await User.findByIdAndUpdate(session.user.id, {
       $set: {
         name: parsedData.name || "",
@@ -232,7 +221,6 @@ export async function POST(req: NextRequest) {
 
     const response = new NextResponse(JSON.stringify(parsedData));
     response.headers.set("FileName", fileName);
-    response.headers.set("ResumeId", resume._id.toString());
     response.headers.set("Content-Type", "application/json");
     return response;
   } catch (error) {

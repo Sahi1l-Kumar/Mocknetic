@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 
 // POST /api/classroom-assessment/:id/publish - Publish/Unpublish assessment
 export async function POST(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 
 // POST /api/classroom-submission/:id/grade - Grade specific answers
 export async function POST(

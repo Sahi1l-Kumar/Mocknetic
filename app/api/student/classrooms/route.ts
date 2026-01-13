@@ -3,7 +3,7 @@ import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import Classroom from "@/database/classroom/classroom.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 import User from "@/database/user.model";
 

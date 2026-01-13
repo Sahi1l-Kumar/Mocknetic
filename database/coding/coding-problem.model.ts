@@ -1,3 +1,5 @@
+// For future use when we have 1000+ coding problems
+
 import { Schema, model, models, Document } from "mongoose";
 
 export interface IProblem {

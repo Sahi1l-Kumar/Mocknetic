@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import dbConnect from "@/lib/mongoose";
 import { LANGUAGE_IDS } from "@/constants";
 import {
   APIResponse,
   SubmitCodeResponse,
   SubmitCodeRequest,
 } from "@/types/global";
+import { CodingSubmission } from "@/database";
 
 const JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
@@ -14,7 +17,24 @@ export async function POST(
   request: NextRequest
 ): Promise<APIResponse<SubmitCodeResponse>> {
   try {
-    const { codes, language, testCases }: SubmitCodeRequest =
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { message: "Unauthorized" },
+        },
+        { status: 401 }
+      );
+    }
+
+    const {
+      codes,
+      language,
+      testCases,
+      problemId,
+      problemTitle,
+    }: SubmitCodeRequest & { problemId: number; problemTitle: string } =
       await request.json();
 
     if (!codes || !Array.isArray(codes) || codes.length === 0) {
@@ -27,11 +47,14 @@ export async function POST(
       );
     }
 
-    if (!language || !testCases) {
+    if (!language || !testCases || !problemId || !problemTitle) {
       return NextResponse.json(
         {
           success: false,
-          error: { message: "Language and testCases are required" },
+          error: {
+            message:
+              "Language, testCases, problemId, and problemTitle are required",
+          },
         },
         { status: 400 }
       );
@@ -81,12 +104,29 @@ export async function POST(
       submissionIds.push(data.token);
     }
 
+    await dbConnect();
+
+    const submission = await CodingSubmission.create({
+      userId: session.user.id,
+      problemNumber: problemId,
+      problemTitle,
+      code: codes[0],
+      language,
+      status: "pending",
+      testCasesPassed: 0,
+      totalTestCases: codes.length,
+      judge0Tokens: submissionIds,
+      results: [],
+      submittedAt: new Date(),
+    });
+
     return NextResponse.json(
       {
         success: true,
         data: {
           submissionIds,
           totalTestCases: codes.length,
+          submissionDbId: submission._id.toString(),
         },
       },
       { status: 202 }

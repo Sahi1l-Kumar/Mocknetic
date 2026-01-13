@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 
 export async function GET(
   request: NextRequest,

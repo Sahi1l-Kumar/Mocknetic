@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth-helpers";
 import dbConnect from "@/lib/mongoose";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
@@ -276,7 +276,7 @@ Return ONLY valid JSON (no markdown, no code blocks, no extra text):
         // Remove any control characters
         jsonText = jsonText.replace(/[\x00-\x1F\x7F]/g, " ");
         parsed = JSON.parse(jsonText);
-      } catch (secondError) {
+      } catch {
         throw new Error(
           `Failed to parse AI response as JSON. Original error: ${parseError}. Response preview: ${response.substring(0, 200)}`
         );

@@ -5,7 +5,7 @@ import Classroom, {
   type IClassroom,
 } from "@/database/classroom/classroom.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
-import ClassroomAssessment from "@/database/classroom/classroom-assessment.model";
+import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 
 // GET /api/classroom/:id - Get classroom details
 export async function GET(

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
-import Assessment from "@/database/assessment.model";
+import { SkillEvaluation } from "@/database";
 import dbConnect from "@/lib/mongoose";
 import { SubmitAnswersResponse, AssessmentQuestion } from "@/types/global";
 
@@ -57,7 +57,7 @@ export async function POST(
       );
     }
 
-    const assessment = await Assessment.findById(assessmentId);
+    const assessment = await SkillEvaluation.findById(assessmentId);
 
     if (!assessment) {
       return NextResponse.json(
@@ -192,6 +192,7 @@ export async function POST(
     });
 
     const score = Math.round((correctCount / assessment.totalQuestions) * 100);
+    assessment.score = score;
     assessment.completedAt = new Date();
 
     await assessment.save();
