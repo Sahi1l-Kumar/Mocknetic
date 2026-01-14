@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Mocknetic",
   description: "AI-Powered Interview Preparation Platform",
+  icons: {
+    icon: "/mocknetic.svg",
+  },
 };
 
 const RootLayout = async ({

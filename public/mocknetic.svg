@@ -1,0 +1,56 @@
+<svg
+  width="512"
+  height="512"
+  viewBox="0 0 512 512"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <!-- Blue startup gradient -->
+    <linearGradient id="mGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect
+    x="0"
+    y="0"
+    width="512"
+    height="512"
+    rx="96"
+    fill="#020617"
+  />
+
+  <!-- Main M -->
+  <path
+    d="
+      M156 360
+      V160
+      H220
+      L256 248
+      L292 160
+      H356
+      V360
+      H312
+      V236
+      L256 320
+      L200 236
+      V360
+      Z
+    "
+    fill="url(#mGradient)"
+  />
+
+  <!-- Subtle education hint (page fold) -->
+  <path
+    d="
+      M292 160
+      L332 160
+      L292 200
+      Z
+    "
+    fill="#60A5FA"
+  />
+</svg>

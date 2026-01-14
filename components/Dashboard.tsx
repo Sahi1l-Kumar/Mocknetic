@@ -6,19 +6,48 @@ import {
   GraduationCap,
   BookOpen,
   Clock,
+  AlertTriangle,
+  TrendingDown,
 } from "lucide-react";
 import ROUTES from "@/constants/routes";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import User from "@/database/user.model";
 import Profile from "@/database/profile.model";
-import Assessment from "@/database/skill-evaluation/skill-evaluation.model";
+import { SkillResult } from "@/database";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
 import Classroom from "@/database/classroom/classroom.model";
 import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
 import ClassroomSubmission from "@/database/classroom/classroom-submission.model";
 import dbConnect from "@/lib/mongoose";
 import Link from "next/link";
+
+interface SkillGap {
+  skill: string;
+  accuracy: number;
+  gap: number;
+  questionsAnswered: number;
+  correctAnswers: number;
+}
+
+interface Recommendation {
+  title: string;
+  description: string;
+  link: string;
+  skill: string;
+}
+
+interface SkillAssessmentResult {
+  _id: string;
+  jobRole: string;
+  difficulty: string;
+  overallScore: number;
+  correctAnswers: number;
+  totalQuestions: number;
+  skillGaps: SkillGap[];
+  recommendations: Recommendation[];
+  completedAt: Date;
+}
 
 interface DashboardData {
   name: string;
@@ -32,10 +61,13 @@ interface DashboardData {
   overallProgress: number;
   experience: any[];
   projects: any[];
-  recentAssessments: any[];
+  recentSkillAssessments: SkillAssessmentResult[];
+  topSkillGaps: SkillGap[];
+  topRecommendations: Recommendation[];
   recentActivity: any[];
   joinedClasses: any[];
   pendingClassAssessments: number;
+  assessmentTrend: "up" | "down" | "stable";
 }
 
 async function getDashboardData(userId: string): Promise<DashboardData | null> {
@@ -49,20 +81,20 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
     // Fetch profile data
     const profile = (await Profile.findOne({ userId }).lean()) as any;
 
-    // Fetch skill assessments
-    const assessments = (await Assessment.find({ userId })
-      .sort({ createdAt: -1 })
+    // Fetch skill assessment results (using SkillResult instead of Assessment)
+    const skillResults = (await SkillResult.find({ userId })
+      .sort({ completedAt: -1 })
       .limit(10)
       .lean()) as any[];
 
-    // Fetch joined classrooms via memberships [web:7]
+    // Fetch joined classrooms via memberships
     const memberships = await ClassroomMembership.find({
       studentId: userId,
     }).lean();
 
     const classroomIds = memberships.map((m: any) => m.classroomId);
 
-    // Fetch classroom details [web:4]
+    // Fetch classroom details
     const classrooms = await Classroom.find({
       _id: { $in: classroomIds },
     })
@@ -72,13 +104,11 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
     // Build joined classes data with real assessment counts
     const joinedClasses = await Promise.all(
       classrooms.map(async (classroom: any) => {
-        // Get all assessments for this classroom [web:7]
         const classroomAssessments = await ClassroomAssessment.find({
           classroomId: classroom._id,
           isPublished: true,
         }).lean();
 
-        // Get student submissions for these assessments
         const submissions = await ClassroomSubmission.find({
           studentId: userId,
           assessmentId: { $in: classroomAssessments.map((a: any) => a._id) },
@@ -94,7 +124,6 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
 
         const completedCount = submissions.length;
 
-        // Get most recent activity
         const latestSubmission = submissions.sort(
           (a: any, b: any) =>
             new Date(b.submittedAt).getTime() -
@@ -122,48 +151,81 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       0
     );
 
-    // Calculate skill mastery from skill assessments
-    const uniqueSkills = new Set<string>();
+    // Calculate skill mastery from SkillResult
+    const allSkillGaps: SkillGap[] = [];
     const masteredSkills = new Set<string>();
+    const allSkills = new Set<string>();
 
-    assessments.forEach((assessment: any) => {
-      assessment.questions?.forEach((q: any) => {
-        if (q.skill) {
-          uniqueSkills.add(q.skill);
-          if (q.isCorrect) {
-            masteredSkills.add(q.skill);
-          }
+    skillResults.forEach((result: any) => {
+      result.skillGaps?.forEach((gap: SkillGap) => {
+        allSkills.add(gap.skill);
+        if (gap.accuracy >= 80) {
+          masteredSkills.add(gap.skill);
         }
+        allSkillGaps.push(gap);
       });
     });
 
-    // Calculate problems solved (from skill assessments)
-    const problemsSolved = assessments.reduce(
-      (sum: number, a: any) => sum + (a.totalQuestions || 0),
+    // Get top skill gaps (worst performing skills)
+    const skillGapMap = new Map<string, SkillGap>();
+    allSkillGaps.forEach((gap) => {
+      if (!skillGapMap.has(gap.skill)) {
+        skillGapMap.set(gap.skill, gap);
+      } else {
+        // Keep the most recent gap data
+        skillGapMap.set(gap.skill, gap);
+      }
+    });
+
+    const topSkillGaps = Array.from(skillGapMap.values())
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 5);
+
+    // Collect all recommendations
+    const allRecommendations: Recommendation[] = [];
+    skillResults.forEach((result: any) => {
+      if (result.recommendations) {
+        allRecommendations.push(...result.recommendations);
+      }
+    });
+
+    // Get unique recommendations (by title)
+    const uniqueRecommendations = Array.from(
+      new Map(allRecommendations.map((r) => [r.title, r])).values()
+    ).slice(0, 3);
+
+    // Calculate total problems from skill assessments
+    const problemsSolved = skillResults.reduce(
+      (sum: number, r: any) => sum + (r.totalQuestions || 0),
       0
     );
 
-    // Calculate completed assessments and average score
-    const completedAssessments = assessments.filter(
-      (a: any) => a.completedAt || a.score !== undefined
-    );
-
+    // Calculate average score
     const averageScore =
-      completedAssessments.length > 0
+      skillResults.length > 0
         ? Math.round(
-            completedAssessments.reduce(
-              (sum: number, a: any) => sum + (a.score || 0),
+            skillResults.reduce(
+              (sum: number, r: any) => sum + (r.overallScore || 0),
               0
-            ) / completedAssessments.length
+            ) / skillResults.length
           )
         : 0;
 
+    // Calculate assessment trend
+    let assessmentTrend: "up" | "down" | "stable" = "stable";
+    if (skillResults.length >= 2) {
+      const recentScore = skillResults[0].overallScore || 0;
+      const previousScore = skillResults[1].overallScore || 0;
+      if (recentScore > previousScore + 5) assessmentTrend = "up";
+      else if (recentScore < previousScore - 5) assessmentTrend = "down";
+    }
+
     // Calculate overall progress
     const totalAssessments =
-      assessments.length +
+      skillResults.length +
       joinedClasses.reduce((sum, c) => sum + c.completedAssessments, 0);
     const completedTotal =
-      completedAssessments.length +
+      skillResults.length +
       joinedClasses.reduce((sum, c) => sum + c.completedAssessments, 0);
 
     const overallProgress =
@@ -173,10 +235,10 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
 
     // Build recent activity
     const recentActivity = [
-      ...assessments.slice(0, 3).map((assessment: any) => ({
-        type: "assessment",
-        title: `Completed ${assessment.jobRole || "Skill"} assessment`,
-        description: `Score: ${assessment.score || 0}/100 • ${new Date(assessment.createdAt).toLocaleDateString()}`,
+      ...skillResults.slice(0, 3).map((result: any) => ({
+        type: "skill_assessment",
+        title: `Completed ${result.jobRole || "Skill"} assessment`,
+        description: `Score: ${result.overallScore || 0}% • ${new Date(result.completedAt).toLocaleDateString()}`,
         icon: Target,
         color: "emerald",
       })),
@@ -187,19 +249,25 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       currentRole: profile?.currentRole || user.currentRole || "Student",
       company: profile?.company || user.company || "Your Institution",
       skillsMastered: masteredSkills.size,
-      totalSkills: Math.max(uniqueSkills.size, 1), // Avoid division by zero
+      totalSkills: Math.max(allSkills.size, 1),
       problemsSolved,
-      mockInterviewsCompleted: completedAssessments.length,
+      mockInterviewsCompleted: skillResults.length,
       averageScore,
       overallProgress: Math.min(overallProgress, 100),
       experience: profile?.experience || [],
       projects: profile?.projects || [],
-      recentAssessments: assessments.slice(0, 5),
+      recentSkillAssessments: skillResults.slice(
+        0,
+        5
+      ) as SkillAssessmentResult[],
+      topSkillGaps,
+      topRecommendations: uniqueRecommendations,
       recentActivity,
       joinedClasses: joinedClasses.sort(
         (a, b) => b.lastActivity.getTime() - a.lastActivity.getTime()
       ),
       pendingClassAssessments,
+      assessmentTrend,
     };
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -240,8 +308,14 @@ async function Dashboard() {
             <div className="relative">
               <div className="flex items-start justify-between mb-4 sm:mb-6">
                 <div>
-                  <div className="inline-block bg-white/20 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-2 sm:mb-3">
-                    In Progress
+                  <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-2 sm:mb-3">
+                    <span>In Progress</span>
+                    {data.assessmentTrend === "up" && (
+                      <TrendingUp className="w-3 h-3" />
+                    )}
+                    {data.assessmentTrend === "down" && (
+                      <TrendingDown className="w-3 h-3" />
+                    )}
                   </div>
                   <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2">
                     {data.currentRole} Path
@@ -318,7 +392,126 @@ async function Dashboard() {
           </div>
         </div>
 
-        {/* Joined Classes Section - Mobile Optimized */}
+        {/* Top Skill Gaps Section */}
+        {data.topSkillGaps.length > 0 && (
+          <div className="mb-8 sm:mb-12">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                Skills to Improve
+              </h2>
+              <Link
+                href={ROUTES.SKILL}
+                className="text-orange-600 hover:text-orange-700 font-semibold text-xs sm:text-sm flex items-center space-x-1"
+              >
+                <span>Take Assessment</span>
+                <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.topSkillGaps.slice(0, 6).map((gap: SkillGap) => (
+                <div
+                  key={gap.skill}
+                  className="bg-white rounded-xl p-5 shadow-lg border-2 border-slate-200 hover:border-orange-400 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-bold text-slate-900 text-base line-clamp-1">
+                      {gap.skill}
+                    </h3>
+                    <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0" />
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Accuracy</span>
+                      <span
+                        className={`font-semibold ${
+                          gap.accuracy >= 80
+                            ? "text-green-600"
+                            : gap.accuracy >= 60
+                              ? "text-yellow-600"
+                              : "text-red-600"
+                        }`}
+                      >
+                        {gap.accuracy}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Gap</span>
+                      <span className="font-semibold text-orange-600">
+                        {gap.gap}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-100 rounded-full h-2">
+                    <div
+                      className={`rounded-full h-2 ${
+                        gap.accuracy >= 80
+                          ? "bg-green-500"
+                          : gap.accuracy >= 60
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                      }`}
+                      style={{ width: `${gap.accuracy}%` }}
+                    ></div>
+                  </div>
+
+                  <p className="text-xs text-slate-500 mt-3">
+                    {gap.correctAnswers}/{gap.questionsAnswered} correct
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations Section */}
+        {data.topRecommendations.length > 0 && (
+          <div className="mb-8 sm:mb-12">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 sm:mb-6">
+              Recommended for You
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {data.topRecommendations.map(
+                (rec: Recommendation, idx: number) => (
+                  <a
+                    key={idx}
+                    href={rec.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group bg-white rounded-xl p-5 shadow-lg border-2 border-slate-200 hover:border-blue-400 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="bg-blue-100 rounded-lg p-2">
+                        <BookOpen className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                        {rec.skill}
+                      </div>
+                    </div>
+
+                    <h3 className="font-bold text-slate-900 text-base mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                      {rec.title}
+                    </h3>
+
+                    <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                      {rec.description}
+                    </p>
+
+                    <div className="flex items-center text-blue-600 text-sm font-semibold">
+                      <span>Learn More</span>
+                      <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </a>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Joined Classes Section */}
         {data.joinedClasses.length > 0 && (
           <div className="mb-8 sm:mb-12">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -393,13 +586,13 @@ async function Dashboard() {
           </div>
         )}
 
-        {/* Pending Class Assessments Alert - Mobile Optimized */}
+        {/* Pending Class Assessments Alert */}
         {data.pendingClassAssessments > 0 && (
           <div className="mb-8 sm:mb-12">
             <div className="bg-linear-to-r from-orange-500 to-orange-600 rounded-xl p-5 sm:p-6 text-white shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center space-x-3 sm:space-x-4">
-                  <div className="bg-white/20 rounded-lg p-2 sm:p-3 flex-shrink-0">
+                  <div className="bg-white/20 rounded-lg p-2 sm:p-3 shrink-0">
                     <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div>
@@ -423,7 +616,7 @@ async function Dashboard() {
           </div>
         )}
 
-        {/* Learning Path - Mobile Optimized */}
+        {/* Learning Path */}
         <div className="mb-8">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 sm:mb-6">
             Your Learning Path
@@ -447,7 +640,7 @@ async function Dashboard() {
                 </p>
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-semibold text-emerald-600">
-                    {data.recentAssessments.length} assessments taken
+                    {data.recentSkillAssessments.length} assessments taken
                   </span>
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-2 transition-all" />
                 </div>
@@ -485,47 +678,65 @@ async function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Assessments - Mobile Optimized */}
-        {data.recentAssessments.length > 0 && (
+        {/* Recent Skill Assessments */}
+        {data.recentSkillAssessments.length > 0 && (
           <div className="bg-linear-to-r from-slate-800 via-slate-900 to-slate-800 rounded-xl sm:rounded-2xl p-6 sm:p-10 relative overflow-hidden">
             <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 via-purple-500/10 to-rose-500/10"></div>
             <div className="relative">
-              <h3 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">
-                Recent Assessments
-              </h3>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-white">
+                  Recent Skill Assessments
+                </h3>
+                <Link
+                  href="/skill-assessment/history"
+                  className="text-blue-400 hover:text-blue-300 font-semibold text-sm flex items-center space-x-1"
+                >
+                  <span>View All</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
               <div className="space-y-2 sm:space-y-3">
-                {data.recentAssessments.slice(0, 3).map((assessment: any) => (
-                  <div
-                    key={assessment._id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10"
-                  >
-                    <div className="flex items-center space-x-3 sm:space-x-4 flex-1">
-                      <div className="bg-blue-500/20 rounded-lg p-2 flex-shrink-0">
-                        <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold text-sm sm:text-base truncate">
-                          Completed {assessment.jobRole || "Skill"} assessment
-                        </p>
-                        <p className="text-slate-400 text-xs sm:text-sm">
-                          {assessment.totalQuestions || 0} questions •{" "}
-                          {new Date(assessment.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      className={`px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm self-start sm:self-auto ${
-                        (assessment.score || 0) >= 80
-                          ? "bg-green-500/20 text-green-400"
-                          : (assessment.score || 0) >= 60
-                            ? "bg-yellow-500/20 text-yellow-400"
-                            : "bg-red-500/20 text-red-400"
-                      }`}
+                {data.recentSkillAssessments
+                  .slice(0, 3)
+                  .map((assessment: any) => (
+                    <Link
+                      key={assessment._id}
+                      href={`/skill-assessment/result?id=${assessment._id}`}
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all"
                     >
-                      {assessment.score || 0}%
-                    </div>
-                  </div>
-                ))}
+                      <div className="flex items-center space-x-3 sm:space-x-4 flex-1">
+                        <div className="bg-blue-500/20 rounded-lg p-2 shrink-0">
+                          <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold text-sm sm:text-base truncate">
+                            {assessment.jobRole || "Skill Assessment"}
+                          </p>
+                          <p className="text-slate-400 text-xs sm:text-sm">
+                            {assessment.difficulty} •{" "}
+                            {assessment.totalQuestions} questions •{" "}
+                            {new Date(
+                              assessment.completedAt
+                            ).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm ${
+                            assessment.overallScore >= 80
+                              ? "bg-green-500/20 text-green-400"
+                              : assessment.overallScore >= 60
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          {assessment.overallScore}%
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-400" />
+                      </div>
+                    </Link>
+                  ))}
               </div>
             </div>
           </div>

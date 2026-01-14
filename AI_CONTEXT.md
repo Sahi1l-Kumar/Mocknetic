@@ -184,6 +184,9 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -299,6 +302,12 @@ All DB access goes through Mongoose models.
 │   │   │   │   ├── route.ts
 │   │   │   ├── generate-recommendations
 │   │   │   │   ├── route.ts
+│   │   │   ├── result
+│   │   │   │   ├── [id]
+│   │   │   │   │   ├── route.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── stats
+│   │   │   │   ├── route.ts
 │   │   │   ├── submit
 │   │   │   │   ├── route.ts
 │   │   ├── student
@@ -412,7 +421,6 @@ All DB access goes through Mongoose models.
 │   ├── window.svg
 ├── scripts
 │   ├── update-ai-context.mjs
-├── server.js
 ├── tailwind.config.ts
 ├── tsconfig.json
 ├── types
@@ -420,6 +428,7 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
+
 
 
 
