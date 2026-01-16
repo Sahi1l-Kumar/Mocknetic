@@ -644,7 +644,7 @@ export default function InterviewPage({
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-2 sm:p-4">
+    <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-2 sm:p-4">
       <div className="w-full max-w-7xl bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">
@@ -666,7 +666,7 @@ export default function InterviewPage({
         )}
 
         {isComplete && qaHistory.length > 0 && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 sm:p-6 shadow-lg">
+          <div className="bg-linear-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 sm:p-6 shadow-lg">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="bg-green-500 text-white rounded-full p-3">
                 <Check className="w-6 h-6 sm:w-8 sm:h-8" />
@@ -763,8 +763,8 @@ export default function InterviewPage({
           </div>
 
           <div className="lg:col-span-2 space-y-3 sm:space-y-4 order-2 lg:order-2">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border border-blue-200 shadow-sm h-60 sm:h-80 overflow-y-auto space-y-3">
-              <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
+            <div className="bg-linear-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border border-blue-200 shadow-sm h-60 sm:h-80 overflow-y-auto space-y-3">
+              <div className="sticky top-0 bg-linear-to-r from-blue-50 to-blue-100 pb-2">
                 <div className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold">
                   Question {currentQuestion?.question_number || "—"} /{" "}
                   {maxQuestions}
@@ -827,7 +827,7 @@ export default function InterviewPage({
             </div>
 
             {qaHistory.length > 1 && (
-              <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
+              <div className="bg-linear-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                   <span className="text-xs sm:text-sm font-semibold text-purple-700">
                     🧠 AI Context Active
@@ -842,8 +842,8 @@ export default function InterviewPage({
           </div>
 
           <div className="lg:col-span-2 space-y-2 order-3 lg:order-3">
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 sm:p-6 rounded-lg h-60 sm:h-80 overflow-y-auto shadow-sm">
-              <h3 className="font-bold text-green-700 mb-3 sm:mb-4 text-base sm:text-lg sticky top-0 bg-gradient-to-r from-green-50 to-green-100 pb-2">
+            <div className="bg-linear-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 sm:p-6 rounded-lg h-60 sm:h-80 overflow-y-auto shadow-sm">
+              <h3 className="font-bold text-green-700 mb-3 sm:mb-4 text-base sm:text-lg sticky top-0 bg-linear-to-r from-green-50 to-green-100 pb-2">
                 Your Answer
               </h3>
               {transcript ? (
@@ -907,7 +907,7 @@ export default function InterviewPage({
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4 sm:p-6 space-y-4 shadow-lg order-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
               <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 sm:gap-3">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shadow-md">
+                <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shadow-md">
                   {qaHistory.length}
                 </div>
                 Interview History
@@ -922,9 +922,9 @@ export default function InterviewPage({
               {qaHistory.map((qa, idx) => (
                 <div
                   key={idx}
-                  className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
+                  className="bg-linear-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
                 >
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 border-b-2 border-blue-200">
+                  <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 border-b-2 border-blue-200">
                     <div className="flex items-start gap-2 sm:gap-3">
                       <div className="shrink-0 bg-blue-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         Q{idx + 1}
@@ -939,7 +939,7 @@ export default function InterviewPage({
 
                   <div className="bg-white p-3 sm:p-4">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="shrink-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                      <div className="shrink-0 bg-linear-to-br from-green-500 to-emerald-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         A
                       </div>
                       <div className="flex-1 flex items-start gap-2">

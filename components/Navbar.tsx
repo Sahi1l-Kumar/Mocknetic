@@ -5,13 +5,13 @@ import React, { useState, useEffect } from "react";
 import {
   Zap,
   ChevronDown,
-  FileText,
   Code2,
   Target,
   MessageSquare,
   GraduationCap,
   Menu,
   X,
+  LayoutDashboard,
 } from "lucide-react";
 import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
@@ -40,13 +40,6 @@ const Navbar = () => {
   }, [isMobileMenuOpen]);
 
   const features = [
-    {
-      name: "Resume Parser",
-      description: "Parse and analyze resumes",
-      icon: FileText,
-      href: ROUTES.RESUME,
-      color: "blue",
-    },
     {
       name: "Skill Assessment",
       description: "Analyze your skills gap",
@@ -171,6 +164,14 @@ const Navbar = () => {
                 </div>
 
                 <Link
+                  href={ROUTES.DASHBOARD}
+                  className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-blue-50 group"
+                >
+                  <LayoutDashboard className="w-5 h-5 group-hover:text-blue-600 transition-colors" />
+                  Dashboard
+                </Link>
+
+                <Link
                   href={ROUTES.CLASSROOM}
                   className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:text-slate-900 font-medium transition-colors rounded-lg hover:bg-indigo-50"
                 >
@@ -238,7 +239,22 @@ const Navbar = () => {
           <div className="px-4 py-6 space-y-4">
             {session?.user ? (
               <>
-                {/* Classroom Link */}
+                <Link
+                  href={ROUTES.DASHBOARD}
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-3 p-4 rounded-lg hover:bg-blue-50 transition-colors "
+                >
+                  <div className="bg-blue-100 p-2.5 rounded-lg">
+                    <LayoutDashboard className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">My Dashboard</p>
+                    <p className="text-xs text-slate-600">
+                      View your progress and stats
+                    </p>
+                  </div>
+                </Link>
+
                 <Link
                   href={ROUTES.CLASSROOM}
                   onClick={closeMobileMenu}
