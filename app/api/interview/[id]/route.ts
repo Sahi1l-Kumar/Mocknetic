@@ -3,22 +3,10 @@ import Interview from "@/database/interview.model";
 import dbConnect from "@/lib/mongoose";
 import { auth } from "@/auth";
 
-interface PythonFeedbackItem {
-  question_number: number;
-  question: string;
-  answer: string;
-  overall_score: number;
-  relevance: number;
-  completeness: number;
-  clarity: number;
-  confidence: number;
-  communication: number;
-  strengths: string[];
-  improvements: string[];
-  feedback: string;
-}
-
-export async function POST(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await auth();
 
@@ -29,138 +17,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { sessionId, type, duration, feedbackData } = body;
-
-    if (!sessionId || !type || !feedbackData) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    if (
-      !feedbackData.feedback_list ||
-      feedbackData.feedback_list.length === 0
-    ) {
-      return NextResponse.json(
-        { error: "No feedback data available" },
-        { status: 400 }
-      );
-    }
+    const { id } = await params;
 
     await dbConnect();
 
-    const transcript = [];
-    for (const fb of feedbackData.feedback_list as PythonFeedbackItem[]) {
-      transcript.push({
-        speaker: "ai" as const,
-        message: fb.question,
-        timestamp: new Date(),
-        type: "question" as const,
-      });
+    const interview = await Interview.findOne({
+      _id: id, // ✅ Use awaited id
+      userId: session.user.id,
+    }).lean();
 
-      transcript.push({
-        speaker: "user" as const,
-        message: fb.answer,
-        timestamp: new Date(),
-        type: "answer" as const,
-      });
-
-      transcript.push({
-        speaker: "ai" as const,
-        message: fb.feedback,
-        timestamp: new Date(),
-        type: "feedback" as const,
-      });
+    if (!interview) {
+      return NextResponse.json(
+        { error: "Interview not found" },
+        { status: 404 }
+      );
     }
 
-    const allStrengths: string[] = [];
-    const allImprovements: string[] = [];
+    const interviewData = interview as any;
 
-    (feedbackData.feedback_list as PythonFeedbackItem[]).forEach((fb) => {
-      if (fb.strengths) allStrengths.push(...fb.strengths);
-      if (fb.improvements) allImprovements.push(...fb.improvements);
+    const transformedData = {
+      session_id: interviewData._id.toString(),
+      average_score: interviewData.scores?.overall || 0,
+      total_questions: interviewData.feedbackDetails?.length || 0,
+      total_answers: interviewData.feedbackDetails?.length || 0,
+      feedback_list: (interviewData.feedbackDetails || []).map(
+        (detail: any) => ({
+          question_number: detail.questionNumber,
+          question: detail.question,
+          answer: detail.answer,
+          overall_score: detail.scores?.overall || 0,
+          relevance: detail.scores?.relevance || 0,
+          completeness: detail.scores?.completeness || 0,
+          clarity: detail.scores?.clarity || 0,
+          confidence: detail.scores?.confidence || 0,
+          communication: detail.scores?.communication || 0,
+          strengths: detail.strengths || [],
+          improvements: detail.improvements || [],
+          feedback: detail.feedback || "",
+        })
+      ),
+      source: "database",
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: transformedData,
     });
-
-    const feedbackList = feedbackData.feedback_list as PythonFeedbackItem[];
-
-    const avgCommunication =
-      feedbackList.reduce((sum, f) => sum + (f.communication || 0), 0) /
-      feedbackList.length;
-
-    const avgRelevance =
-      feedbackList.reduce((sum, f) => sum + (f.relevance || 0), 0) /
-      feedbackList.length;
-
-    const avgCompleteness =
-      feedbackList.reduce((sum, f) => sum + (f.completeness || 0), 0) /
-      feedbackList.length;
-
-    const detailedFeedback = `Interview Performance Summary:
-    
-Overall Score: ${feedbackData.average_score.toFixed(1)}/100
-Questions Answered: ${feedbackData.total_answers}/${feedbackData.total_questions}
-
-Average Metrics:
-- Communication: ${avgCommunication.toFixed(1)}/20
-- Relevance: ${avgRelevance.toFixed(1)}/20  
-- Completeness: ${avgCompleteness.toFixed(1)}/20
-
-This interview assessed your technical knowledge, communication skills, and problem-solving abilities across ${feedbackData.total_questions} questions.`;
-
-    const feedbackDetails = feedbackList.map((fb) => ({
-      questionNumber: fb.question_number,
-      question: fb.question,
-      answer: fb.answer,
-      scores: {
-        overall: fb.overall_score,
-        relevance: fb.relevance,
-        completeness: fb.completeness,
-        clarity: fb.clarity,
-        confidence: fb.confidence,
-        communication: fb.communication,
-      },
-      strengths: fb.strengths || [],
-      improvements: fb.improvements || [],
-      feedback: fb.feedback || "",
-    }));
-
-    const interview = await Interview.create({
-      userId: session.user.id,
-      type: type || "technical",
-      status: "completed",
-      duration,
-      transcript,
-      scores: {
-        communication: avgCommunication * 5,
-        technical: avgRelevance * 5,
-        problemSolving: avgCompleteness * 5,
-        overall: feedbackData.average_score,
-      },
-      feedback: {
-        strengths: allStrengths,
-        improvements: allImprovements,
-        detailedFeedback,
-      },
-      feedbackDetails,
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        interviewId: interview._id.toString(),
-        message: "Interview saved successfully",
-      },
-      { status: 201 }
-    );
   } catch (error) {
-    console.error("Save interview error:", error);
+    console.error("Get interview error:", error);
     return NextResponse.json(
-      {
-        error: "Failed to save interview",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Failed to fetch interview" },
       { status: 500 }
     );
   }

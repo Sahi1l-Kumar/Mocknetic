@@ -538,7 +538,7 @@ async function Dashboard() {
                       answered
                     </span>
                     <Link
-                      href={`/mock-interview/feedback?id=${interview._id}`}
+                      href={`/mock-interview/feedback?sessionId=${interview._id}`}
                       className="text-purple-600 hover:text-purple-700 font-semibold text-sm flex items-center space-x-1"
                     >
                       <span>View Details</span>
