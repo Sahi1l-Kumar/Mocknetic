@@ -72,9 +72,6 @@ export default function InterviewPage({
 
       if (selectedDevices?.microphoneId) {
         audioConstraints.deviceId = { exact: selectedDevices.microphoneId };
-        console.log(
-          `🎤 Using selected microphone: ${selectedDevices.microphoneId}`
-        );
       }
 
       const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -116,9 +113,10 @@ export default function InterviewPage({
         };
         reader.readAsDataURL(blob);
       };
-    } catch {
+    } catch (error) {
+      console.error("Failed to initialize audio:", error);
       setRecordingStatus("error");
-      toast.error("Microphone/Camera access denied");
+      toast.error("Microphone access denied");
     }
   };
 
@@ -230,23 +228,17 @@ export default function InterviewPage({
   const toggleCamera = async () => {
     try {
       if (cameraEnabled) {
-        // Turn OFF
         if (videoStreamRef.current) {
           videoStreamRef.current.getTracks().forEach((track) => track.stop());
           videoStreamRef.current = null;
         }
         if (videoRef.current) {
           videoRef.current.srcObject = null;
-          videoRef.current.load(); // ✅ Force reload
+          videoRef.current.load();
         }
         setCameraEnabled(false);
         toast.success("Camera turned off");
-        console.log("📹 Camera turned off");
       } else {
-        // Turn ON
-        console.log("📹 Attempting to turn camera on...");
-
-        // ✅ Stop any existing stream first
         if (videoStreamRef.current) {
           videoStreamRef.current.getTracks().forEach((track) => track.stop());
           videoStreamRef.current = null;
@@ -259,7 +251,6 @@ export default function InterviewPage({
 
         if (selectedDevices?.cameraId) {
           videoConstraints.deviceId = { exact: selectedDevices.cameraId };
-          console.log(`📹 Using device: ${selectedDevices.cameraId}`);
         }
 
         const videoStream = await navigator.mediaDevices.getUserMedia({
@@ -267,30 +258,12 @@ export default function InterviewPage({
           audio: false,
         });
 
-        console.log(
-          "📹 Got video stream with",
-          videoStream.getVideoTracks().length,
-          "tracks"
-        );
-        console.log(
-          "📹 Video track state:",
-          videoStream.getVideoTracks()[0].readyState
-        );
-
         videoStreamRef.current = videoStream;
 
         if (videoRef.current) {
-          console.log("📹 Video element exists:", !!videoRef.current);
-
-          // ✅ Set stream directly
           videoRef.current.srcObject = videoStream;
-
-          // ✅ Force the element to load
           videoRef.current.load();
 
-          console.log("📹 Waiting for canplay event...");
-
-          // ✅ Wait for canplay event (more reliable than loadedmetadata)
           await new Promise<void>((resolve, reject) => {
             if (!videoRef.current) {
               reject("Video ref lost");
@@ -298,50 +271,37 @@ export default function InterviewPage({
             }
 
             const timeoutId = setTimeout(() => {
-              console.log("⚠️ Video load timeout");
-              resolve(); // Don't reject, just continue
+              resolve();
             }, 3000);
 
             videoRef.current.oncanplay = () => {
               clearTimeout(timeoutId);
-              console.log("✅ Video can play");
               resolve();
             };
 
             videoRef.current.onerror = (e) => {
               clearTimeout(timeoutId);
-              console.error("❌ Video error:", e);
               reject(e);
             };
           });
 
-          // ✅ Play the video
           try {
             await videoRef.current.play();
-            console.log("✅ Video playing successfully");
           } catch (playError) {
-            console.error("❌ Video play failed:", playError);
-            // ✅ Try again after a short delay
             setTimeout(() => {
               if (videoRef.current) {
-                videoRef.current
-                  .play()
-                  .catch((e) =>
-                    console.error("Second play attempt failed:", e)
-                  );
+                videoRef.current.play().catch(() => {});
               }
             }, 500);
           }
         }
 
-        // ✅ Set state AFTER video is ready
         setCameraEnabled(true);
         toast.success("Camera turned on");
-        console.log("✅ Camera toggle complete");
       }
     } catch (error) {
-      console.error("❌ Failed to toggle camera:", error);
-      toast.error("Failed to toggle camera: " + (error as Error).message);
+      console.error("Failed to toggle camera:", error);
+      toast.error("Failed to toggle camera");
       setCameraEnabled(false);
       if (videoStreamRef.current) {
         videoStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -359,7 +319,6 @@ export default function InterviewPage({
 
   const fetchFeedback = async () => {
     try {
-      console.log(`📊 Fetching feedback for session: ${sessionId}`);
       const response = await fetch(
         `${PYTHON_API}/api/interview/feedback/${sessionId}`
       );
@@ -369,37 +328,28 @@ export default function InterviewPage({
       }
 
       const feedbackData = await response.json();
-      console.log("✅ Feedback received:", feedbackData);
 
       try {
-        const saveResponse = await api.interview.save({
+        await api.interview.save({
           sessionId,
           type: "technical",
           duration: undefined,
           feedbackData,
         });
-
-        console.log("✅ Interview saved to database:", saveResponse);
       } catch (saveError) {
-        console.error("⚠️ Failed to save interview:", saveError);
+        console.error("Failed to save interview:", saveError);
       }
 
       toast.dismiss("feedback");
       toast.success("Feedback generated! Redirecting...");
 
       if (audioStreamRef.current) {
-        audioStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-          console.log("🛑 Stopped audio track before redirect");
-        });
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
         audioStreamRef.current = null;
       }
 
       if (videoStreamRef.current) {
-        videoStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-          console.log("🛑 Stopped video track before redirect");
-        });
+        videoStreamRef.current.getTracks().forEach((track) => track.stop());
         videoStreamRef.current = null;
       }
 
@@ -407,7 +357,7 @@ export default function InterviewPage({
         window.location.href = `/mock-interview/feedback?sessionId=${sessionId}`;
       }, 500);
     } catch (error) {
-      console.error("❌ Error fetching feedback:", error);
+      console.error("Error fetching feedback:", error);
       toast.dismiss("feedback");
       toast.error("Failed to generate feedback");
       setIsGeneratingFeedback(false);
@@ -437,18 +387,12 @@ export default function InterviewPage({
     setRecordingStatus("processing");
 
     if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => {
-        track.stop();
-        console.log("🛑 Stopped audio track");
-      });
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
       audioStreamRef.current = null;
     }
 
     if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach((track) => {
-        track.stop();
-        console.log("🛑 Stopped video track");
-      });
+      videoStreamRef.current.getTracks().forEach((track) => track.stop());
       videoStreamRef.current = null;
     }
 
@@ -461,7 +405,6 @@ export default function InterviewPage({
     }
 
     toast.loading("Generating feedback...", { id: "feedback" });
-
     fetchFeedback();
   };
 
@@ -474,18 +417,12 @@ export default function InterviewPage({
     }
 
     if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => {
-        track.stop();
-        console.log("🛑 Stopped audio track");
-      });
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
       audioStreamRef.current = null;
     }
 
     if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach((track) => {
-        track.stop();
-        console.log("🛑 Stopped video track");
-      });
+      videoStreamRef.current.getTracks().forEach((track) => track.stop());
       videoStreamRef.current = null;
     }
 
@@ -514,7 +451,6 @@ export default function InterviewPage({
     function onConnect() {
       if (!isMounted || joinEmitted) return;
       joinEmitted = true;
-      console.log("✅ Emitting join_interview (first time only)");
       setIsSocketConnected(true);
       if (socket) {
         socket.emit("join_interview", { session_id: sessionId });
@@ -523,14 +459,12 @@ export default function InterviewPage({
 
     function onDisconnect() {
       if (!isMounted) return;
-      console.log("❌ Socket disconnected");
       setIsSocketConnected(false);
       joinEmitted = false;
     }
 
     function onJoinSuccess(data: { max_questions?: number }) {
       if (!isMounted) return;
-      console.log("✅ Join success received");
       if (data.max_questions) {
         setMaxQuestions(data.max_questions);
       }
@@ -538,7 +472,6 @@ export default function InterviewPage({
 
     function onReceiveQuestion(data: Question) {
       if (!isMounted) return;
-      console.log(`📝 Received Q${data.question_number}`);
       audioElementsToCleanup.forEach((audio) => {
         audio.pause();
         audio.src = "";
@@ -581,7 +514,6 @@ export default function InterviewPage({
       max_questions: number;
     }) {
       if (!isMounted) return;
-      console.log("✅ Interview complete received from backend");
       setIsComplete(true);
       setRecordingStatus("complete");
       setCurrentQuestion(null);
@@ -596,14 +528,13 @@ export default function InterviewPage({
 
     function onError(data: { message: string }) {
       if (!isMounted) return;
-      console.error("❌ Socket error:", data.message);
+      console.error("Socket error:", data.message);
       setRecordingStatus("error");
       toast.error(data.message);
       setIsGeneratingFeedback(false);
     }
 
     if (socket?.connected) {
-      console.log("🔌 Socket already connected, calling onConnect");
       onConnect();
     }
 
@@ -637,10 +568,6 @@ export default function InterviewPage({
   useEffect(() => {
     const startCamera = async () => {
       if (!cameraEnabled || cameraInitializedRef.current) {
-        console.log("📹 Skipping camera init:", {
-          cameraEnabled,
-          alreadyInitialized: cameraInitializedRef.current,
-        });
         return;
       }
 
@@ -654,9 +581,6 @@ export default function InterviewPage({
 
         if (selectedDevices?.cameraId) {
           videoConstraints.deviceId = { exact: selectedDevices.cameraId };
-          console.log(
-            `📹 Starting camera on mount: ${selectedDevices.cameraId}`
-          );
         }
 
         const videoStream = await navigator.mediaDevices.getUserMedia({
@@ -672,7 +596,6 @@ export default function InterviewPage({
           await new Promise<void>((resolve) => {
             if (videoRef.current) {
               videoRef.current.onloadedmetadata = () => {
-                console.log("📹 Initial video metadata loaded");
                 resolve();
               };
             }
@@ -680,13 +603,12 @@ export default function InterviewPage({
 
           try {
             await videoRef.current.play();
-            console.log("✅ Initial camera started successfully");
           } catch (playError) {
-            console.log("ℹ️ Initial autoplay issue (expected):", playError);
+            console.error("Initial camera autoplay failed:", playError);
           }
         }
       } catch (error) {
-        console.error("❌ Failed to start camera on mount:", error);
+        console.error("Failed to start camera:", error);
         setCameraEnabled(false);
         toast.error("Failed to access camera");
       }
@@ -696,10 +618,7 @@ export default function InterviewPage({
 
     return () => {
       if (videoStreamRef.current) {
-        videoStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-          console.log("🛑 Stopped camera on unmount");
-        });
+        videoStreamRef.current.getTracks().forEach((track) => track.stop());
         videoStreamRef.current = null;
       }
     };
@@ -725,7 +644,7 @@ export default function InterviewPage({
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-2 sm:p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-2 sm:p-4">
       <div className="w-full max-w-7xl bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">
@@ -747,7 +666,7 @@ export default function InterviewPage({
         )}
 
         {isComplete && qaHistory.length > 0 && (
-          <div className="bg-linear-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 sm:p-6 shadow-lg">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 sm:p-6 shadow-lg">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="bg-green-500 text-white rounded-full p-3">
                 <Check className="w-6 h-6 sm:w-8 sm:h-8" />
@@ -799,11 +718,8 @@ export default function InterviewPage({
                   ref={(el) => {
                     videoRef.current = el;
                     if (el && videoStreamRef.current && !el.srcObject) {
-                      console.log("🔧 Setting srcObject in ref callback");
                       el.srcObject = videoStreamRef.current;
-                      el.play().catch((e) =>
-                        console.error("Ref callback play failed:", e)
-                      );
+                      el.play().catch(() => {});
                     }
                   }}
                   autoPlay
@@ -847,8 +763,8 @@ export default function InterviewPage({
           </div>
 
           <div className="lg:col-span-2 space-y-3 sm:space-y-4 order-2 lg:order-2">
-            <div className="bg-linear-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border border-blue-200 shadow-sm h-60 sm:h-80 overflow-y-auto space-y-3">
-              <div className="sticky top-0 bg-linear-to-r from-blue-50 to-blue-100 pb-2">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border border-blue-200 shadow-sm h-60 sm:h-80 overflow-y-auto space-y-3">
+              <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
                 <div className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold">
                   Question {currentQuestion?.question_number || "—"} /{" "}
                   {maxQuestions}
@@ -911,7 +827,7 @@ export default function InterviewPage({
             </div>
 
             {qaHistory.length > 1 && (
-              <div className="bg-linear-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                   <span className="text-xs sm:text-sm font-semibold text-purple-700">
                     🧠 AI Context Active
@@ -926,8 +842,8 @@ export default function InterviewPage({
           </div>
 
           <div className="lg:col-span-2 space-y-2 order-3 lg:order-3">
-            <div className="bg-linear-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 sm:p-6 rounded-lg h-60 sm:h-80 overflow-y-auto shadow-sm">
-              <h3 className="font-bold text-green-700 mb-3 sm:mb-4 text-base sm:text-lg sticky top-0 bg-linear-to-r from-green-50 to-green-100 pb-2">
+            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 sm:p-6 rounded-lg h-60 sm:h-80 overflow-y-auto shadow-sm">
+              <h3 className="font-bold text-green-700 mb-3 sm:mb-4 text-base sm:text-lg sticky top-0 bg-gradient-to-r from-green-50 to-green-100 pb-2">
                 Your Answer
               </h3>
               {transcript ? (
@@ -991,7 +907,7 @@ export default function InterviewPage({
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4 sm:p-6 space-y-4 shadow-lg order-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
               <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 sm:gap-3">
-                <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shadow-md">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shadow-md">
                   {qaHistory.length}
                 </div>
                 Interview History
@@ -1006,9 +922,9 @@ export default function InterviewPage({
               {qaHistory.map((qa, idx) => (
                 <div
                   key={idx}
-                  className="bg-linear-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
+                  className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
                 >
-                  <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 border-b-2 border-blue-200">
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 border-b-2 border-blue-200">
                     <div className="flex items-start gap-2 sm:gap-3">
                       <div className="shrink-0 bg-blue-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         Q{idx + 1}
@@ -1023,7 +939,7 @@ export default function InterviewPage({
 
                   <div className="bg-white p-3 sm:p-4">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="shrink-0 bg-linear-to-br from-green-500 to-emerald-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                      <div className="shrink-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         A
                       </div>
                       <div className="flex-1 flex items-start gap-2">
