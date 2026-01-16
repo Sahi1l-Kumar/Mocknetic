@@ -187,6 +187,15 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -280,6 +289,14 @@ All DB access goes through Mongoose models.
 │   │   │   ├── route.ts
 │   │   ├── fileparser
 │   │   │   ├── route.ts
+│   │   ├── interview
+│   │   │   ├── [id]
+│   │   │   │   ├── route.ts
+│   │   │   ├── route.ts
+│   │   │   ├── save
+│   │   │   │   ├── route.ts
+│   │   │   ├── stats
+│   │   │   │   ├── route.ts
 │   │   ├── judge0
 │   │   │   ├── execute
 │   │   │   │   ├── route.ts
@@ -414,11 +431,7 @@ All DB access goes through Mongoose models.
 ├── package.json
 ├── postcss.config.mjs
 ├── public
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── next.svg
-│   ├── vercel.svg
-│   ├── window.svg
+│   ├── mocknetic.svg
 ├── scripts
 │   ├── update-ai-context.mjs
 ├── tailwind.config.ts
@@ -428,6 +441,9 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
+
+
+
 
 
 

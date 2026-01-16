@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
 import { Video, VideoOff, Mic, Copy, Check } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface Question {
   question: string;
@@ -241,33 +242,49 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const fetchFeedback = async () => {
-    try {
-      console.log(`📊 Fetching feedback for session: ${sessionId}`);
-      const response = await fetch(
-        `${PYTHON_API}/api/interview/feedback/${sessionId}`
-      );
+const fetchFeedback = async () => {
+  try {
+    console.log(`📊 Fetching feedback for session: ${sessionId}`);
+    const response = await fetch(
+      `${PYTHON_API}/api/interview/feedback/${sessionId}`
+    );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const feedbackData = await response.json();
-      console.log("✅ Feedback received:", feedbackData);
-
-      toast.dismiss("feedback");
-      toast.success("Feedback generated! Redirecting...");
-
-      setTimeout(() => {
-        window.location.href = `/mock-interview/feedback?sessionId=${sessionId}`;
-      }, 500);
-    } catch (error) {
-      console.error("❌ Error fetching feedback:", error);
-      toast.dismiss("feedback");
-      toast.error("Failed to generate feedback");
-      setIsGeneratingFeedback(false);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+
+    const feedbackData = await response.json();
+    console.log("✅ Feedback received:", feedbackData);
+
+    // Save interview to database with FULL feedback data
+    try {
+      const saveResponse = await api.interview.save({
+        sessionId,
+        type: "technical", // You can make this dynamic based on interview setup
+        duration: undefined, // Add duration tracking if needed
+        feedbackData, // Pass the entire feedback object
+      });
+
+      console.log("✅ Interview saved to database:", saveResponse);
+    } catch (saveError) {
+      console.error("⚠️ Failed to save interview:", saveError);
+      // Continue even if save fails - don't block user from seeing feedback
+    }
+
+    toast.dismiss("feedback");
+    toast.success("Feedback generated! Redirecting...");
+
+    setTimeout(() => {
+      window.location.href = `/mock-interview/feedback?sessionId=${sessionId}`;
+    }, 500);
+  } catch (error) {
+    console.error("❌ Error fetching feedback:", error);
+    toast.dismiss("feedback");
+    toast.error("Failed to generate feedback");
+    setIsGeneratingFeedback(false);
+  }
+};
+
 
   const handleEndInterview = () => {
     if (isEnding || isGeneratingFeedback) return;
@@ -633,7 +650,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isComplete ? "All Questions Asked" : "Next Question"}
+                {isComplete ? "All Questions Asked" : "Skip Question"}
               </button>
 
               <button

@@ -218,6 +218,30 @@ export const api = {
       fetchHandler(`${API_BASE_URL}/judge0/submissions/${id}`),
   },
 
+  interview: {
+    save: (data: {
+      sessionId: string;
+      type: "technical" | "behavioral" | "mixed";
+      duration?: number;
+      feedbackData: any;
+    }) =>
+      fetchHandler(`${API_BASE_URL}/interview/save`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getById: (id: string) => fetchHandler(`${API_BASE_URL}/interview/${id}`),
+    getAll: (params?: { limit?: number; skip?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.limit) searchParams.append("limit", params.limit.toString());
+      if (params?.skip) searchParams.append("skip", params.skip.toString());
+
+      return fetchHandler(
+        `${API_BASE_URL}/interview?${searchParams.toString()}`
+      );
+    },
+    getStats: () => fetchHandler(`${API_BASE_URL}/interview/stats`),
+  },
+
   classroom: {
     getAll: () => fetchHandler(`${API_BASE_URL}/classroom`),
     getById: (id: string) => fetchHandler(`${API_BASE_URL}/classroom/${id}`),

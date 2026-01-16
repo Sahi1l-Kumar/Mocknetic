@@ -2,7 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Award, TrendingUp, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Award,
+  TrendingUp,
+  CheckCircle,
+  AlertCircle,
+  Database,
+  CloudOff,
+} from "lucide-react";
+import { api } from "@/lib/api";
 
 interface FeedbackData {
   question_number: number;
@@ -25,6 +33,7 @@ interface InterviewFeedback {
   total_answers: number;
   feedback_list: FeedbackData[];
   session_id: string;
+  source?: "python" | "database";
 }
 
 export default function FeedbackPage() {
@@ -37,6 +46,9 @@ export default function FeedbackPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedQ, setExpandedQ] = useState<number | null>(null);
+  const [dataSource, setDataSource] = useState<"python" | "database" | null>(
+    null
+  );
 
   const PYTHON_API =
     process.env.NEXT_PUBLIC_PYTHON_API || "http://localhost:5000";
@@ -50,18 +62,36 @@ export default function FeedbackPage() {
 
     const fetchFeedback = async () => {
       try {
+        // Try Python API first (for recent interviews)
+        console.log("🔄 Fetching from Python API...");
         const response = await fetch(
           `${PYTHON_API}/api/interview/feedback/${sessionId}`
         );
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFeedbackData({ ...data, source: "python" });
+          setDataSource("python");
+          setError(null);
+          console.log("✅ Loaded from Python API");
+          return;
         }
 
-        const data = await response.json();
-        setFeedbackData(data);
-        setError(null);
+        // If Python API fails, try MongoDB
+        console.log("⚠️ Python API failed, trying database...");
+        const dbResponse = await api.interview.getById(sessionId);
+
+        if (dbResponse && dbResponse.success && dbResponse.data) {
+          const dbData = dbResponse.data as InterviewFeedback;
+          setFeedbackData(dbData);
+          setDataSource("database");
+          setError(null);
+          console.log("✅ Loaded from database");
+        } else {
+          throw new Error("Interview not found in database");
+        }
       } catch (err) {
+        console.error("❌ Failed to fetch feedback:", err);
         setError(
           err instanceof Error ? err.message : "Failed to fetch feedback"
         );
@@ -140,6 +170,25 @@ export default function FeedbackPage() {
           <p className="text-slate-600">
             Detailed analysis of your performance
           </p>
+
+          {/* Data Source Badge */}
+          {dataSource && (
+            <div className="mt-4 inline-flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full text-xs">
+              {dataSource === "python" ? (
+                <>
+                  <CloudOff className="w-3 h-3 text-green-600" />
+                  <span className="text-slate-600">Live Session Data</span>
+                </>
+              ) : (
+                <>
+                  <Database className="w-3 h-3 text-blue-600" />
+                  <span className="text-slate-600">
+                    Saved Interview History
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Overall Score Card */}

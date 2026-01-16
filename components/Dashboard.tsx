@@ -15,6 +15,7 @@ import { redirect } from "next/navigation";
 import User from "@/database/user.model";
 import Profile from "@/database/profile.model";
 import { SkillResult } from "@/database";
+import Interview from "@/database/interview.model";
 import ClassroomMembership from "@/database/classroom/classroom-membership.model";
 import Classroom from "@/database/classroom/classroom.model";
 import ClassroomAssessment from "@/database/classroom/classroom-assignment.model";
@@ -68,40 +69,56 @@ interface DashboardData {
   joinedClasses: any[];
   pendingClassAssessments: number;
   assessmentTrend: "up" | "down" | "stable";
+  recentInterviews: any[];
+  totalInterviews: number;
+  avgInterviewScore: number;
 }
 
 async function getDashboardData(userId: string): Promise<DashboardData | null> {
   try {
     await dbConnect();
 
-    // Fetch user data
     const user = (await User.findById(userId).lean()) as any;
     if (!user) return null;
 
-    // Fetch profile data
     const profile = (await Profile.findOne({ userId }).lean()) as any;
 
-    // Fetch skill assessment results (using SkillResult instead of Assessment)
     const skillResults = (await SkillResult.find({ userId })
       .sort({ completedAt: -1 })
       .limit(10)
       .lean()) as any[];
 
-    // Fetch joined classrooms via memberships
+    const interviews = await Interview.find({
+      userId,
+      status: "completed",
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    const totalInterviews = interviews.length;
+    const avgInterviewScore =
+      totalInterviews > 0
+        ? Math.round(
+            interviews.reduce(
+              (sum: number, i: any) => sum + (i.scores?.overall || 0),
+              0
+            ) / totalInterviews
+          )
+        : 0;
+
     const memberships = await ClassroomMembership.find({
       studentId: userId,
     }).lean();
 
     const classroomIds = memberships.map((m: any) => m.classroomId);
 
-    // Fetch classroom details
     const classrooms = await Classroom.find({
       _id: { $in: classroomIds },
     })
       .populate("teacherId", "name")
       .lean();
 
-    // Build joined classes data with real assessment counts
     const joinedClasses = await Promise.all(
       classrooms.map(async (classroom: any) => {
         const classroomAssessments = await ClassroomAssessment.find({
@@ -151,7 +168,6 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       0
     );
 
-    // Calculate skill mastery from SkillResult
     const allSkillGaps: SkillGap[] = [];
     const masteredSkills = new Set<string>();
     const allSkills = new Set<string>();
@@ -166,13 +182,11 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       });
     });
 
-    // Get top skill gaps (worst performing skills)
     const skillGapMap = new Map<string, SkillGap>();
     allSkillGaps.forEach((gap) => {
       if (!skillGapMap.has(gap.skill)) {
         skillGapMap.set(gap.skill, gap);
       } else {
-        // Keep the most recent gap data
         skillGapMap.set(gap.skill, gap);
       }
     });
@@ -181,7 +195,6 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       .sort((a, b) => b.gap - a.gap)
       .slice(0, 5);
 
-    // Collect all recommendations
     const allRecommendations: Recommendation[] = [];
     skillResults.forEach((result: any) => {
       if (result.recommendations) {
@@ -189,18 +202,15 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       }
     });
 
-    // Get unique recommendations (by title)
     const uniqueRecommendations = Array.from(
       new Map(allRecommendations.map((r) => [r.title, r])).values()
     ).slice(0, 3);
 
-    // Calculate total problems from skill assessments
     const problemsSolved = skillResults.reduce(
       (sum: number, r: any) => sum + (r.totalQuestions || 0),
       0
     );
 
-    // Calculate average score
     const averageScore =
       skillResults.length > 0
         ? Math.round(
@@ -211,7 +221,6 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
           )
         : 0;
 
-    // Calculate assessment trend
     let assessmentTrend: "up" | "down" | "stable" = "stable";
     if (skillResults.length >= 2) {
       const recentScore = skillResults[0].overallScore || 0;
@@ -220,27 +229,35 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       else if (recentScore < previousScore - 5) assessmentTrend = "down";
     }
 
-    // Calculate overall progress
     const totalAssessments =
       skillResults.length +
-      joinedClasses.reduce((sum, c) => sum + c.completedAssessments, 0);
+      joinedClasses.reduce((sum, c) => sum + c.completedAssessments, 0) +
+      totalInterviews;
+
     const completedTotal =
       skillResults.length +
-      joinedClasses.reduce((sum, c) => sum + c.completedAssessments, 0);
+      joinedClasses.reduce((sum, c) => sum + c.completedAssessments, 0) +
+      totalInterviews;
 
     const overallProgress =
       totalAssessments > 0
         ? Math.round((completedTotal / totalAssessments) * 100)
         : 0;
 
-    // Build recent activity
     const recentActivity = [
-      ...skillResults.slice(0, 3).map((result: any) => ({
+      ...skillResults.slice(0, 2).map((result: any) => ({
         type: "skill_assessment",
         title: `Completed ${result.jobRole || "Skill"} assessment`,
         description: `Score: ${result.overallScore || 0}% • ${new Date(result.completedAt).toLocaleDateString()}`,
         icon: Target,
         color: "emerald",
+      })),
+      ...interviews.slice(0, 2).map((interview: any) => ({
+        type: "ai_interview",
+        title: `Completed ${interview.type} interview`,
+        description: `Score: ${interview.scores?.overall || 0}% • ${new Date(interview.createdAt).toLocaleDateString()}`,
+        icon: GraduationCap,
+        color: "purple",
       })),
     ];
 
@@ -268,6 +285,9 @@ async function getDashboardData(userId: string): Promise<DashboardData | null> {
       ),
       pendingClassAssessments,
       assessmentTrend,
+      recentInterviews: interviews.slice(0, 5),
+      totalInterviews,
+      avgInterviewScore,
     };
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -300,7 +320,7 @@ async function Dashboard() {
           </p>
         </div>
 
-        {/* Progress Card - Mobile Optimized */}
+        {/* Progress Card */}
         <div className="mb-8 sm:mb-12">
           <div className="bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-white/5 rounded-full -mr-24 sm:-mr-32 -mt-24 sm:-mt-32"></div>
@@ -327,8 +347,8 @@ async function Dashboard() {
                 <Trophy className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-yellow-300" />
               </div>
 
-              {/* Stats Grid - Responsive */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-white/20">
                   <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-1">
                     {data.skillsMastered}/{data.totalSkills}
@@ -350,7 +370,15 @@ async function Dashboard() {
                     {data.mockInterviewsCompleted}
                   </div>
                   <div className="text-blue-100 text-xs sm:text-sm">
-                    Assessments Done
+                    Skill Tests
+                  </div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-1">
+                    {data.totalInterviews}
+                  </div>
+                  <div className="text-blue-100 text-xs sm:text-sm">
+                    AI Interviews
                   </div>
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 border border-white/20">
@@ -381,7 +409,8 @@ async function Dashboard() {
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 text-xs sm:text-sm text-blue-100">
                   <span>
-                    {data.mockInterviewsCompleted} assessments completed
+                    {data.mockInterviewsCompleted + data.totalInterviews}{" "}
+                    assessments completed
                   </span>
                   <span className="font-semibold text-white">
                     {100 - data.overallProgress}% to go
@@ -391,6 +420,136 @@ async function Dashboard() {
             </div>
           </div>
         </div>
+
+        {data.recentInterviews && data.recentInterviews.length > 0 && (
+          <div className="mb-8 sm:mb-12">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                Recent AI Interviews
+              </h2>
+              <Link
+                href="/mock-interview"
+                className="text-purple-600 hover:text-purple-700 font-semibold text-xs sm:text-sm flex items-center space-x-1"
+              >
+                <span>Start New</span>
+                <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {data.recentInterviews.slice(0, 4).map((interview: any) => (
+                <div
+                  key={interview._id.toString()}
+                  className="bg-white rounded-xl p-5 sm:p-6 shadow-lg border-2 border-slate-200 hover:border-purple-400 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-purple-100 rounded-lg p-2 sm:p-3">
+                        <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base sm:text-lg capitalize">
+                          {interview.type} Interview
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-500">
+                          {new Date(interview.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`px-3 py-1 rounded-full font-bold text-sm ${
+                        interview.scores?.overall >= 70
+                          ? "bg-green-100 text-green-700"
+                          : interview.scores?.overall >= 50
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {interview.scores?.overall || 0}%
+                    </div>
+                  </div>
+
+                  {/* Score Breakdown */}
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="text-center">
+                      <div className="text-lg sm:text-xl font-bold text-slate-900">
+                        {Math.round(interview.scores?.communication || 0)}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Communication
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg sm:text-xl font-bold text-slate-900">
+                        {Math.round(interview.scores?.technical || 0)}
+                      </div>
+                      <div className="text-xs text-slate-600">Technical</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg sm:text-xl font-bold text-slate-900">
+                        {Math.round(interview.scores?.problemSolving || 0)}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Problem Solving
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Strengths & Improvements */}
+                  {interview.feedback && (
+                    <div className="space-y-2 mb-4">
+                      {interview.feedback.strengths?.length > 0 && (
+                        <div className="flex items-start space-x-2">
+                          <div className="bg-green-100 rounded p-1 shrink-0 mt-0.5">
+                            <svg
+                              className="w-3 h-3 text-green-600"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </div>
+                          <p className="text-sm text-slate-700 line-clamp-1">
+                            {interview.feedback.strengths[0]}
+                          </p>
+                        </div>
+                      )}
+                      {interview.feedback.improvements?.length > 0 && (
+                        <div className="flex items-start space-x-2">
+                          <div className="bg-orange-100 rounded p-1 shrink-0 mt-0.5">
+                            <AlertTriangle className="w-3 h-3 text-orange-600" />
+                          </div>
+                          <p className="text-sm text-slate-700 line-clamp-1">
+                            {interview.feedback.improvements[0]}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Questions Count */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                    <span className="text-sm text-slate-600">
+                      {interview.feedbackDetails?.length || 0} questions
+                      answered
+                    </span>
+                    <Link
+                      href={`/mock-interview/feedback?id=${interview._id}`}
+                      className="text-purple-600 hover:text-purple-700 font-semibold text-sm flex items-center space-x-1"
+                    >
+                      <span>View Details</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Top Skill Gaps Section */}
         {data.topSkillGaps.length > 0 && (
@@ -622,7 +781,7 @@ async function Dashboard() {
             Your Learning Path
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <Link
               href={ROUTES.SKILL}
               className="group bg-white rounded-xl sm:rounded-2xl p-6 sm:p-8 border-2 border-slate-200 hover:border-emerald-400 shadow-sm hover:shadow-xl transition-all duration-300 text-left relative overflow-hidden"
@@ -643,6 +802,30 @@ async function Dashboard() {
                     {data.recentSkillAssessments.length} assessments taken
                   </span>
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-2 transition-all" />
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/mock-interview"
+              className="group bg-white rounded-xl sm:rounded-2xl p-6 sm:p-8 border-2 border-slate-200 hover:border-purple-400 shadow-sm hover:shadow-xl transition-all duration-300 text-left relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-purple-50 rounded-full -mr-12 sm:-mr-16 -mt-12 sm:-mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+              <div className="relative">
+                <div className="bg-purple-100 w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-purple-500 transition-colors">
+                  <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7 text-purple-600 group-hover:text-white transition-colors" />
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
+                  AI Interview
+                </h3>
+                <p className="text-sm sm:text-base text-slate-600 mb-3 sm:mb-4">
+                  Practice with AI-powered mock interviews
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs sm:text-sm font-semibold text-purple-600">
+                    {data.totalInterviews} interviews completed
+                  </span>
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-2 transition-all" />
                 </div>
               </div>
             </Link>

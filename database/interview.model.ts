@@ -30,6 +30,22 @@ export interface IInterview {
     improvements: string[];
     detailedFeedback: string;
   };
+  feedbackDetails?: Array<{
+    questionNumber: number;
+    question: string;
+    answer: string;
+    scores: {
+      overall: number;
+      relevance: number;
+      completeness: number;
+      clarity: number;
+      confidence: number;
+      communication: number;
+    };
+    strengths: string[];
+    improvements: string[];
+    feedback: string;
+  }>;
 }
 
 export interface IInterviewDoc extends IInterview, Document {}
@@ -84,6 +100,24 @@ const InterviewSchema = new Schema<IInterview>(
       improvements: [String],
       detailedFeedback: String,
     },
+    feedbackDetails: [
+      {
+        questionNumber: Number,
+        question: String,
+        answer: String,
+        scores: {
+          overall: Number,
+          relevance: Number,
+          completeness: Number,
+          clarity: Number,
+          confidence: Number,
+          communication: Number,
+        },
+        strengths: [String],
+        improvements: [String],
+        feedback: String,
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -92,6 +126,7 @@ const InterviewSchema = new Schema<IInterview>(
 InterviewSchema.index({ userId: 1, createdAt: -1 });
 InterviewSchema.index({ status: 1 });
 
-const Interview = models?.Interview || model<IInterview>("Interview", InterviewSchema);
+const Interview =
+  models?.Interview || model<IInterview>("Interview", InterviewSchema);
 
 export default Interview;
