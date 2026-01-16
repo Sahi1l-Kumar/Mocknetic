@@ -11,6 +11,8 @@ import {
   CloudOff,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import ROUTES from "@/constants/routes";
+import Link from "next/link";
 
 interface FeedbackData {
   question_number: number;
@@ -459,16 +461,23 @@ export default function FeedbackPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 justify-center">
-          <button
-            onClick={() => (window.location.href = "/")}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors shadow-md"
-          >
-            Start New Interview
-          </button>
+        {/* Action Buttons */}
+        <div className="flex gap-4 justify-center flex-wrap">
+          <Link href={ROUTES.DASHBOARD}>
+            <button className="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors shadow-md">
+              ← Back to Dashboard
+            </button>
+          </Link>
+
+          <Link href={ROUTES.INTERVIEW}>
+            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors shadow-md">
+              Start New Interview
+            </button>
+          </Link>
+
           <button
             onClick={() => window.print()}
-            className="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors shadow-md"
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors shadow-md"
           >
             Download Report
           </button>

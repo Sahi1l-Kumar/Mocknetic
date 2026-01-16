@@ -22,7 +22,7 @@ export async function GET(
     await dbConnect();
 
     const interview = await Interview.findOne({
-      _id: id, // ✅ Use awaited id
+      _id: id,
       userId: session.user.id,
     }).lean();
 

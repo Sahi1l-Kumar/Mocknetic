@@ -4,7 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { Camera, Mic, Video, VideoOff } from "lucide-react";
 
 interface InterviewSetupProps {
-  onStart: () => void;
+  onStart: (devices: {
+    cameraId: string;
+    microphoneId: string;
+    cameraEnabled: boolean;
+  }) => void;
   onBack: () => void;
 }
 
@@ -50,7 +54,7 @@ export default function InterviewSetup({
     };
 
     getDevices();
-  }, []); // Empty dependency array - run once
+  }, []);
 
   // Start stream when devices change
   useEffect(() => {
@@ -120,6 +124,36 @@ export default function InterviewSetup({
 
   const toggleCamera = () => {
     setCameraEnabled((prev) => !prev);
+  };
+
+  const handleStart = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        console.log(`🛑 Stopped ${track.kind} track before starting interview`);
+      });
+    }
+
+    setTimeout(() => {
+      onStart({
+        cameraId: selectedCamera,
+        microphoneId: selectedMicrophone,
+        cameraEnabled: cameraEnabled,
+      });
+    }, 100);
+  };
+
+  const handleBack = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        console.log(`🛑 Stopped ${track.kind} track before going back`);
+      });
+    }
+
+    setTimeout(() => {
+      onBack();
+    }, 100);
   };
 
   return (
@@ -224,13 +258,13 @@ export default function InterviewSetup({
 
           <div className="flex justify-between mt-8 pt-6 border-t border-slate-200">
             <button
-              onClick={onBack}
+              onClick={handleBack}
               className="px-6 py-3 border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50 transition-all"
             >
               Back
             </button>
             <button
-              onClick={onStart}
+              onClick={handleStart}
               className="px-8 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
             >
               Start Interview

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { socket } from "@/lib/socket";
 import { toast } from "sonner";
-import { Video, VideoOff, Mic, Copy, Check } from "lucide-react";
+import { Video, VideoOff, Mic, Copy, Check, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface Question {
@@ -20,7 +20,19 @@ interface QAHistory {
   questionNumber: number;
 }
 
-export default function InterviewPage({ sessionId }: { sessionId: string }) {
+interface InterviewPageProps {
+  sessionId: string;
+  selectedDevices: {
+    cameraId: string;
+    microphoneId: string;
+    cameraEnabled: boolean;
+  } | null;
+}
+
+export default function InterviewPage({
+  sessionId,
+  selectedDevices,
+}: InterviewPageProps) {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [transcript, setTranscript] = useState<string>("");
   const [qaHistory, setQaHistory] = useState<QAHistory[]>([]);
@@ -30,7 +42,9 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const [questionsAnswered, setQuestionsAnswered] = useState<number>(0);
   const [maxQuestions, setMaxQuestions] = useState<number>(5);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
-  const [cameraEnabled, setCameraEnabled] = useState<boolean>(true);
+  const [cameraEnabled, setCameraEnabled] = useState<boolean>(
+    selectedDevices?.cameraEnabled ?? true
+  );
   const [isEnding, setIsEnding] = useState<boolean>(false);
   const [isGeneratingFeedback, setIsGeneratingFeedback] =
     useState<boolean>(false);
@@ -42,6 +56,7 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const videoStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const cameraInitializedRef = useRef<boolean>(false);
 
   const PYTHON_API =
     process.env.NEXT_PUBLIC_PYTHON_API || "http://localhost:5000";
@@ -49,24 +64,24 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const initializeAudio = async () => {
     if (audioStreamRef.current) return;
     try {
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
+      if (selectedDevices?.microphoneId) {
+        audioConstraints.deviceId = { exact: selectedDevices.microphoneId };
+        console.log(
+          `🎤 Using selected microphone: ${selectedDevices.microphoneId}`
+        );
+      }
+
       const audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: audioConstraints,
         video: false,
       });
       audioStreamRef.current = audioStream;
-
-      if (cameraEnabled) {
-        const videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        });
-        videoStreamRef.current = videoStream;
-        if (videoRef.current) videoRef.current.srcObject = videoStream;
-      }
 
       const mimeType = "audio/webm";
       mediaRecorderRef.current = new MediaRecorder(audioStream, { mimeType });
@@ -215,23 +230,123 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
   const toggleCamera = async () => {
     try {
       if (cameraEnabled) {
-        videoStreamRef.current?.getTracks().forEach((track) => track.stop());
-        videoStreamRef.current = null;
-        if (videoRef.current) videoRef.current.srcObject = null;
+        // Turn OFF
+        if (videoStreamRef.current) {
+          videoStreamRef.current.getTracks().forEach((track) => track.stop());
+          videoStreamRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          videoRef.current.load(); // ✅ Force reload
+        }
         setCameraEnabled(false);
         toast.success("Camera turned off");
+        console.log("📹 Camera turned off");
       } else {
+        // Turn ON
+        console.log("📹 Attempting to turn camera on...");
+
+        // ✅ Stop any existing stream first
+        if (videoStreamRef.current) {
+          videoStreamRef.current.getTracks().forEach((track) => track.stop());
+          videoStreamRef.current = null;
+        }
+
+        const videoConstraints: MediaTrackConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        };
+
+        if (selectedDevices?.cameraId) {
+          videoConstraints.deviceId = { exact: selectedDevices.cameraId };
+          console.log(`📹 Using device: ${selectedDevices.cameraId}`);
+        }
+
         const videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: videoConstraints,
           audio: false,
         });
+
+        console.log(
+          "📹 Got video stream with",
+          videoStream.getVideoTracks().length,
+          "tracks"
+        );
+        console.log(
+          "📹 Video track state:",
+          videoStream.getVideoTracks()[0].readyState
+        );
+
         videoStreamRef.current = videoStream;
-        if (videoRef.current) videoRef.current.srcObject = videoStream;
+
+        if (videoRef.current) {
+          console.log("📹 Video element exists:", !!videoRef.current);
+
+          // ✅ Set stream directly
+          videoRef.current.srcObject = videoStream;
+
+          // ✅ Force the element to load
+          videoRef.current.load();
+
+          console.log("📹 Waiting for canplay event...");
+
+          // ✅ Wait for canplay event (more reliable than loadedmetadata)
+          await new Promise<void>((resolve, reject) => {
+            if (!videoRef.current) {
+              reject("Video ref lost");
+              return;
+            }
+
+            const timeoutId = setTimeout(() => {
+              console.log("⚠️ Video load timeout");
+              resolve(); // Don't reject, just continue
+            }, 3000);
+
+            videoRef.current.oncanplay = () => {
+              clearTimeout(timeoutId);
+              console.log("✅ Video can play");
+              resolve();
+            };
+
+            videoRef.current.onerror = (e) => {
+              clearTimeout(timeoutId);
+              console.error("❌ Video error:", e);
+              reject(e);
+            };
+          });
+
+          // ✅ Play the video
+          try {
+            await videoRef.current.play();
+            console.log("✅ Video playing successfully");
+          } catch (playError) {
+            console.error("❌ Video play failed:", playError);
+            // ✅ Try again after a short delay
+            setTimeout(() => {
+              if (videoRef.current) {
+                videoRef.current
+                  .play()
+                  .catch((e) =>
+                    console.error("Second play attempt failed:", e)
+                  );
+              }
+            }, 500);
+          }
+        }
+
+        // ✅ Set state AFTER video is ready
         setCameraEnabled(true);
         toast.success("Camera turned on");
+        console.log("✅ Camera toggle complete");
       }
-    } catch {
-      toast.error("Failed to toggle camera");
+    } catch (error) {
+      console.error("❌ Failed to toggle camera:", error);
+      toast.error("Failed to toggle camera: " + (error as Error).message);
+      setCameraEnabled(false);
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => track.stop());
+        videoStreamRef.current = null;
+      }
     }
   };
 
@@ -242,59 +357,153 @@ export default function InterviewPage({ sessionId }: { sessionId: string }) {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-const fetchFeedback = async () => {
-  try {
-    console.log(`📊 Fetching feedback for session: ${sessionId}`);
-    const response = await fetch(
-      `${PYTHON_API}/api/interview/feedback/${sessionId}`
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const feedbackData = await response.json();
-    console.log("✅ Feedback received:", feedbackData);
-
-    // Save interview to database with FULL feedback data
+  const fetchFeedback = async () => {
     try {
-      const saveResponse = await api.interview.save({
-        sessionId,
-        type: "technical", // You can make this dynamic based on interview setup
-        duration: undefined, // Add duration tracking if needed
-        feedbackData, // Pass the entire feedback object
-      });
+      console.log(`📊 Fetching feedback for session: ${sessionId}`);
+      const response = await fetch(
+        `${PYTHON_API}/api/interview/feedback/${sessionId}`
+      );
 
-      console.log("✅ Interview saved to database:", saveResponse);
-    } catch (saveError) {
-      console.error("⚠️ Failed to save interview:", saveError);
-      // Continue even if save fails - don't block user from seeing feedback
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const feedbackData = await response.json();
+      console.log("✅ Feedback received:", feedbackData);
+
+      try {
+        const saveResponse = await api.interview.save({
+          sessionId,
+          type: "technical",
+          duration: undefined,
+          feedbackData,
+        });
+
+        console.log("✅ Interview saved to database:", saveResponse);
+      } catch (saveError) {
+        console.error("⚠️ Failed to save interview:", saveError);
+      }
+
+      toast.dismiss("feedback");
+      toast.success("Feedback generated! Redirecting...");
+
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          console.log("🛑 Stopped audio track before redirect");
+        });
+        audioStreamRef.current = null;
+      }
+
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          console.log("🛑 Stopped video track before redirect");
+        });
+        videoStreamRef.current = null;
+      }
+
+      setTimeout(() => {
+        window.location.href = `/mock-interview/feedback?sessionId=${sessionId}`;
+      }, 500);
+    } catch (error) {
+      console.error("❌ Error fetching feedback:", error);
+      toast.dismiss("feedback");
+      toast.error("Failed to generate feedback");
+      setIsGeneratingFeedback(false);
+      setIsEnding(false);
     }
-
-    toast.dismiss("feedback");
-    toast.success("Feedback generated! Redirecting...");
-
-    setTimeout(() => {
-      window.location.href = `/mock-interview/feedback?sessionId=${sessionId}`;
-    }, 500);
-  } catch (error) {
-    console.error("❌ Error fetching feedback:", error);
-    toast.dismiss("feedback");
-    toast.error("Failed to generate feedback");
-    setIsGeneratingFeedback(false);
-  }
-};
-
+  };
 
   const handleEndInterview = () => {
     if (isEnding || isGeneratingFeedback) return;
+
+    if (qaHistory.length === 0) {
+      toast.error(
+        "Please answer at least one question before ending the interview"
+      );
+      return;
+    }
+
+    if (qaHistory.length < 2 && !isComplete) {
+      const confirmEnd = window.confirm(
+        `You've only answered ${qaHistory.length} question(s) out of ${maxQuestions}. Are you sure you want to end the interview now?\n\nNote: Ending early may result in limited feedback.`
+      );
+      if (!confirmEnd) return;
+    }
+
     setIsEnding(true);
     setIsGeneratingFeedback(true);
     setRecordingStatus("processing");
 
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log("🛑 Stopped audio track");
+      });
+      audioStreamRef.current = null;
+    }
+
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log("🛑 Stopped video track");
+      });
+      videoStreamRef.current = null;
+    }
+
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+
     toast.loading("Generating feedback...", { id: "feedback" });
 
     fetchFeedback();
+  };
+
+  const handleGoHome = () => {
+    if (currentQuestion && qaHistory.length > 0 && !isComplete) {
+      const confirmLeave = window.confirm(
+        "Your interview is still in progress. Are you sure you want to leave? Your progress will be lost."
+      );
+      if (!confirmLeave) return;
+    }
+
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log("🛑 Stopped audio track");
+      });
+      audioStreamRef.current = null;
+    }
+
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log("🛑 Stopped video track");
+      });
+      videoStreamRef.current = null;
+    }
+
+    if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      mediaRecorderRef.current = null;
+    }
+
+    if (socket) {
+      socket.emit("end_interview", { session_id: sessionId });
+      socket.disconnect();
+    }
+
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 200);
   };
 
   useEffect(() => {
@@ -425,6 +634,77 @@ const fetchFeedback = async () => {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    const startCamera = async () => {
+      if (!cameraEnabled || cameraInitializedRef.current) {
+        console.log("📹 Skipping camera init:", {
+          cameraEnabled,
+          alreadyInitialized: cameraInitializedRef.current,
+        });
+        return;
+      }
+
+      cameraInitializedRef.current = true;
+
+      try {
+        const videoConstraints: MediaTrackConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        };
+
+        if (selectedDevices?.cameraId) {
+          videoConstraints.deviceId = { exact: selectedDevices.cameraId };
+          console.log(
+            `📹 Starting camera on mount: ${selectedDevices.cameraId}`
+          );
+        }
+
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false,
+        });
+
+        videoStreamRef.current = videoStream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = videoStream;
+
+          await new Promise<void>((resolve) => {
+            if (videoRef.current) {
+              videoRef.current.onloadedmetadata = () => {
+                console.log("📹 Initial video metadata loaded");
+                resolve();
+              };
+            }
+          });
+
+          try {
+            await videoRef.current.play();
+            console.log("✅ Initial camera started successfully");
+          } catch (playError) {
+            console.log("ℹ️ Initial autoplay issue (expected):", playError);
+          }
+        }
+      } catch (error) {
+        console.error("❌ Failed to start camera on mount:", error);
+        setCameraEnabled(false);
+        toast.error("Failed to access camera");
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          console.log("🛑 Stopped camera on unmount");
+        });
+        videoStreamRef.current = null;
+      }
+    };
+  }, []);
+
   const getStatusColor = () => {
     switch (recordingStatus) {
       case "recording":
@@ -445,13 +725,13 @@ const fetchFeedback = async () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-4">
-      <div className="w-full max-w-7xl bg-white rounded-lg shadow-lg p-8 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-slate-800">
+    <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-2 sm:p-4">
+      <div className="w-full max-w-7xl bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">
             Interview In Progress
           </h1>
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-lg">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-100 rounded-lg w-fit">
             <Mic className="w-4 h-4 text-slate-600" />
             <span className="text-sm font-medium text-slate-600">
               {questionsAnswered} / {maxQuestions}
@@ -460,31 +740,31 @@ const fetchFeedback = async () => {
         </div>
 
         {!isSocketConnected && (
-          <div className="bg-amber-100 border border-amber-300 text-amber-700 px-4 py-3 rounded-lg flex items-center gap-2">
+          <div className="bg-amber-100 border border-amber-300 text-amber-700 px-3 sm:px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
             <span className="text-lg">⚠️</span>
             <span>Connecting to server...</span>
           </div>
         )}
 
-        {isComplete && (
-          <div className="bg-linear-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 shadow-lg">
-            <div className="flex items-center gap-4">
+        {isComplete && qaHistory.length > 0 && (
+          <div className="bg-linear-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="bg-green-500 text-white rounded-full p-3">
-                <Check className="w-8 h-8" />
+                <Check className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-green-800">
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="text-lg sm:text-xl font-bold text-green-800">
                   🎉 Interview Complete!
                 </h3>
-                <p className="text-green-700 mt-1">
-                  You&apos;ve answered all {maxQuestions} questions. Review your
-                  responses below or get your feedback.
+                <p className="text-sm sm:text-base text-green-700 mt-1">
+                  You&apos;ve answered {qaHistory.length} out of {maxQuestions}{" "}
+                  questions. Review your responses below or get your feedback.
                 </p>
               </div>
               <button
                 onClick={handleEndInterview}
                 disabled={isGeneratingFeedback}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold px-6 py-3 rounded-lg transition-colors shadow-md whitespace-nowrap"
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors shadow-md whitespace-nowrap text-sm sm:text-base w-full sm:w-auto"
               >
                 {isGeneratingFeedback ? "Generating..." : "Get Feedback"}
               </button>
@@ -492,12 +772,40 @@ const fetchFeedback = async () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-1 space-y-3">
+        {isComplete && qaHistory.length === 0 && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="bg-amber-500 text-white rounded-full p-3">
+                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8" />
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-bold text-amber-900">
+                  No Answers Recorded
+                </h3>
+                <p className="text-sm sm:text-base text-amber-800 mt-1">
+                  You skipped all {maxQuestions} questions without answering. No
+                  feedback can be generated.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="lg:col-span-1 space-y-3 order-1 lg:order-1">
             <div className="bg-slate-900 rounded-lg aspect-video flex items-center justify-center overflow-hidden relative shadow-md">
               {cameraEnabled ? (
                 <video
-                  ref={videoRef}
+                  ref={(el) => {
+                    videoRef.current = el;
+                    if (el && videoStreamRef.current && !el.srcObject) {
+                      console.log("🔧 Setting srcObject in ref callback");
+                      el.srcObject = videoStreamRef.current;
+                      el.play().catch((e) =>
+                        console.error("Ref callback play failed:", e)
+                      );
+                    }
+                  }}
                   autoPlay
                   playsInline
                   muted
@@ -505,8 +813,8 @@ const fetchFeedback = async () => {
                 />
               ) : (
                 <div className="text-slate-400 text-center">
-                  <VideoOff className="w-12 h-12 mx-auto mb-2" />
-                  <p className="text-sm">Camera Off</p>
+                  <VideoOff className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm">Camera Off</p>
                 </div>
               )}
             </div>
@@ -514,7 +822,7 @@ const fetchFeedback = async () => {
             <button
               onClick={toggleCamera}
               disabled={isEnding}
-              className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-colors ${
+              className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition-colors text-sm sm:text-base ${
                 cameraEnabled
                   ? "bg-slate-200 hover:bg-slate-300 text-slate-700 disabled:opacity-50"
                   : "bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
@@ -523,12 +831,14 @@ const fetchFeedback = async () => {
               {cameraEnabled ? (
                 <>
                   <Video className="w-4 h-4" />
-                  Turn Off
+                  <span className="hidden sm:inline">Turn Off</span>
+                  <span className="sm:hidden">Off</span>
                 </>
               ) : (
                 <>
                   <VideoOff className="w-4 h-4" />
-                  Turn On
+                  <span className="hidden sm:inline">Turn On</span>
+                  <span className="sm:hidden">On</span>
                 </>
               )}
             </button>
@@ -536,8 +846,8 @@ const fetchFeedback = async () => {
             <p className="text-xs text-slate-600 text-center">Your Camera</p>
           </div>
 
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-linear-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm h-80 overflow-y-auto space-y-3">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4 order-2 lg:order-2">
+            <div className="bg-linear-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-lg border border-blue-200 shadow-sm h-60 sm:h-80 overflow-y-auto space-y-3">
               <div className="sticky top-0 bg-linear-to-r from-blue-50 to-blue-100 pb-2">
                 <div className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold">
                   Question {currentQuestion?.question_number || "—"} /{" "}
@@ -545,11 +855,11 @@ const fetchFeedback = async () => {
                 </div>
               </div>
               {currentQuestion ? (
-                <div className="text-lg text-slate-800 leading-relaxed font-medium">
-                  "{currentQuestion.question}"
+                <div className="text-base sm:text-lg text-slate-800 leading-relaxed font-medium">
+                  &quot;{currentQuestion.question}&quot;
                 </div>
               ) : (
-                <div className="text-slate-500 italic text-center py-12">
+                <div className="text-slate-500 italic text-center py-12 text-sm sm:text-base">
                   {isComplete
                     ? "All questions completed"
                     : "Waiting for question..."}
@@ -558,7 +868,7 @@ const fetchFeedback = async () => {
             </div>
 
             <div
-              className={`flex items-center gap-3 px-6 py-3 rounded-full font-semibold transition-all shadow-sm ${getStatusColor()}`}
+              className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold transition-all shadow-sm text-sm sm:text-base ${getStatusColor()}`}
             >
               {recordingStatus === "recording" && (
                 <>
@@ -602,8 +912,8 @@ const fetchFeedback = async () => {
 
             {qaHistory.length > 1 && (
               <div className="bg-linear-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-purple-700">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+                  <span className="text-xs sm:text-sm font-semibold text-purple-700">
                     🧠 AI Context Active
                   </span>
                   <span className="text-xs text-purple-600">
@@ -615,15 +925,15 @@ const fetchFeedback = async () => {
             )}
           </div>
 
-          <div className="lg:col-span-2 space-y-2">
-            <div className="bg-linear-to-br from-green-50 to-green-100 border-2 border-green-300 p-6 rounded-lg h-80 overflow-y-auto shadow-sm">
-              <h3 className="font-bold text-green-700 mb-4 text-lg sticky top-0 bg-linear-to-r from-green-50 to-green-100 pb-2">
+          <div className="lg:col-span-2 space-y-2 order-3 lg:order-3">
+            <div className="bg-linear-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 sm:p-6 rounded-lg h-60 sm:h-80 overflow-y-auto shadow-sm">
+              <h3 className="font-bold text-green-700 mb-3 sm:mb-4 text-base sm:text-lg sticky top-0 bg-linear-to-r from-green-50 to-green-100 pb-2">
                 Your Answer
               </h3>
               {transcript ? (
                 <div className="space-y-3">
-                  <div className="bg-white rounded-lg p-4 border border-green-200">
-                    <p className="text-slate-700 leading-relaxed">
+                  <div className="bg-white rounded-lg p-3 sm:p-4 border border-green-200">
+                    <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
                       {transcript}
                     </p>
                   </div>
@@ -632,14 +942,16 @@ const fetchFeedback = async () => {
                   </div>
                 </div>
               ) : (
-                <div className="text-slate-400 italic text-center py-20">
-                  <Mic className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  Your answer will appear here...
+                <div className="text-slate-400 italic text-center py-12 sm:py-20">
+                  <Mic className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-xs sm:text-sm">
+                    Your answer will appear here...
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-center pt-4 gap-4">
+            <div className="flex flex-col sm:flex-row justify-center pt-2 sm:pt-4 gap-2 sm:gap-4">
               <button
                 onClick={handleNextQuestion}
                 disabled={
@@ -648,7 +960,7 @@ const fetchFeedback = async () => {
                   isEnding ||
                   isComplete
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 sm:px-8 py-2 sm:py-3 rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
                 {isComplete ? "All Questions Asked" : "Skip Question"}
               </button>
@@ -658,13 +970,13 @@ const fetchFeedback = async () => {
                 disabled={
                   isEnding || !isRecording || isTranscribing || isComplete
                 }
-                className={`py-3 px-6 font-semibold rounded-lg shadow-md text-white transition-colors ${
+                className={`py-2 sm:py-3 px-4 sm:px-6 font-semibold rounded-lg shadow-md text-white transition-colors text-sm sm:text-base ${
                   isTranscribing || isComplete
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-red-600 hover:bg-red-700 disabled:opacity-50"
                 }`}
               >
-                <Mic className="inline-block w-5 h-5 mr-2" />
+                <Mic className="inline-block w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 {isComplete
                   ? "Interview Complete"
                   : isTranscribing
@@ -676,57 +988,57 @@ const fetchFeedback = async () => {
         </div>
 
         {qaHistory.length > 0 && (
-          <div className="bg-white border-2 border-slate-200 rounded-xl p-6 space-y-4 shadow-lg">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shadow-md">
+          <div className="bg-white border-2 border-slate-200 rounded-xl p-4 sm:p-6 space-y-4 shadow-lg order-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 sm:gap-3">
+                <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shadow-md">
                   {qaHistory.length}
                 </div>
                 Interview History
               </h2>
-              <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full">
+              <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full w-fit">
                 {qaHistory.length}{" "}
                 {qaHistory.length === 1 ? "exchange" : "exchanges"}
               </span>
             </div>
 
-            <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
+            <div className="max-h-64 sm:max-h-96 overflow-y-auto space-y-3 sm:space-y-4 pr-1 sm:pr-2">
               {qaHistory.map((qa, idx) => (
                 <div
                   key={idx}
                   className="bg-linear-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-200 hover:border-blue-300"
                 >
-                  <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-4 border-b-2 border-blue-200">
-                    <div className="flex items-start gap-3">
-                      <div className="shrink-0 bg-blue-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                  <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 border-b-2 border-blue-200">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="shrink-0 bg-blue-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         Q{idx + 1}
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800 leading-relaxed">
+                        <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed">
                           {qa.question}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="shrink-0 bg-linear-to-br from-green-500 to-emerald-600 text-white font-bold w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
+                  <div className="bg-white p-3 sm:p-4">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="shrink-0 bg-linear-to-br from-green-500 to-emerald-600 text-white font-bold w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs shadow-md">
                         A
                       </div>
                       <div className="flex-1 flex items-start gap-2">
-                        <p className="text-sm text-slate-700 leading-relaxed flex-1 font-medium">
+                        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed flex-1 font-medium">
                           {qa.answer}
                         </p>
                         <button
                           onClick={() => copyToClipboard(qa.answer, idx)}
-                          className="shrink-0 p-2 hover:bg-slate-100 rounded-lg transition-all duration-200 group"
+                          className="shrink-0 p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-all duration-200 group"
                           title="Copy answer"
                         >
                           {copiedIndex === idx ? (
-                            <Check className="w-4 h-4 text-green-600" />
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                           ) : (
-                            <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-slate-600" />
                           )}
                         </button>
                       </div>
@@ -738,18 +1050,23 @@ const fetchFeedback = async () => {
           </div>
         )}
 
-        <div className="flex justify-end pt-4 border-t border-slate-200 gap-4">
+        <div className="flex flex-col sm:flex-row justify-end pt-4 border-t border-slate-200 gap-2 sm:gap-4 order-5">
           <button
-            onClick={() => (window.location.href = "/")}
-            className="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            onClick={handleGoHome}
+            className="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-6 sm:px-8 py-2 sm:py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md text-sm sm:text-base order-2 sm:order-1"
             disabled={isEnding}
           >
             Go Home
           </button>
           <button
             onClick={handleEndInterview}
-            disabled={isEnding || isGeneratingFeedback}
-            className="bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            disabled={
+              isEnding || isGeneratingFeedback || qaHistory.length === 0
+            }
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 sm:px-8 py-2 sm:py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md text-sm sm:text-base order-1 sm:order-2"
+            title={
+              qaHistory.length === 0 ? "Answer at least one question first" : ""
+            }
           >
             {isGeneratingFeedback ? "Generating Feedback..." : "End Interview"}
           </button>
