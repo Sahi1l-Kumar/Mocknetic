@@ -21,12 +21,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: "https://mocknetic.com/dashboard",
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.7,
-    },
-    {
       url: "https://mocknetic.com/mock-interview",
       lastModified: new Date(),
       changeFrequency: "weekly",
