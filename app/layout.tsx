@@ -75,12 +75,41 @@ export const metadata: Metadata = {
 
   // Base URL for all relative URLs
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://mocknetic.com"
+    process.env.NEXT_PUBLIC_APP_URL || "https://mocknetic.com",
   ),
 
   // Alternate languages
   alternates: {
     canonical: "/",
+  },
+
+  // Open Graph for social media sharing
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://mocknetic.com",
+    siteName: "Mocknetic",
+    title: "Mocknetic - Online Learning & Interview Preparation Platform",
+    description:
+      "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Mocknetic - AI-Powered Learning Platform",
+      },
+    ],
+  },
+
+  // Twitter Card metadata
+  twitter: {
+    card: "summary_large_image",
+    title: "Mocknetic - Online Learning & AI Interview Prep",
+    description:
+      "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
+    images: ["/og-image.png"],
+    creator: "@mocknetic",
   },
 
   // Robots directives
@@ -130,7 +159,7 @@ const RootLayout = async ({
     "@type": "EducationalOrganization",
     name: "Mocknetic",
     description:
-      "Online learning platform combining classroom management with AI-powered interview preparation",
+      "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
     url: process.env.NEXT_PUBLIC_APP_URL || "https://mocknetic.com",
     applicationCategory: "EducationalApplication",
     offers: {
