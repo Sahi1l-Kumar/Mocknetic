@@ -433,22 +433,41 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                   </Label>
                   <input
                     id="numerical-answer"
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Enter your answer (e.g., 3.14)"
                     value={
                       answers[currentQuestion.questionNumber]?.toString() || ""
                     }
-                    onChange={(e) =>
-                      handleAnswerChange(
-                        currentQuestion.questionNumber,
-                        parseFloat(e.target.value) || 0,
-                      )
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (
+                        value === "" ||
+                        /^-?\d*\.?\d*([eE][-+]?\d*)?$/.test(value)
+                      ) {
+                        handleAnswerChange(
+                          currentQuestion.questionNumber,
+                          value,
+                        );
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value;
+                      if (value && value !== "-" && value !== ".") {
+                        const numValue = parseFloat(value);
+                        if (!isNaN(numValue)) {
+                          handleAnswerChange(
+                            currentQuestion.questionNumber,
+                            numValue,
+                          );
+                        }
+                      }
+                    }}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                   />
                   <p className="text-xs text-gray-500">
-                    Round your answer to the precision specified in the question
+                    You can enter decimals like 0.03, negative numbers like -5,
+                    or scientific notation like 1.5e-3
                   </p>
                 </div>
               )}
