@@ -9,7 +9,7 @@ import User from "@/database/user.model";
 // GET /api/classroom/:id/student - Get all students in classroom
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireTeacher();
@@ -23,7 +23,7 @@ export async function GET(
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
         { success: false, error: { message: "Forbidden" } },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -33,36 +33,39 @@ export async function GET(
     })
       .populate("studentId", "name email image username")
       .sort({ enrolledAt: -1 });
+
     // Get performance data for each student
     const studentsWithPerformance = await Promise.all(
-      memberships.map(async (membership: any) => {
-        const submissions = await ClassroomSubmission.find({
-          classroomId: params.id,
-          studentId: membership.studentId._id,
-          status: { $in: ["graded", "submitted"] },
-        }).lean();
+      memberships
+        .filter((membership: any) => membership.studentId !== null)
+        .map(async (membership: any) => {
+          const submissions = await ClassroomSubmission.find({
+            classroomId: params.id,
+            studentId: membership.studentId._id,
+            status: { $in: ["graded", "submitted"] },
+          }).lean();
 
-        const completedCount = submissions.length;
-        const averageScore =
-          completedCount > 0
-            ? submissions.reduce((sum, s) => sum + s.percentage, 0) /
-              completedCount
-            : 0;
+          const completedCount = submissions.length;
+          const averageScore =
+            completedCount > 0
+              ? submissions.reduce((sum, s) => sum + s.percentage, 0) /
+                completedCount
+              : 0;
 
-        return {
-          _id: membership._id.toString(),
-          student: {
-            _id: membership.studentId._id.toString(),
-            name: membership.studentId.name,
-            email: membership.studentId.email,
-            image: membership.studentId.image,
-            username: membership.studentId.username,
-          },
-          enrolledAt: membership.enrolledAt,
-          averageScore: Math.round(averageScore * 10) / 10,
-          completedAssessments: completedCount,
-        };
-      })
+          return {
+            _id: membership._id.toString(),
+            student: {
+              _id: membership.studentId._id.toString(),
+              name: membership.studentId.name,
+              email: membership.studentId.email,
+              image: membership.studentId.image,
+              username: membership.studentId.username,
+            },
+            enrolledAt: membership.enrolledAt,
+            averageScore: Math.round(averageScore * 10) / 10,
+            completedAssessments: completedCount,
+          };
+        }),
     );
 
     return NextResponse.json({
@@ -73,7 +76,7 @@ export async function GET(
     console.error("Error fetching students:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to fetch students" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -81,7 +84,7 @@ export async function GET(
 // POST /api/classroom/:id/student - Add student to classroom
 export async function POST(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireTeacher();
@@ -94,7 +97,7 @@ export async function POST(
     if (!studentEmail) {
       return NextResponse.json(
         { success: false, error: { message: "Student email is required" } },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -105,7 +108,7 @@ export async function POST(
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
         { success: false, error: { message: "Forbidden" } },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -120,7 +123,7 @@ export async function POST(
           success: false,
           error: { message: "Student not found or invalid role" },
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -137,7 +140,7 @@ export async function POST(
             success: false,
             error: { message: "Student already enrolled" },
           },
-          { status: 400 }
+          { status: 400 },
         );
       } else {
         // Reactivate membership
@@ -188,13 +191,13 @@ export async function POST(
           studentId: membershipObj.studentId.toString(),
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error adding student:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to add student" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
