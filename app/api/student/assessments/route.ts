@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     }).select("assessmentId score percentage status submittedAt");
 
     const submissionMap = new Map(
-      submissions.map((s) => [s.assessmentId.toString(), s])
+      submissions.map((s) => [s.assessmentId.toString(), s]),
     );
 
     // Format assessments with submission status
@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         totalQuestions: assessment.totalQuestions,
         difficulty: assessment.difficulty,
         curriculum: assessment.curriculum,
+        cognitiveLevel: assessment.cognitiveLevel,
         dueDate: assessment.dueDate,
         isPastDue,
         status: submission
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching assessments:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch assessments" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

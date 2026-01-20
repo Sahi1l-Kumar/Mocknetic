@@ -8,7 +8,7 @@ import ClassroomSubmission from "@/database/classroom/classroom-submission.model
 // GET /api/classroom/:id/assessment - List all assessments for classroom
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireTeacher();
@@ -22,7 +22,7 @@ export async function GET(
     if (!classroom || classroom.teacherId.toString() !== user.id) {
       return NextResponse.json(
         { success: false, error: { message: "Forbidden" } },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -55,7 +55,7 @@ export async function GET(
           completedCount,
           averageScore: Math.round(averageScore * 10) / 10,
         };
-      })
+      }),
     );
 
     return NextResponse.json({
@@ -66,7 +66,7 @@ export async function GET(
     console.error("Error fetching assessments:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to fetch assessments" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -74,7 +74,7 @@ export async function GET(
 // POST /api/classroom/:id/assessment - Create assessment
 export async function POST(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireTeacher();
@@ -89,22 +89,25 @@ export async function POST(
       curriculumFile,
       dueDate,
       difficulty,
+      cognitiveLevel,
       totalQuestions,
       questionConfig,
       skills,
+      includesEquations,
+      fairnessConfig,
     } = body;
 
     if (!title?.trim()) {
       return NextResponse.json(
         { success: false, error: { message: "Title is required" } },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!curriculum?.trim()) {
       return NextResponse.json(
         { success: false, error: { message: "Curriculum is required" } },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -114,7 +117,7 @@ export async function POST(
           success: false,
           error: { message: "Total questions must be greater than 0" },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -124,18 +127,16 @@ export async function POST(
           success: false,
           error: { message: "Question configuration is required" },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { mcq, descriptive, numerical } = questionConfig;
+    const { mcq, numerical } = questionConfig;
 
     if (
       typeof mcq !== "number" ||
-      typeof descriptive !== "number" ||
       typeof numerical !== "number" ||
       mcq < 0 ||
-      descriptive < 0 ||
       numerical < 0
     ) {
       return NextResponse.json(
@@ -143,11 +144,11 @@ export async function POST(
           success: false,
           error: { message: "Invalid question configuration" },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (mcq + descriptive + numerical !== totalQuestions) {
+    if (mcq + numerical !== totalQuestions) {
       return NextResponse.json(
         {
           success: false,
@@ -155,7 +156,7 @@ export async function POST(
             message: "Question configuration doesn't match total questions",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -166,7 +167,7 @@ export async function POST(
     if (!classroom) {
       return NextResponse.json(
         { success: false, error: { message: "Classroom not found" } },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -176,7 +177,7 @@ export async function POST(
           success: false,
           error: { message: "Forbidden - Not your classroom" },
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -189,14 +190,21 @@ export async function POST(
       curriculumFile: curriculumFile,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       difficulty: difficulty || "medium",
+      cognitiveLevel: cognitiveLevel || "analysis",
       totalQuestions,
       questionConfig: {
         mcq,
-        descriptive,
         numerical,
       },
       skills: skills || [],
       isPublished: false,
+      includesEquations: includesEquations || false,
+      fairnessConfig: fairnessConfig || {
+        enableQuestionVariants: true,
+        minVariantsPerConcept: 3,
+        maxDifficultyDeviation: 0.1,
+        requirementPerStudent: "both",
+      },
     });
 
     const assessmentObj = assessment.toObject();
@@ -215,7 +223,7 @@ export async function POST(
     console.error("Error creating assessment:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to create assessment" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

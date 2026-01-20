@@ -7,7 +7,7 @@ import ClassroomSubmission from "@/database/classroom/classroom-submission.model
 // GET /api/classroom-assessment/:id/results - Get all submission results
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireTeacher();
@@ -21,14 +21,14 @@ export async function GET(
     if (!assessment) {
       return NextResponse.json(
         { success: false, error: { message: "Assessment not found" } },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (assessment.teacherId.toString() !== user.id) {
       return NextResponse.json(
         { success: false, error: { message: "Forbidden" } },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -38,16 +38,13 @@ export async function GET(
       .populate("studentId", "name email image username")
       .sort({ submittedAt: -1 });
 
-    // Calculate statistics
     const completedSubmissions = submissions.filter(
-      (s) => s.status === "graded" || s.status === "submitted"
+      (s) => s.status === "evaluated" || s.status === "submitted",
     );
 
     const stats = {
       totalSubmissions: submissions.length,
       completedCount: completedSubmissions.length,
-      pendingReview: submissions.filter((s) => s.status === "pending_review")
-        .length,
       inProgress: submissions.filter((s) => s.status === "in_progress").length,
       averageScore: 0,
       highestScore: 0,
@@ -91,7 +88,7 @@ export async function GET(
             percentage: submissionObj.percentage,
             status: submissionObj.status,
             submittedAt: submissionObj.submittedAt,
-            timeSpent: submissionObj.timeSpent,
+            startedAt: submissionObj.startedAt,
           };
         }),
       },
@@ -100,7 +97,7 @@ export async function GET(
     console.error("Error fetching results:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to fetch results" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

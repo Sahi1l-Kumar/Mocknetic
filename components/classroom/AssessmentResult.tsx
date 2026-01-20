@@ -40,13 +40,19 @@ interface Question {
   _id: string;
   questionNumber: number;
   questionText: string;
-  questionType: "mcq" | "descriptive" | "numerical";
+  questionType: "mcq" | "numerical";
   options?: string[];
   correctAnswer?: string | string[] | number;
   points: number;
-  difficulty: string;
+  difficulty?: string;
   topic?: string;
   explanation?: string;
+  bloomsLevel?: number;
+  equationContent?: {
+    latex: string;
+    description: string;
+    position: "inline" | "display";
+  };
 }
 
 interface Answer {
@@ -63,9 +69,9 @@ interface Submission {
   score: number;
   totalPoints: number;
   percentage: number;
-  status: string;
+  status: "in_progress" | "submitted" | "evaluated";
   submittedAt: string;
-  gradedAt?: string;
+  startedAt: string;
   timeSpent: number;
   answers: Answer[];
 }
@@ -81,6 +87,7 @@ interface Assessment {
   };
   totalQuestions: number;
   difficulty: string;
+  cognitiveLevel?: string;
 }
 
 const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
@@ -185,13 +192,13 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
 
   const classroomId = assessment.classroom?._id || assessment.classroomId;
   const correctAnswers = submission.answers.filter(
-    (a) => a.isCorrect === true
+    (a) => a.isCorrect === true,
   ).length;
   const incorrectAnswers = submission.answers.filter(
-    (a) => a.isCorrect === false
+    (a) => a.isCorrect === false,
   ).length;
   const pendingReview = submission.answers.filter(
-    (a) => a.isCorrect === null
+    (a) => a.isCorrect === null,
   ).length;
 
   return (
@@ -232,7 +239,7 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                   <div className="bg-white/20 px-3 py-1.5 rounded-full">
                     {new Date(submission.submittedAt).toLocaleDateString(
                       "en-US",
-                      { month: "short", day: "numeric", year: "numeric" }
+                      { month: "short", day: "numeric", year: "numeric" },
                     )}
                   </div>
                 </div>
@@ -254,15 +261,20 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
             </div>
 
             <div className="mt-4">
-              {submission.status === "graded" ? (
+              {submission.status === "evaluated" ? (
                 <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                  Graded
+                  Evaluated
+                </Badge>
+              ) : submission.status === "submitted" ? (
+                <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                  <Clock className="w-3.5 h-3.5 mr-1.5" />
+                  Submitted
                 </Badge>
               ) : (
                 <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
                   <Clock className="w-3.5 h-3.5 mr-1.5" />
-                  Pending Review
+                  In Progress
                 </Badge>
               )}
             </div>
@@ -393,7 +405,7 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
               <Accordion type="single" collapsible className="w-full">
                 {questions.map((question, idx) => {
                   const answer = submission.answers.find(
-                    (a) => a.questionNumber === question.questionNumber
+                    (a) => a.questionNumber === question.questionNumber,
                   );
 
                   return (
@@ -425,6 +437,14 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                                   {question.topic}
                                 </Badge>
                               )}
+                              {question.bloomsLevel && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-purple-50 text-purple-700 border-purple-200"
+                                >
+                                  Level {question.bloomsLevel}
+                                </Badge>
+                              )}
                               <span className="text-xs text-gray-500">
                                 {answer?.pointsAwarded || 0} / {question.points}{" "}
                                 pts
@@ -452,14 +472,37 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                                   Options:
                                 </h4>
                                 <div className="space-y-2">
-                                  {question.options.map((option, optIdx) => (
-                                    <div
-                                      key={optIdx}
-                                      className="p-2 bg-gray-50 rounded border border-gray-200"
-                                    >
-                                      {option}
-                                    </div>
-                                  ))}
+                                  {question.options.map((option, optIdx) => {
+                                    const isCorrectOption =
+                                      question.correctAnswer === option;
+                                    const isStudentAnswer =
+                                      answer?.studentAnswer === option;
+
+                                    return (
+                                      <div
+                                        key={optIdx}
+                                        className={`p-3 rounded-lg border ${
+                                          isCorrectOption
+                                            ? "bg-emerald-50 border-emerald-300 font-medium"
+                                            : isStudentAnswer &&
+                                                !isCorrectOption
+                                              ? "bg-rose-50 border-rose-300"
+                                              : "bg-gray-50 border-gray-200"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span>{option}</span>
+                                          {isCorrectOption && (
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                          )}
+                                          {isStudentAnswer &&
+                                            !isCorrectOption && (
+                                              <XCircle className="w-4 h-4 text-rose-600" />
+                                            )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </>
@@ -487,24 +530,23 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                             </div>
                           </div>
 
-                          {question.correctAnswer &&
-                            question.questionType !== "descriptive" && (
-                              <>
-                                <Separator />
-                                <div>
-                                  <h4 className="font-semibold text-gray-900 mb-2">
-                                    Correct Answer:
-                                  </h4>
-                                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                                    <p className="text-gray-900">
-                                      {Array.isArray(question.correctAnswer)
-                                        ? question.correctAnswer.join(", ")
-                                        : question.correctAnswer.toString()}
-                                    </p>
-                                  </div>
+                          {question.correctAnswer && (
+                            <>
+                              <Separator />
+                              <div>
+                                <h4 className="font-semibold text-gray-900 mb-2">
+                                  Correct Answer:
+                                </h4>
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                  <p className="text-gray-900 font-medium">
+                                    {Array.isArray(question.correctAnswer)
+                                      ? question.correctAnswer.join(", ")
+                                      : question.correctAnswer.toString()}
+                                  </p>
                                 </div>
-                              </>
-                            )}
+                              </div>
+                            </>
+                          )}
 
                           {question.explanation && (
                             <>
@@ -513,9 +555,11 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                                 <h4 className="font-semibold text-gray-900 mb-2">
                                   Explanation:
                                 </h4>
-                                <p className="text-gray-700 whitespace-pre-wrap">
-                                  {question.explanation}
-                                </p>
+                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                  <p className="text-gray-700 whitespace-pre-wrap">
+                                    {question.explanation}
+                                  </p>
+                                </div>
                               </div>
                             </>
                           )}
@@ -527,7 +571,7 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                                 <h4 className="font-semibold text-gray-900 mb-2">
                                   Teacher's Feedback:
                                 </h4>
-                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                                   <p className="text-gray-900 whitespace-pre-wrap">
                                     {answer.feedback}
                                   </p>
@@ -536,11 +580,19 @@ const AssessmentResult = ({ assessmentId }: AssessmentResultProps) => {
                             </>
                           )}
 
-                          <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center justify-between pt-2 border-t">
                             <span className="text-sm text-gray-600">
-                              Points:
+                              Points Earned:
                             </span>
-                            <span className="font-semibold">
+                            <span
+                              className={`font-semibold text-lg ${
+                                answer?.isCorrect === true
+                                  ? "text-emerald-600"
+                                  : answer?.isCorrect === false
+                                    ? "text-rose-600"
+                                    : "text-amber-600"
+                              }`}
+                            >
                               {answer?.pointsAwarded || 0} / {question.points}
                             </span>
                           </div>

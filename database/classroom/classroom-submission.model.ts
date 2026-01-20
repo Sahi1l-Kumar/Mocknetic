@@ -1,44 +1,81 @@
 import { Schema, models, model, Document, Types } from "mongoose";
 
-export interface IQuestion {
+export interface IGeneratedQuestion {
   questionNumber: number;
+  questionType: "mcq" | "numerical";
   questionText: string;
-  questionType: "mcq" | "descriptive" | "numerical";
   options?: string[];
   correctAnswer?: string | number | string[];
   points: number;
-  difficulty: string;
   topic?: string;
   explanation?: string;
-}
-
-export interface IAnswer {
-  questionNumber: number;
-  answer: string | number;
-  isCorrect?: boolean;
-  pointsEarned?: number;
+  variantId?: string;
+  equationContent?: {
+    latex: string;
+    description: string;
+    position: "inline" | "display";
+  };
+  cognitiveLevel?: string;
+  bloomsLevel?: number;
 }
 
 export interface IClassroomSubmission {
   assessmentId: Types.ObjectId;
   studentId: Types.ObjectId;
   classroomId: Types.ObjectId;
-  questions: IQuestion[];
-  answers: IAnswer[];
+  questions: IGeneratedQuestion[];
+  answers: Array<{
+    questionNumber: number;
+    answer: string | number;
+    isCorrect?: boolean;
+  }>;
   score: number;
   totalPoints: number;
   percentage: number;
-  status: "in_progress" | "submitted" | "graded";
-  startedAt?: Date;
+  status: "in_progress" | "submitted" | "evaluated";
+  startedAt: Date;
   submittedAt?: Date;
-  gradedAt?: Date;
-  timeSpent?: number;
-  feedback?: string;
+  variantIndices?: number[];
 }
 
 export interface IClassroomSubmissionDoc
   extends IClassroomSubmission,
     Document {}
+
+const EquationSchema = new Schema(
+  {
+    latex: { type: String, required: true },
+    description: { type: String, required: true },
+    position: {
+      type: String,
+      enum: ["inline", "display"],
+      default: "display",
+    },
+  },
+  { _id: false },
+);
+
+const QuestionSchema = new Schema<IGeneratedQuestion>(
+  {
+    questionNumber: { type: Number, required: true },
+    questionType: {
+      type: String,
+      enum: ["mcq", "numerical"],
+      required: true,
+    },
+    questionText: { type: String, required: true },
+    options: [{ type: String }],
+    correctAnswer: { type: Schema.Types.Mixed },
+    points: { type: Number, default: 1 },
+    topic: { type: String },
+    explanation: { type: String },
+    variantId: { type: String },
+    equationContent: { type: EquationSchema },
+    cognitiveLevel: { type: String },
+    bloomsLevel: { type: Number, min: 1, max: 6 },
+  },
+  { _id: false },
+);
 
 const ClassroomSubmissionSchema = new Schema<IClassroomSubmission>(
   {
@@ -57,52 +94,35 @@ const ClassroomSubmissionSchema = new Schema<IClassroomSubmission>(
       ref: "Classroom",
       required: true,
     },
-    questions: [
-      {
-        questionNumber: { type: Number, required: true },
-        questionText: { type: String, required: true },
-        questionType: {
-          type: String,
-          enum: ["mcq", "descriptive", "numerical"],
-          required: true,
-        },
-        options: [{ type: String }],
-        correctAnswer: { type: Schema.Types.Mixed },
-        points: { type: Number, required: true, default: 1 },
-        difficulty: { type: String, required: true },
-        topic: { type: String },
-        explanation: { type: String },
-      },
-    ],
+    questions: [QuestionSchema],
     answers: [
       {
-        questionNumber: { type: Number, required: true },
-        answer: { type: Schema.Types.Mixed, required: true },
+        questionNumber: { type: Number },
+        answer: { type: Schema.Types.Mixed },
         isCorrect: { type: Boolean },
-        pointsEarned: { type: Number, default: 0 },
       },
     ],
     score: { type: Number, default: 0 },
-    totalPoints: { type: Number, required: true, default: 0 },
+    totalPoints: { type: Number, required: true },
     percentage: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["in_progress", "submitted", "graded"],
+      enum: ["in_progress", "submitted", "evaluated"],
       default: "in_progress",
     },
-    startedAt: { type: Date },
+    startedAt: { type: Date, required: true },
     submittedAt: { type: Date },
-    gradedAt: { type: Date },
-    timeSpent: { type: Number },
-    feedback: { type: String },
+    variantIndices: [{ type: Number }],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 ClassroomSubmissionSchema.index(
   { assessmentId: 1, studentId: 1 },
-  { unique: true }
+  { unique: true },
 );
+ClassroomSubmissionSchema.index({ classroomId: 1 });
+ClassroomSubmissionSchema.index({ status: 1 });
 
 const ClassroomSubmission =
   models?.ClassroomSubmission ||

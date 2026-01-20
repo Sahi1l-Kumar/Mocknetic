@@ -6,7 +6,7 @@ import ClassroomAssessment from "@/database/classroom/classroom-assignment.model
 
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireStudent();
@@ -25,7 +25,7 @@ export async function GET(
     if (!submission) {
       return NextResponse.json(
         { success: false, error: { message: "Submission not found" } },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -37,14 +37,14 @@ export async function GET(
     if (!assessment) {
       return NextResponse.json(
         { success: false, error: { message: "Assessment not found" } },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Format response with questions and answers
     const formattedAnswers = (submission.answers || []).map((ans: any) => {
       const question = (submission.questions || []).find(
-        (q: any) => q.questionNumber === ans.questionNumber
+        (q: any) => q.questionNumber === ans.questionNumber,
       );
 
       return {
@@ -66,7 +66,7 @@ export async function GET(
         percentage: submission.percentage || 0,
         status: submission.status || "submitted",
         submittedAt: submission.submittedAt,
-        gradedAt: submission.gradedAt,
+        startedAt: submission.startedAt,
         timeSpent: submission.timeSpent || 0,
         answers: formattedAnswers,
       },
@@ -81,26 +81,22 @@ export async function GET(
         },
         totalQuestions: assessment.totalQuestions,
         difficulty: assessment.difficulty,
+        cognitiveLevel: assessment.cognitiveLevel,
       },
       questions: (submission.questions || []).map((q: any) => {
-        let correctAnswerText = q.correctAnswer;
-
-        if (q.questionType === "mcq" && typeof q.correctAnswer === "number") {
-          correctAnswerText =
-            q.options?.[q.correctAnswer - 1] || q.correctAnswer;
-        }
-
         return {
           _id: q._id?.toString() || `q${q.questionNumber}`,
           questionNumber: q.questionNumber,
           questionText: q.questionText,
           questionType: q.questionType,
           options: q.options || [],
-          correctAnswer: correctAnswerText,
+          correctAnswer: q.correctAnswer,
           points: q.points,
           difficulty: q.difficulty,
           topic: q.topic,
           explanation: q.explanation,
+          bloomsLevel: q.bloomsLevel,
+          equationContent: q.equationContent,
         };
       }),
     };
@@ -113,7 +109,7 @@ export async function GET(
     console.error("Error fetching results:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to fetch results" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

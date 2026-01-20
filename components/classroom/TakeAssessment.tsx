@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,11 +40,17 @@ interface Question {
   _id: string;
   questionNumber: number;
   questionText: string;
-  questionType: "mcq" | "descriptive" | "numerical";
+  questionType: "mcq" | "numerical";
   options?: string[];
   points: number;
-  difficulty: string;
+  difficulty?: string;
   topic?: string;
+  bloomsLevel?: number;
+  equationContent?: {
+    latex: string;
+    description: string;
+    position: "inline" | "display";
+  };
 }
 
 interface Assessment {
@@ -61,9 +66,9 @@ interface Assessment {
   difficulty: string;
   curriculum?: string;
   dueDate?: string;
+  cognitiveLevel?: string;
   questionConfig?: {
     mcq: number;
-    descriptive: number;
     numerical: number;
   };
 }
@@ -123,7 +128,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
       } catch (err: any) {
         console.error(
           "No existing questions found:",
-          err?.response?.data?.error?.message
+          err?.response?.data?.error?.message,
         );
       }
 
@@ -151,7 +156,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
         });
       } else {
         throw new Error(
-          generateRes.error?.message || "Failed to generate questions"
+          generateRes.error?.message || "Failed to generate questions",
         );
       }
     } catch (error: any) {
@@ -167,7 +172,6 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
         setTimeout(() => {
           router.push(ROUTES.CLASSROOM);
         }, 2000);
-      } else {
       }
     } finally {
       setLoading(false);
@@ -191,7 +195,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
 
   const handleAnswerChange = (
     questionNumber: number,
-    answer: string | number
+    answer: string | number,
   ) => {
     setAnswers((prev) => ({
       ...prev,
@@ -209,13 +213,13 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
         ([questionNumber, answer]) => ({
           questionNumber: parseInt(questionNumber),
           answer,
-        })
+        }),
       );
 
       const result = await api.student.submitAssessment(
         assessmentId,
         formattedAnswers,
-        timeSpent
+        timeSpent,
       );
 
       if (result.success) {
@@ -402,7 +406,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                           onClick={() =>
                             handleAnswerChange(
                               currentQuestion.questionNumber,
-                              option
+                              option,
                             )
                           }
                         >
@@ -419,38 +423,34 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
                   </RadioGroup>
                 )}
 
-              {currentQuestion.questionType === "descriptive" && (
-                <Textarea
-                  placeholder="Type your answer here..."
-                  value={
-                    answers[currentQuestion.questionNumber]?.toString() || ""
-                  }
-                  onChange={(e) =>
-                    handleAnswerChange(
-                      currentQuestion.questionNumber,
-                      e.target.value
-                    )
-                  }
-                  rows={8}
-                  className="resize-none"
-                />
-              )}
-
               {currentQuestion.questionType === "numerical" && (
-                <input
-                  type="number"
-                  placeholder="Enter your answer"
-                  value={
-                    answers[currentQuestion.questionNumber]?.toString() || ""
-                  }
-                  onChange={(e) =>
-                    handleAnswerChange(
-                      currentQuestion.questionNumber,
-                      parseFloat(e.target.value) || 0
-                    )
-                  }
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:border-blue-500"
-                />
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="numerical-answer"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Enter your numerical answer
+                  </Label>
+                  <input
+                    id="numerical-answer"
+                    type="number"
+                    step="any"
+                    placeholder="Enter your answer (e.g., 3.14)"
+                    value={
+                      answers[currentQuestion.questionNumber]?.toString() || ""
+                    }
+                    onChange={(e) =>
+                      handleAnswerChange(
+                        currentQuestion.questionNumber,
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-semibold focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Round your answer to the precision specified in the question
+                  </p>
+                </div>
               )}
             </div>
           </CardContent>
@@ -472,7 +472,7 @@ const TakeAssessment = ({ assessmentId }: TakeAssessmentProps) => {
             <Button
               onClick={() =>
                 setCurrentQuestionIndex((prev) =>
-                  Math.min(questions.length - 1, prev + 1)
+                  Math.min(questions.length - 1, prev + 1),
                 )
               }
               className="flex-1 bg-blue-600 hover:bg-blue-700"

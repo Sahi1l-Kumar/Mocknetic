@@ -267,7 +267,7 @@ async function generateAssessmentQuestions(
   jobRole: string,
   difficulty: string,
   experienceLevel: string,
-  userSkills: string[]
+  userSkills: string[],
 ): Promise<{ questions: GeneratedQuestion[] }> {
   try {
     const { text: skillsResponse } = await generateText({
@@ -379,10 +379,6 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
     try {
       // Clean the response before parsing
       const cleanedResponse = cleanJsonString(response);
-      console.log(
-        "[DEBUG] Cleaned response (first 500 chars):",
-        cleanedResponse.substring(0, 500)
-      );
       parsed = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error(parseError);
@@ -434,16 +430,16 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
 
         if (q.options.length > 4) {
           console.warn(
-            `Q${idx + 1}: Had ${q.options.length} options, trimming to 4`
+            `Q${idx + 1}: Had ${q.options.length} options, trimming to 4`,
           );
           q.options = q.options.slice(0, 4);
         } else if (q.options.length < 4) {
           console.warn(
-            `Q${idx + 1}: Had ${q.options.length} options, padding to 4`
+            `Q${idx + 1}: Had ${q.options.length} options, padding to 4`,
           );
           while (q.options.length < 4) {
             q.options.push(
-              `Option ${String.fromCharCode(65 + q.options.length)}`
+              `Option ${String.fromCharCode(65 + q.options.length)}`,
             );
           }
         }
@@ -455,7 +451,7 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in this exact s
 
         if (q.correctAnswer < 1 || q.correctAnswer > 4) {
           console.warn(
-            `Q${idx + 1}: Invalid correctAnswer ${q.correctAnswer}, setting to 1`
+            `Q${idx + 1}: Invalid correctAnswer ${q.correctAnswer}, setting to 1`,
           );
           q.correctAnswer = 1;
         }
@@ -484,7 +480,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: { message: "Unauthorized - Please login" } },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -501,7 +497,7 @@ export async function POST(req: NextRequest) {
             message: "Invalid job role. Please enter a valid job title.",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -518,7 +514,7 @@ export async function POST(req: NextRequest) {
               "Invalid difficulty. Must be: beginner, intermediate, or advanced",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -534,7 +530,7 @@ export async function POST(req: NextRequest) {
             message: "Invalid experience level. Please select a valid level.",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -542,7 +538,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: "User not found" } },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -552,7 +548,7 @@ export async function POST(req: NextRequest) {
       jobRole,
       difficulty,
       experienceLevel,
-      userSkills
+      userSkills,
     );
 
     const assessment = await Assessment.create({
@@ -602,7 +598,7 @@ export async function POST(req: NextRequest) {
           })),
         },
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error in generate-questions:", error);
@@ -617,7 +613,7 @@ export async function POST(req: NextRequest) {
           message: errorMessage,
         },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

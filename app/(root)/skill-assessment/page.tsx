@@ -171,7 +171,7 @@ export default function SkillGapAssessment() {
       }
 
       const response = (await api.users.getById(
-        session.user.id
+        session.user.id,
       )) as UserSkillsResponse;
 
       if (response.success && response.data?.skills) {
@@ -179,7 +179,7 @@ export default function SkillGapAssessment() {
           (skill: string, idx: number) => ({
             id: String(idx),
             name: skill,
-          })
+          }),
         );
         setSkills(skillList);
       } else {
@@ -209,14 +209,14 @@ export default function SkillGapAssessment() {
 
         if (Object.keys(finalAnswers).length < questions.length) {
           throw new Error(
-            `Not all questions answered (${Object.keys(finalAnswers).length}/${questions.length})`
+            `Not all questions answered (${Object.keys(finalAnswers).length}/${questions.length})`,
           );
         }
 
         // Step 1: Submit answers to assessment
         const submitData = (await api.skillassessment.submitAnswers(
           assessmentId,
-          finalAnswers
+          finalAnswers,
         )) as SubmitAnswersResponse;
 
         if (!submitData.success) {
@@ -229,12 +229,6 @@ export default function SkillGapAssessment() {
           totalQuestions,
           questions: dbQuestions,
         } = submitData.data!;
-
-        console.log("[RESULTS] Submission successful:", {
-          score,
-          correctAnswers,
-          totalQuestions,
-        });
 
         // Step 2: Calculate skill performance
         const skillPerformance: Record<string, SkillPerformance> = {};
@@ -265,7 +259,7 @@ export default function SkillGapAssessment() {
               questionsAnswered: skill.total,
               correctAnswers: skill.correct,
             };
-          }
+          },
         );
 
         const skillGapsSorted = skillGaps.sort((a, b) => b.gap - a.gap);
@@ -311,8 +305,6 @@ export default function SkillGapAssessment() {
 
         // Step 4: Save result to SkillResult collection
         try {
-          console.log("[RESULTS] Saving to SkillResult collection...");
-
           const saveResultResponse = await api.skillassessment.saveResult({
             assessmentId,
             jobRole: jobRole || "Unknown",
@@ -326,19 +318,12 @@ export default function SkillGapAssessment() {
           });
 
           if (saveResultResponse.success && saveResultResponse.data) {
-            console.log("[RESULTS] Result saved successfully!");
-
             // Get the result ID from response
             const resultData = saveResultResponse.data as { resultId: string };
             const resultId = resultData.resultId;
 
             // Clean up localStorage
             localStorage.removeItem("currentAssessmentId");
-
-            console.log(
-              "[RESULTS] Redirecting to results page with ID:",
-              resultId
-            );
             // Redirect with result ID
             router.push(`/skill-assessment/result?id=${resultId}`);
           } else {
@@ -347,20 +332,20 @@ export default function SkillGapAssessment() {
         } catch (saveError) {
           console.error("[RESULTS] Error saving result:", saveError);
           alert(
-            "Failed to save assessment results. Please try again or contact support."
+            "Failed to save assessment results. Please try again or contact support.",
           );
         }
       } catch (error) {
         console.error("Error calculating results:", error);
         alert(
           "Failed to calculate results: " +
-            (error instanceof Error ? error.message : "Unknown error")
+            (error instanceof Error ? error.message : "Unknown error"),
         );
       } finally {
         setLoading(false);
       }
     },
-    [answers, questions, jobRole, experienceLevel, difficulty, router]
+    [answers, questions, jobRole, experienceLevel, difficulty, router],
   );
 
   const handleFinish = useCallback((): void => {
@@ -394,14 +379,14 @@ export default function SkillGapAssessment() {
   const generateQuestions = useCallback(async (): Promise<void> => {
     setLoading(true);
     setLoadingMessage(
-      "Generating personalized questions for " + jobRole + "..."
+      "Generating personalized questions for " + jobRole + "...",
     );
 
     try {
       const response = (await api.skillassessment.generateQuestions(
         jobRole,
         difficulty,
-        experienceLevel
+        experienceLevel,
       )) as GenerateQuestionsResponse;
 
       if (
@@ -413,7 +398,7 @@ export default function SkillGapAssessment() {
         setQuestions(response.data.questions);
       } else {
         throw new Error(
-          response?.error?.message || "Failed to generate questions"
+          response?.error?.message || "Failed to generate questions",
         );
       }
     } catch (error) {

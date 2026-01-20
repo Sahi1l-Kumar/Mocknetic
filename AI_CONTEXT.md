@@ -199,6 +199,15 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -362,6 +371,8 @@ All DB access goes through Mongoose models.
 │   ├── favicon.ico
 │   ├── globals.css
 │   ├── layout.tsx
+│   ├── robot.ts
+│   ├── sitemap.ts
 ├── auth.ts
 ├── components
 ├── components.json
@@ -375,6 +386,7 @@ All DB access goes through Mongoose models.
 │   │   ├── AssessmentResult.tsx
 │   │   ├── ClassroomDetail.tsx
 │   │   ├── JoinClassroomModal.tsx
+│   │   ├── QuestionDisplay.tsx
 │   │   ├── StudentClassroomsHub.tsx
 │   │   ├── TakeAssessment.tsx
 │   ├── forms
@@ -423,6 +435,9 @@ All DB access goes through Mongoose models.
 │   ├── judge0.ts
 │   ├── logger.ts
 │   ├── mongoose.ts
+│   ├── questionFairness.ts
+│   ├── scraping
+│   │   ├── topicEnricher.ts
 │   ├── socket.ts
 │   ├── url.ts
 │   ├── utils.ts
@@ -435,6 +450,7 @@ All DB access goes through Mongoose models.
 ├── postcss.config.mjs
 ├── public
 │   ├── mocknetic.svg
+│   ├── og-image.png
 ├── scripts
 │   ├── update-ai-context.mjs
 ├── tailwind.config.ts
@@ -444,6 +460,9 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
+
+
+
 
 
 

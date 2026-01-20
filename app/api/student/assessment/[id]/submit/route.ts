@@ -12,7 +12,7 @@ interface SubmitAnswerInput {
 
 export async function POST(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }> },
 ) {
   try {
     const { error, user } = await requireStudent();
@@ -28,7 +28,7 @@ export async function POST(
     if (!answers || !Array.isArray(answers)) {
       return NextResponse.json(
         { success: false, error: { message: "Answers are required" } },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -39,14 +39,14 @@ export async function POST(
     if (!assessment) {
       return NextResponse.json(
         { success: false, error: { message: "Assessment not found" } },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (!assessment.isPublished) {
       return NextResponse.json(
         { success: false, error: { message: "Assessment not published yet" } },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -57,7 +57,7 @@ export async function POST(
           success: false,
           error: { message: "Assessment deadline has passed" },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -74,7 +74,7 @@ export async function POST(
           success: false,
           error: { message: "Not enrolled in this classroom" },
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -91,14 +91,17 @@ export async function POST(
             message: "No questions found. Please start the assessment first.",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (submission.status === "submitted" || submission.status === "graded") {
+    if (
+      submission.status === "submitted" ||
+      submission.status === "evaluated"
+    ) {
       return NextResponse.json(
         { success: false, error: { message: "Assessment already submitted" } },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -110,7 +113,7 @@ export async function POST(
             message: "No questions found. Please regenerate questions.",
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -124,7 +127,7 @@ export async function POST(
 
       // Find student's answer for this question number
       const studentAnswerObj = answers.find(
-        (a) => a.questionNumber === question.questionNumber
+        (a) => a.questionNumber === question.questionNumber,
       );
 
       const studentAnswer = studentAnswerObj?.answer;
@@ -143,28 +146,30 @@ export async function POST(
         continue;
       }
 
-      // Auto-grade MCQ
       if (question.questionType === "mcq") {
-        const correctOption = question.options[question.correctAnswer - 1];
-        isCorrect = studentAnswer === correctOption;
+        const studentAnswerNormalized = String(studentAnswer)
+          .trim()
+          .toLowerCase();
+        const correctAnswerNormalized = String(question.correctAnswer)
+          .trim()
+          .toLowerCase();
+
+        isCorrect = studentAnswerNormalized === correctAnswerNormalized;
         pointsEarned = isCorrect ? question.points : 0;
         score += pointsEarned;
-      }
-      // Auto-grade Numerical
-      else if (question.questionType === "numerical") {
+      } else if (question.questionType === "numerical") {
         const studentNum = parseFloat(studentAnswer as string);
         const correctNum = parseFloat(question.correctAnswer as string);
-        isCorrect =
-          !isNaN(studentNum) &&
-          !isNaN(correctNum) &&
-          Math.abs(studentNum - correctNum) < 0.01;
+
+        if (isNaN(studentNum) || isNaN(correctNum)) {
+          isCorrect = false;
+        } else {
+          const tolerance = 0.01;
+          isCorrect = Math.abs(studentNum - correctNum) <= tolerance;
+        }
+
         pointsEarned = isCorrect ? question.points : 0;
         score += pointsEarned;
-      }
-      // Descriptive needs manual grading
-      else if (question.questionType === "descriptive") {
-        isCorrect = null;
-        pointsEarned = 0;
       }
 
       gradedAnswers.push({
@@ -186,13 +191,12 @@ export async function POST(
           score,
           totalPoints,
           percentage: Math.round(percentage * 100) / 100,
-          status: needsReview ? "pending_review" : "graded",
+          status: needsReview ? "submitted" : "evaluated",
           submittedAt: new Date(),
-          gradedAt: needsReview ? undefined : new Date(),
           timeSpent: timeSpent || 0,
         },
       },
-      { new: true }
+      { new: true },
     );
 
     return NextResponse.json(
@@ -208,13 +212,13 @@ export async function POST(
         },
         message: "Assessment submitted successfully",
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error submitting assessment:", error);
     return NextResponse.json(
       { success: false, error: { message: "Failed to submit assessment" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
