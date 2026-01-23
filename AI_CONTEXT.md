@@ -208,6 +208,12 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -299,6 +305,8 @@ All DB access goes through Mongoose models.
 │   │   │   │   │   │   ├── route.ts
 │   │   │   │   │   ├── route.ts
 │   │   │   ├── route.ts
+│   │   ├── feedback
+│   │   │   ├── route.ts
 │   │   ├── fileparser
 │   │   │   ├── route.ts
 │   │   ├── interview
@@ -378,6 +386,7 @@ All DB access goes through Mongoose models.
 ├── components.json
 │   ├── CodeEditor.tsx
 │   ├── Dashboard.tsx
+│   ├── FeedbackWidget.tsx
 │   ├── Loader.tsx
 │   ├── LogoutButton.tsx
 │   ├── Navbar.tsx
@@ -411,6 +420,7 @@ All DB access goes through Mongoose models.
 │   │   ├── coding-problem.model.ts
 │   │   ├── coding-submission.model.ts
 │   │   ├── index.ts
+│   ├── feedback.model.ts
 │   ├── index.ts
 │   ├── interview.model.ts
 │   ├── profile.model.ts
@@ -460,6 +470,8 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
+
+
 
 
 
