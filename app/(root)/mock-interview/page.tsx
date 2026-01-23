@@ -1,59 +1,63 @@
-"use client";
+import InterviewClient from "@/components/InterviewClient";
+import { Metadata } from "next";
 
-import { useState } from "react";
-import InterviewForm from "@/components/interview/InterviewForm";
-import InterviewSetup from "@/components/interview/InterviewSetup";
-import InterviewPage from "@/components/interview/InterviewPage";
+export const metadata: Metadata = {
+  title: "AI Mock Interview - Practice Technical Interviews | Mocknetic",
+  description:
+    "Practice technical interviews with AI-powered mock interviews. Get real-time feedback, improve your communication skills, and prepare for software engineering interviews with personalized questions.",
+  keywords: [
+    "mock interview",
+    "AI interview practice",
+    "technical interview prep",
+    "coding interview practice",
+    "software engineer interview",
+    "interview simulation",
+    "behavioral interview practice",
+    "system design interview",
+    "AI interviewer",
+    "interview feedback",
+    "technical screening prep",
+    "job interview practice",
+  ],
+  openGraph: {
+    title: "AI Mock Interview - Practice Technical Interviews | Mocknetic",
+    description:
+      "Practice technical interviews with AI-powered mock interviews. Get real-time feedback and personalized questions.",
+    url: "https://mocknetic.com/mock-interview",
+    siteName: "Mocknetic",
+    type: "website",
+    images: [
+      {
+        url: "https://mocknetic.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Mocknetic AI Mock Interview Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI Mock Interview - Practice Technical Interviews | Mocknetic",
+    description:
+      "Practice technical interviews with AI-powered mock interviews and get real-time feedback.",
+    images: ["https://mocknetic.com/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: "https://mocknetic.com/mock-interview",
+  },
+};
 
-type PageType = "form" | "setup" | "interview";
-
-export default function Interview() {
-  const [currentPage, setCurrentPage] = useState<PageType>("form");
-  const [sessionId, setSessionId] = useState<string>("");
-  const [selectedDevices, setSelectedDevices] = useState<{
-    cameraId: string;
-    microphoneId: string;
-    cameraEnabled: boolean;
-  } | null>(null);
-
-  const handleFormSubmit = (id: string) => {
-    setSessionId(id);
-    setCurrentPage("setup");
-  };
-
-  const handleSetupComplete = (devices: {
-    cameraId: string;
-    microphoneId: string;
-    cameraEnabled: boolean;
-  }) => {
-    setSelectedDevices(devices);
-    setCurrentPage("interview");
-  };
-
-  const handleBack = () => {
-    setCurrentPage("form");
-  };
-
-  return (
-    <>
-      {currentPage === "form" && (
-        <InterviewForm
-          onSubmit={(id) => {
-            handleFormSubmit(id);
-          }}
-        />
-      )}
-
-      {currentPage === "setup" && (
-        <InterviewSetup onStart={handleSetupComplete} onBack={handleBack} />
-      )}
-
-      {currentPage === "interview" && sessionId && (
-        <InterviewPage
-          sessionId={sessionId}
-          selectedDevices={selectedDevices}
-        />
-      )}
-    </>
-  );
+export default function Page() {
+  return <InterviewClient />;
 }

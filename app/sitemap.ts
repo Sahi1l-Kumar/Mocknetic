@@ -12,31 +12,31 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://mocknetic.com/sign-in",
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.6,
     },
     {
       url: "https://mocknetic.com/sign-up",
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.7,
     },
     {
       url: "https://mocknetic.com/mock-interview",
       lastModified: new Date(),
       changeFrequency: "weekly",
-      priority: 0.7,
+      priority: 0.9,
     },
     {
       url: "https://mocknetic.com/skill-assessment",
       lastModified: new Date(),
       changeFrequency: "weekly",
-      priority: 0.7,
+      priority: 0.9,
     },
     {
       url: "https://mocknetic.com/code-editor",
       lastModified: new Date(),
       changeFrequency: "weekly",
-      priority: 0.6,
+      priority: 0.8,
     },
   ];
 }
