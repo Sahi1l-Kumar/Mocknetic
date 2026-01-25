@@ -2,9 +2,9 @@ import InterviewClient from "@/components/InterviewClient";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "AI Mock Interview - Practice Technical Interviews | Mocknetic",
+  title: "Mock Interview - Practice Technical Interviews",
   description:
-    "Practice technical interviews with AI-powered mock interviews. Get real-time feedback, improve your communication skills, and prepare for software engineering interviews with personalized questions.",
+    "Practice technical interviews with AI-powered mock interviews. Get real-time feedback, improve your communication skills, and prepare for software engineering interviews.",
   keywords: [
     "mock interview",
     "AI interview practice",
@@ -12,17 +12,14 @@ export const metadata: Metadata = {
     "coding interview practice",
     "software engineer interview",
     "interview simulation",
-    "behavioral interview practice",
-    "system design interview",
     "AI interviewer",
     "interview feedback",
     "technical screening prep",
-    "job interview practice",
   ],
   openGraph: {
-    title: "AI Mock Interview - Practice Technical Interviews | Mocknetic",
+    title: "Mock Interview - Practice Technical Interviews | Mocknetic",
     description:
-      "Practice technical interviews with AI-powered mock interviews. Get real-time feedback and personalized questions.",
+      "Practice technical interviews with AI. Get real-time feedback and personalized questions.",
     url: "https://mocknetic.com/mock-interview",
     siteName: "Mocknetic",
     type: "website",
@@ -31,15 +28,15 @@ export const metadata: Metadata = {
         url: "https://mocknetic.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Mocknetic AI Mock Interview Platform",
+        alt: "Mocknetic AI Mock Interview",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI Mock Interview - Practice Technical Interviews | Mocknetic",
+    title: "Mock Interview | Mocknetic",
     description:
-      "Practice technical interviews with AI-powered mock interviews and get real-time feedback.",
+      "Practice technical interviews with AI and get real-time feedback.",
     images: ["https://mocknetic.com/og-image.png"],
   },
   robots: {

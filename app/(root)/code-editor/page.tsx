@@ -2,25 +2,23 @@ import CodeEditorClient from "@/components/CodeEditorClient";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Code Editor - Online Compiler & IDE | Mocknetic",
+  title: "Code Editor - Online Compiler & IDE",
   description:
-    "Practice coding with our online code editor supporting multiple languages. Write, compile, and execute code instantly with syntax highlighting, auto-completion, and real-time feedback.",
+    "Practice coding with our online code editor supporting multiple languages. Write, compile, and execute code instantly with syntax highlighting and real-time feedback.",
   keywords: [
     "online code editor",
     "code compiler online",
     "online IDE",
     "programming editor",
-    "code execution platform",
     "multi-language compiler",
     "coding practice editor",
-    "Monaco editor",
     "browser IDE",
     "run code online",
   ],
   openGraph: {
     title: "Code Editor - Online Compiler & IDE | Mocknetic",
     description:
-      "Practice coding with our online code editor supporting multiple languages. Write, compile, and execute code instantly.",
+      "Practice coding with our online code editor. Write, compile, and execute code instantly.",
     url: "https://mocknetic.com/code-editor",
     siteName: "Mocknetic",
     type: "website",
@@ -35,7 +33,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Code Editor - Online Compiler & IDE | Mocknetic",
+    title: "Code Editor | Mocknetic",
     description:
       "Practice coding with our online code editor supporting multiple languages.",
     images: ["https://mocknetic.com/og-image.png"],

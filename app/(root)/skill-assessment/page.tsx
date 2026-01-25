@@ -2,9 +2,9 @@ import SkillAssessmentClient from "@/components/SkillAssessmentClient";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "AI Skill Assessment - Evaluate Your Technical Skills | Mocknetic",
+  title: "Skill Assessment - Evaluate Your Technical Skills",
   description:
-    "Take personalized skill gap assessments for any B.Tech branch or job role. Get AI-generated questions, instant feedback, and targeted learning recommendations to improve your technical skills.",
+    "Take personalized skill gap assessments for any job role. Get AI-generated questions, instant feedback, and targeted learning recommendations to improve your technical skills.",
   keywords: [
     "skill assessment test",
     "technical skills evaluation",
@@ -12,19 +12,14 @@ export const metadata: Metadata = {
     "AI skill assessment",
     "programming skills test",
     "career readiness assessment",
-    "technical competency test",
     "job role assessment",
-    "engineering skills test",
-    "personalized skill test",
-    "aptitude test online",
-    "technical screening",
     "B.Tech skill assessment",
     "software engineer assessment",
   ],
   openGraph: {
-    title: "AI Skill Assessment - Evaluate Your Technical Skills | Mocknetic",
+    title: "Skill Assessment - Evaluate Your Technical Skills | Mocknetic",
     description:
-      "Take personalized skill gap assessments with AI-generated questions. Get instant feedback and targeted learning recommendations.",
+      "Take personalized skill gap assessments with AI-generated questions and get instant feedback.",
     url: "https://mocknetic.com/skill-assessment",
     siteName: "Mocknetic",
     type: "website",
@@ -33,15 +28,15 @@ export const metadata: Metadata = {
         url: "https://mocknetic.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Mocknetic AI Skill Assessment Platform",
+        alt: "Mocknetic AI Skill Assessment",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI Skill Assessment - Evaluate Your Technical Skills | Mocknetic",
+    title: "Skill Assessment | Mocknetic",
     description:
-      "Take personalized skill gap assessments with AI-generated questions and get targeted learning recommendations.",
+      "Take personalized skill gap assessments with AI-generated questions.",
     images: ["https://mocknetic.com/og-image.png"],
   },
   robots: {

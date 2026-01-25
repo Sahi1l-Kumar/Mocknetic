@@ -2,10 +2,11 @@ import HomePageClient from "@/components/HomePageClient";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Mocknetic - AI-Powered Learning Platform for Students & Teachers",
+  title: "Mocknetic | AI-Powered Learning Platform for Coding & Interviews",
   description:
-    "Join virtual classrooms, practice coding problems, take AI mock interviews, and get personalized skill assessments. Complete learning management platform combining classroom learning with AI-powered interview preparation.",
+    "Ace Your Interview. Excel in Class. Practice coding problems, take AI mock interviews, skill assessments, and join teacher's classes for personalized assessments.",
   keywords: [
+    "mocknetic",
     "online learning platform",
     "AI mock interview",
     "virtual classroom",
@@ -13,18 +14,15 @@ export const metadata: Metadata = {
     "skill assessment",
     "technical interview prep",
     "student portal",
-    "online education",
+    "coding interview preparation",
     "LMS platform",
-    "AI interviewer",
-    "coding assessment",
-    "teacher student platform",
     "personalized learning",
     "B.Tech learning platform",
   ],
   openGraph: {
-    title: "Mocknetic - AI-Powered Learning Platform for Students & Teachers",
+    title: "Mocknetic | AI-Powered Learning Platform",
     description:
-      "Join virtual classrooms, practice coding, take AI mock interviews, and get personalized skill assessments. Start your learning journey today.",
+      "Ace Your Interview. Excel in Class. Practice coding, take AI mock interviews, and join virtual classrooms.",
     url: "https://mocknetic.com",
     siteName: "Mocknetic",
     type: "website",
@@ -39,9 +37,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mocknetic - AI-Powered Learning Platform",
+    title: "Mocknetic | AI-Powered Learning Platform",
     description:
-      "Join virtual classrooms, practice coding, take AI mock interviews, and get personalized skill assessments.",
+      "Ace Your Interview. Excel in Class. Practice coding and AI mock interviews.",
     images: ["https://mocknetic.com/og-image.png"],
     creator: "@mocknetic",
   },

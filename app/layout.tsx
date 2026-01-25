@@ -28,70 +28,46 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Mocknetic - Online Learning Platform for Students & Educators",
+    default: "Mocknetic | AI-Powered Learning Platform for Coding & Interviews",
     template: "%s | Mocknetic",
   },
   description:
-    "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
+    "Ace Your Interview. Excel in Class. Practice coding problems, take AI mock interviews, skill assessments, and join teacher's classes for personalized learning.",
 
   keywords: [
-    // Classroom/LMS keywords
+    "mocknetic",
     "online learning platform",
+    "AI mock interview",
+    "coding practice",
+    "skill assessment",
     "virtual classroom",
-    "student assessment platform",
-    "online classroom for students",
-    "coding assessment platform",
-    "teacher student portal",
-    "online quiz platform",
-    "classroom management system",
-    "student assignment portal",
-
-    // Interview preparation keywords
-    "mock interview platform",
-    "AI interview practice",
+    "technical interview prep",
     "coding interview preparation",
-    "technical interview practice",
-    "mock coding interview",
-
-    // Technical skills keywords
-    "DSA practice platform",
-    "data structures algorithms",
-    "coding problems online",
-    "online code editor",
-    "skill assessment test",
-    "programming practice platform",
-
-    // Student-focused keywords
     "student learning portal",
-    "online education platform",
-    "coding practice for students",
-    "technical skills assessment",
+    "online code editor",
+    "DSA practice platform",
   ],
 
-  // Authors and creator info
   authors: [{ name: "Mocknetic Team" }],
   creator: "Mocknetic",
   publisher: "Mocknetic",
 
-  // Base URL for all relative URLs
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || "https://mocknetic.com",
   ),
 
-  // Alternate languages
   alternates: {
     canonical: "/",
   },
 
-  // Open Graph for social media sharing
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://mocknetic.com",
     siteName: "Mocknetic",
-    title: "Mocknetic - Online Learning & Interview Preparation Platform",
+    title: "Mocknetic | AI-Powered Learning Platform",
     description:
-      "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
+      "Ace Your Interview. Excel in Class. Practice coding, take AI mock interviews, and join virtual classrooms.",
     images: [
       {
         url: "/og-image.png",
@@ -102,17 +78,15 @@ export const metadata: Metadata = {
     ],
   },
 
-  // Twitter Card metadata
   twitter: {
     card: "summary_large_image",
-    title: "Mocknetic - Online Learning & AI Interview Prep",
+    title: "Mocknetic | AI-Powered Learning Platform",
     description:
-      "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
+      "Ace Your Interview. Excel in Class. Practice coding and take AI mock interviews.",
     images: ["/og-image.png"],
     creator: "@mocknetic",
   },
 
-  // Robots directives
   robots: {
     index: true,
     follow: true,
@@ -125,25 +99,16 @@ export const metadata: Metadata = {
     },
   },
 
-  // App-specific metadata
-  applicationName: "Mocknetic Student Portal",
+  applicationName: "Mocknetic",
   category: "Education",
 
-  // Icons
-  icons: {
-    icon: [
-      { url: "/mocknetic.svg" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-    ],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-    ],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Mocknetic",
   },
 
-  verification: {
-    google: "your-google-verification-code",
-  },
+  manifest: "/manifest.json",
 };
 
 const RootLayout = async ({
@@ -153,32 +118,55 @@ const RootLayout = async ({
 }>) => {
   const session = await auth();
 
-  // JSON-LD structured data
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "EducationalOrganization",
-    name: "Mocknetic",
-    description:
-      "Complete learning management platform for students and teachers. Join virtual classrooms, take coding assessments, practice mock interviews with AI, solve DSA problems, and build your skills. Mocknetic combines classroom learning with AI-powered interview preparation.",
-    url: process.env.NEXT_PUBLIC_APP_URL || "https://mocknetic.com",
-    applicationCategory: "EducationalApplication",
-    offers: {
-      "@type": "Offer",
-      category: "Educational Services",
-    },
-    featureList: [
-      "Virtual Classrooms",
-      "Coding Assessments",
-      "Mock Interviews",
-      "AI-Powered Learning",
-      "Skill Assessments",
-      "Code Editor",
-      "Resume Analysis",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://mocknetic.com/#organization",
+        name: "Mocknetic",
+        url: "https://mocknetic.com",
+        logo: {
+          "@type": "ImageObject",
+          url: "https://mocknetic.com/icon-512.png",
+        },
+        sameAs: [],
+        description: "AI-Powered Learning Platform for Coding & Interviews",
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://mocknetic.com/#website",
+        url: "https://mocknetic.com",
+        name: "Mocknetic",
+        publisher: {
+          "@id": "https://mocknetic.com/#organization",
+        },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: "https://mocknetic.com/?search={search_term_string}",
+          },
+          "query-input": "required name=search_term_string",
+        },
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: "Mocknetic",
+        applicationCategory: "EducationalApplication",
+        operatingSystem: "Web",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: "4.8",
+          ratingCount: "850",
+        },
+      },
     ],
-    audience: {
-      "@type": "EducationalAudience",
-      educationalRole: "student",
-    },
   };
 
   return (
@@ -186,7 +174,6 @@ const RootLayout = async ({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* JSON-LD Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

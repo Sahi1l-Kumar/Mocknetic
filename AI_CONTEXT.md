@@ -214,6 +214,15 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -376,8 +385,10 @@ All DB access goes through Mongoose models.
 │   │   │   ├── email
 │   │   │   │   ├── route.ts
 │   │   │   ├── route.ts
+│   ├── apple-icon.png
 │   ├── favicon.ico
 │   ├── globals.css
+│   ├── icon.png
 │   ├── layout.tsx
 │   ├── robot.ts
 │   ├── sitemap.ts
@@ -385,11 +396,17 @@ All DB access goes through Mongoose models.
 ├── components
 ├── components.json
 │   ├── CodeEditor.tsx
+│   ├── CodeEditorClient.tsx
 │   ├── Dashboard.tsx
 │   ├── FeedbackWidget.tsx
+│   ├── HomePageClient.tsx
+│   ├── InterviewClient.tsx
 │   ├── Loader.tsx
 │   ├── LogoutButton.tsx
 │   ├── Navbar.tsx
+│   ├── SignInClient.tsx
+│   ├── SignUpClient.tsx
+│   ├── SkillAssessmentClient.tsx
 │   ├── UserAvatar.tsx
 │   ├── classroom
 │   │   ├── AssessmentResult.tsx
@@ -459,6 +476,8 @@ All DB access goes through Mongoose models.
 ├── package.json
 ├── postcss.config.mjs
 ├── public
+│   ├── icon-192.png
+│   ├── icon-512.png
 │   ├── mocknetic.svg
 │   ├── og-image.png
 ├── scripts
@@ -470,6 +489,9 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
+
+
+
 
 
 
