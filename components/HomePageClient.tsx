@@ -113,16 +113,20 @@ export default function HomePageClient() {
                     <GraduationCap className="w-6 h-6 text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">
+                    <h2 className="text-xl font-bold text-slate-900">
                       Join Your Class
-                    </h3>
+                    </h2>
                     <p className="text-sm text-slate-600">
                       Enter your teacher&apos;s code
                     </p>
                   </div>
                 </div>
 
+                <label htmlFor="class-code" className="sr-only">
+                  Classroom code (6 characters)
+                </label>
                 <input
+                  id="class-code"
                   type="text"
                   placeholder="ABC123"
                   value={classCode}
@@ -137,11 +141,13 @@ export default function HomePageClient() {
                   className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg text-center text-xl font-bold tracking-widest uppercase focus:outline-none focus:border-indigo-500 text-slate-900 mb-4"
                   maxLength={6}
                   disabled={isJoining}
+                  aria-label="Enter 6-character classroom code"
                 />
                 <button
                   onClick={handleJoinClass}
                   disabled={isJoining || classCode.length !== 6}
                   className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-semibold mb-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  aria-label="Join classroom with entered code"
                 >
                   {isJoining ? (
                     <>
@@ -200,6 +206,7 @@ export default function HomePageClient() {
             <Link
               href={ROUTES.SKILL}
               className="group bg-white rounded-xl p-6 shadow-lg border-2 border-transparent hover:border-emerald-500 transition-all hover:shadow-xl"
+              aria-label="Go to Skill Assessment feature"
             >
               <div className="bg-emerald-100 rounded-lg w-12 h-12 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Target className="w-6 h-6 text-emerald-600" />
@@ -211,7 +218,7 @@ export default function HomePageClient() {
                 AI analyzes your skills and creates personalized roadmaps for
                 your target role.
               </p>
-              <div className="flex items-center text-emerald-600 text-sm font-semibold group-hover:gap-2 transition-all">
+              <div className="flex items-center text-emerald-800 text-sm font-semibold group-hover:gap-2 transition-all">
                 <span>Start Assessment</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
@@ -221,6 +228,7 @@ export default function HomePageClient() {
             <Link
               href={ROUTES.CODE}
               className="group bg-white rounded-xl p-6 shadow-lg border-2 border-transparent hover:border-purple-500 transition-all hover:shadow-xl"
+              aria-label="Go to Live Code Editor feature"
             >
               <div className="bg-purple-100 rounded-lg w-12 h-12 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Code2 className="w-6 h-6 text-purple-600" />
@@ -232,7 +240,7 @@ export default function HomePageClient() {
                 Practice coding problems with instant feedback. Multi-language
                 support.
               </p>
-              <div className="flex items-center text-purple-600 text-sm font-semibold group-hover:gap-2 transition-all">
+              <div className="flex items-center text-purple-800 text-sm font-semibold group-hover:gap-2 transition-all">
                 <span>Start Coding</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
@@ -242,6 +250,7 @@ export default function HomePageClient() {
             <Link
               href={ROUTES.INTERVIEW}
               className="group bg-white rounded-xl p-6 shadow-lg border-2 border-transparent hover:border-rose-500 transition-all hover:shadow-xl"
+              aria-label="Go to AI Mock Interviews feature"
             >
               <div className="bg-rose-100 rounded-lg w-12 h-12 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <MessageSquare className="w-6 h-6 text-rose-600" />
@@ -253,7 +262,7 @@ export default function HomePageClient() {
                 Practice with AI interviewer. Get real-time feedback and
                 performance scores.
               </p>
-              <div className="flex items-center text-rose-600 text-sm font-semibold group-hover:gap-2 transition-all">
+              <div className="flex items-center text-rose-800 text-sm font-semibold group-hover:gap-2 transition-all">
                 <span>Start Interview</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>

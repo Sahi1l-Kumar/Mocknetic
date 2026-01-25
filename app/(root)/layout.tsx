@@ -2,6 +2,7 @@ import React, { ReactNode } from "react";
 
 import Navbar from "@/components/Navbar";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import InstallPrompt from "@/components/InstallPrompt";
 
 const RootLayout = ({ children }: { children: ReactNode }) => {
   const breadcrumbJsonLd = {
@@ -28,6 +29,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
       <Navbar />
       <div className="pt-15">{children}</div>
       <FeedbackWidget />
+      <InstallPrompt />
     </main>
   );
 };

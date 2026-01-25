@@ -78,15 +78,29 @@ const Navbar = () => {
     setIsDropdownOpen(false);
   };
 
-  if (!isMounted) {
+  if (!isMounted || status === "loading") {
     return (
       <nav className="fixed z-50 w-full bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href={ROUTES.HOME} className="flex items-center gap-2">
-            <Zap className="w-7 h-7 text-blue-600" />
-            <span className="text-xl font-bold text-slate-900">Mocknetic</span>
-          </Link>
-          <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            <Link href={ROUTES.HOME} className="flex items-center gap-2">
+              <Zap className="w-7 h-7 text-blue-600" />
+              <span className="text-xl font-bold text-slate-900">
+                Mocknetic
+              </span>
+            </Link>
+
+            {/* Desktop skeleton */}
+            <div className="hidden md:flex items-center gap-6">
+              <div className="h-10 w-32 bg-slate-200 rounded-lg animate-pulse" />
+              <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
+            </div>
+
+            {/* Mobile skeleton */}
+            <div className="md:hidden flex items-center gap-3">
+              <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
+            </div>
+          </div>
         </div>
       </nav>
     );
@@ -181,9 +195,7 @@ const Navbar = () => {
               </>
             )}
 
-            {status === "loading" ? (
-              <div className="h-10 w-10 bg-slate-200 rounded-full animate-pulse" />
-            ) : session?.user ? (
+            {session?.user ? (
               <>
                 <UserAvatar
                   id={session.user.id!}
@@ -222,6 +234,8 @@ const Navbar = () => {
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6" />
@@ -242,7 +256,7 @@ const Navbar = () => {
                 <Link
                   href={ROUTES.DASHBOARD}
                   onClick={closeMobileMenu}
-                  className="flex items-center gap-3 p-4 rounded-lg hover:bg-blue-50 transition-colors "
+                  className="flex items-center gap-3 p-4 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   <div className="bg-blue-100 p-2.5 rounded-lg">
                     <LayoutDashboard className="w-5 h-5 text-blue-600" />

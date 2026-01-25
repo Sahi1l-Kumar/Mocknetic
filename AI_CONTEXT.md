@@ -223,6 +223,30 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -400,6 +424,7 @@ All DB access goes through Mongoose models.
 │   ├── Dashboard.tsx
 │   ├── FeedbackWidget.tsx
 │   ├── HomePageClient.tsx
+│   ├── InstallPrompt.tsx
 │   ├── InterviewClient.tsx
 │   ├── Loader.tsx
 │   ├── LogoutButton.tsx
@@ -478,8 +503,10 @@ All DB access goes through Mongoose models.
 ├── public
 │   ├── icon-192.png
 │   ├── icon-512.png
+│   ├── manifest.json
 │   ├── mocknetic.svg
 │   ├── og-image.png
+│   ├── sw.js
 ├── scripts
 │   ├── update-ai-context.mjs
 ├── tailwind.config.ts
@@ -489,19 +516,6 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
