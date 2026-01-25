@@ -247,6 +247,12 @@ All DB access goes through Mongoose models.
 
 ## 📁 Project File Structure (auto-generated)
 
+
+## 📁 Project File Structure (auto-generated)
+
+
+## 📁 Project File Structure (auto-generated)
+
 <!-- AI:STRUCTURE:START -->
 ```
 ├── .env.local
@@ -270,13 +276,16 @@ All DB access goes through Mongoose models.
 │   │   │   │   │   │   ├── page.tsx
 │   │   │   ├── page.tsx
 │   │   ├── code-editor
+│   │   │   ├── loading.tsx
 │   │   │   ├── page.tsx
 │   │   ├── dashboard
+│   │   │   ├── loading.tsx
 │   │   │   ├── page.tsx
 │   │   ├── layout.tsx
 │   │   ├── mock-interview
 │   │   │   ├── feedback
 │   │   │   │   ├── page.tsx
+│   │   │   ├── loading.tsx
 │   │   │   ├── page.tsx
 │   │   ├── page.tsx
 │   │   ├── problem
@@ -516,6 +525,8 @@ All DB access goes through Mongoose models.
 │   ├── global.d.ts
 ```
 <!-- AI:STRUCTURE:END -->
+
+
 
 
 

@@ -79,13 +79,6 @@ const InstallPrompt = () => {
   useEffect(() => {
     setIsMounted(true);
 
-    // FOR DEVELOPMENT ONLY - Force show for testing
-    if (process.env.NODE_ENV === "development") {
-      setTimeout(() => {
-        setShowPrompt(true);
-      }, 2000);
-    }
-
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
@@ -98,6 +91,11 @@ const InstallPrompt = () => {
     }
 
     const data = getPromptData();
+
+    if (data.permanentlyDismissed) {
+      return;
+    }
+
     updatePromptData({ visitCount: data.visitCount + 1 });
 
     const isIOSDevice =
@@ -111,7 +109,14 @@ const InstallPrompt = () => {
       return;
     }
 
-    if (!shouldShowPrompt() && process.env.NODE_ENV !== "development") {
+    if (process.env.NODE_ENV === "development") {
+      setTimeout(() => {
+        setShowPrompt(true);
+      }, 2000);
+      return;
+    }
+
+    if (!shouldShowPrompt()) {
       return;
     }
 
@@ -214,7 +219,7 @@ const InstallPrompt = () => {
     );
   }
 
-  // Chrome/Edge/Desktop prompt (ALWAYS shows in development)
+  // Chrome/Edge/Desktop prompt
   return (
     <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 max-w-xs relative">
